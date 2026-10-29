@@ -1,8 +1,11 @@
 # FVD prototype verification matrix
 
-**Last audited:** 2026-10-28, branch `FVD`. **Evidence status:** the Windows
-MSVC RelWithDebInfo build and all 88 registered tests passed with FVD assets.
-Linux execution and real graphical-client acceptance remain outstanding.
+**Last audited:** 2026-10-29, branch `FVD`. **Evidence status:** the Windows
+MSVC RelWithDebInfo build and all 95 registered tests passed with FVD assets,
+and `checkmerge` passed. Real two-player alpha acceptance passed for
+performance, lobby/reconnect, host handover, Hunter AttackMove and ownership,
+Patrol/stance interaction, and attack/building animations. Death animations
+fail. Linux and four/eight-player graphical load testing remain follow-up.
 
 ## Automated preflight — Linux and Windows
 
@@ -45,12 +48,12 @@ configured.
 
 | OpenSpec scope | Automated evidence currently present | Status |
 |---|---|---|
-| Movement curves / sparse traffic (1.1–1.3a) | `world_delta` (512 horses, 2/4/8 player rosters, changed routes, packet size), `messages`, `replication` | Windows pass; Linux and measured real-client performance remain |
-| Facing and animation (1.4a–b) | `messages`, `world_delta`, `fvd_animation_phase` (includes same-action ATTACK restart and recovery) | Windows pass; visual parity still required |
+| Movement curves / sparse traffic (1.1–1.3a) | `world_delta` (512 horses, 2/4/8 player rosters, changed routes, packet size), `messages`, `replication` | Windows automation and real two-player performance pass; Linux and 4/8 graphical load remain |
+| Facing and animation (1.4a–b) | `messages`, `world_delta`, `fvd_animation_phase` (includes same-action ATTACK restart and recovery) | Attack/building animations pass in two-player testing; death animations fail |
 | Projectile sequencing / late playback (1.5a–b) | `world_delta` (4,096 launches in two 2,048 batches), `messages`, `fvd_hunter_combat`, `fvd_hunter_focus_attack` (cancel after shot launch; no HP loss), `fvd_loopback` | Windows pass; live congestion unverified |
 | Construction and HUD state (1.6a–b) | `fvd_network_builder_count`, `fvd_construction`, `fvd_build_queue`, `fvd_build_line_order`, `fvd_retask_foundation`, `fvd_presentation_snapshot`, `replication` | Windows pass; Qt input/visual checks remain |
 | Hunter spawns, targeting and orders (1.7) | `messages`, `world_delta`, `replication` (authoritative order-marker resolution), `fvd_loopback`, `fvd_hunter_spawning`, `fvd_hunter_attack_move_regressions`, `fvd_hunter_focus_attack`, `fvd_hunter_stances` | Windows pass; target highlighting needs graphical inspection |
-| 2–8 player protocol / recovery (1.9) | `lobby_capacity`, `lobby_relay_client`, `fvd_multi_session`, `fvd_loopback`, `replication`, `world_delta`, `authority_succession` | Windows pass; real Windows/Linux graphical processes remain |
+| 2–8 player protocol / recovery (1.9) | `lobby_capacity`, `lobby_relay_client`, `fvd_multi_session`, `fvd_loopback`, `replication`, `world_delta`, `authority_succession` | Windows automation plus real two-player reconnect/host handover pass; Linux and 4/8 graphical stress remain |
 | HUD input / cancel (build-menu 1.6) | `tower_placement_mode`, `hud_mouse_capture`, construction tests | Windows pass; mouse/QML behavior requires game |
 | Tower kill credit (combat 1.9) | `fvd_hunter_combat`, `replication` | Windows pass; selected-tower kill label needs visual check |
 | Endgame (1.10) | No victory/defeat system implemented yet | Not verifiable |
@@ -63,22 +66,25 @@ Windows/Linux compatibility.
 
 ## Manual acceptance — user / collaborator
 
-There are **five** meaningful hands-on sessions to collect; ideally use
-the same commit on every machine and save game/relay logs:
+The two-player alpha session is accepted. The remaining sessions extend load,
+adversity and cross-platform coverage; use the same commit on every machine
+and save game/relay logs:
 
 1. **Solo UI and construction** — click and drag-select Builders (especially
    small boxes and different zoom/camera positions); verify Build Tower
    button, B/Cancel/Escape, Shift-drag/queued tower foundations, progress,
    cancellations and per-Tower versus total kill display.
-2. **Two real game clients** — Hunter/Builder movement, 4-tile ranged
+2. **Two real game clients — accepted for alpha (2026-10-29)** — Hunter/Builder movement, 4-tile ranged
    attacks, correct horse facing and animation restart, tower and Hunter
-   projectiles, confirmed HP change and death effects, construction
-   ownership/labels while cameras move, private kill totals.
+   projectiles, confirmed HP change and authoritative death state, construction
+   ownership/labels while cameras move, private kill totals. Attack and
+   building animation presentation pass; death animation presentation fails
+   and remains tracked separately.
 3. **Network adversity** — add packet delay/jitter/throughput limits or
    pause one recipient; verify backpressure recovery, no duplicate shots,
    no divergent damage, an interrupted/retasked Hunter attack, snapshot
    recovery, and explicit behavior if the 65,536 unsent-event guard fires.
-4. **Four and eight graphical game processes** — exact role assignment,
+4. **Four and eight graphical game processes — alpha follow-up** — exact role assignment,
    simultaneous contested tower reservations, attack/movement concurrency,
    spawn cadence and performance (host CPU, recipient bandwidth, frame
    latency). Repeat Hunter authority handoff when lobby creator becomes
@@ -93,31 +99,34 @@ See [multiplayer acceptance](WINDOWS_MULTIPLAYER_ACCEPTANCE.md) and
 for the step-by-step details. Physical-client tests are **not replaced**
 by loopback or worker-level harnesses.
 
-## User manual smoke-check results — 2026-10-28
+## User manual smoke-check results — 2026-10-29
 
-These are **user-reported** gameplay observations, not automated test executions or completion of the comprehensive 2/4/8-player / cross-platform acceptance matrix. Keep broader verification items open until their full criteria are met.
+These are **user-reported** gameplay observations. The user accepted the real
+two-player topology for alpha while retaining broader 4/8-player,
+cross-platform and adversity coverage as follow-up.
 
 | Smoke check | Result | Scope / follow-up |
 |---|---|---|
-| 1. Multiplayer synchronisation | **Untested** | Full multi-client state parity remains pending. |
+| 1. Multiplayer synchronisation | **PASS** | User reports excellent real two-player performance. Four/eight-player load remains alpha follow-up. |
 | 2. Tower construction queues | **PASS** | User confirmed the instructed hands-on Builder FIFO Shift-drag and network queue smoke check; does not independently certify 2/4/8-client coverage or all edge cases. |
-| 3. Hunter combat and stances | **FAIL** | Patrol currently interferes with stance behaviour. Track fix in [hunter-stances task 1.12](../../../openspec/changes/hunter-stances/tasks.md): stances must have the same acquisition/engagement/disengagement semantics while patrolling as while stationary; Linux developer to implement and user to retest. |
-| 4. Disconnects and host migration | **PASS** | User confirmed the instructed hands-on disconnect / host-migration smoke check; leave repeated starts, multi-client and cross-platform coverage open. |
+| 3. Hunter combat and stances | **PASS** | Hunter-only AttackMove and the corrected Patrol/stance interactions pass real gameplay testing. |
+| 4. Disconnects and host migration | **PASS** | Reconnect and a real host handover preserved the match; wider stress remains alpha follow-up. |
 | 5. Building destruction and rendering | **PASS** | User confirmed the instructed hands-on destruction / depth / shadow smoke check; not a substitute for full graphical parity and recovery tests. |
+| 6. Animation parity | **PARTIAL** | Attack and building animations pass; death animations fail. |
 
-The Windows build and all 88 automated tests passed on 2026-10-28. Do not
-mark the broad graphical or cross-platform acceptance milestones complete
-solely from that automated run or the smoke-check evidence above.
+The Windows build and all 95 automated tests plus `checkmerge` passed on
+2026-10-29. Four/eight-player graphical load, cross-platform behavior and
+network-adversity testing remain alpha follow-up.
 
 ## Outstanding implementation versus verification
 
-**Still implementation:** 1.10 authoritative victory/defeat and result
-feedback; optional legacy mid-match Builder-owned host takeover, if retained
-as a requirement. Rally behavior does not exist yet and must enter the
-authoritative order pipeline if introduced.
+**Still implementation:** fix death animation presentation and implement 1.10
+authoritative victory/defeat state and result feedback. The accepted
+Hunter-owned authority topology makes the legacy mid-match Builder-authority
+checkpoint fallback unnecessary unless later alpha evidence restores it as a
+requirement.
 
-**Still verification:** 1.3b measured CPU/bandwidth/jitter; 1.4c sprite
-phase/parity; 1.5b live projectile volume/backpressure and damage FX;
-1.6b overlays across cameras; 1.9 real-process recovery/cleanup; Windows,
-Linux and multi-client confirmations. Record observed outcomes before
-updating OpenSpec checkboxes.
+**Still verification:** 4/8-player CPU/bandwidth/jitter; death sprite
+phase/parity; live projectile volume/backpressure; construction overlays
+across cameras; Linux/cross-platform behavior; repeated startup and extended
+failure-path stress during alpha.

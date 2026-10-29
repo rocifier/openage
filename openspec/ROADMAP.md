@@ -41,7 +41,7 @@ libopenage/gamestate/fvd_test.cpp for the current behavior.
 
 ## Deliverables in dependency order
 
-### 1. Builder construction — specified
+### 1. Builder construction — implemented
 
 Change: [builder-construction](changes/builder-construction/proposal.md)
 
@@ -57,7 +57,7 @@ Change: [builder-construction](changes/builder-construction/proposal.md)
 approach and complete it; interruptions/invalid requests leave no ghost tower;
 relevant regression tests pass.
 
-### 2. Build menu and gameplay HUD — next proposal
+### 2. Build menu and gameplay HUD — implemented
 
 - Display the controlled player's identity and selected unit.
 - With an owned Builder selected, show a Build Tower button with a placement
@@ -69,12 +69,14 @@ relevant regression tests pass.
 **Done when:** placing a tower needs no developer shortcut and mouse events
 over the menu do not unintentionally select or command the world.
 
-### 3. Hunter pressure, tower combat, and kill credit — next proposal
+### 3. Hunter pressure, tower combat, and kill credit — implemented for alpha
 
 - The first horse spawns at the map center 20 seconds after match start, giving Builders a head start.
 - One additional horse spawns per second thereafter, owned by human Hunter player 1.
 - Horses spawn at map center and receive no automatic navigation orders. A deterministic 2D contact shove spreads idle horses outwards when new horses arrive; human selection/Move/AttackMove still controls travel and combat.
 - Attack-moving horses engage eligible opponents they encounter, then continue to their destination.
+- Observe, Aggressive and Defensive stances determine how horses engage while
+  stationary or patrolling; Patrol controls only their route.
 - Automatic rally/gather points were out of scope for this first version; the
   Hunter can now set one ([hunter-rally-point](changes/hunter-rally-point/proposal.md)).
 - Completed towers autonomously target enemies, fire arrows, inflict damage and kill.
@@ -88,7 +90,7 @@ horses and attack-move them toward the build area, towers stop them, and kill
 totals advance only for the correct Builder. A full victory/economy system is
 not a prerequisite for the first multiplayer build.
 
-### 4. Host/join lobby — next proposal
+### 4. Host/join lobby — accepted for alpha
 
 - Host a session, join via address/port, display participant names and
   unique Builder slots, and let participants mark ready.
@@ -102,7 +104,11 @@ not a prerequisite for the first multiplayer build.
 
 **Done when:** two machines can connect, agree on slots and start together.
 
-### 5. Shared live match — next proposal
+**Accepted 2026-10-29:** the real two-player Windows host/join/start/reconnect
+flow works well enough for alpha. Four/eight-player graphical load and lobby
+polish will be assessed during alpha testing.
+
+### 5. Shared live match — accepted for alpha
 
 - Prefer **host-authoritative simulation** for the first version. Clients send
   input intents; the host validates player and entity ownership and runs the
@@ -117,6 +123,11 @@ not a prerequisite for the first multiplayer build.
 
 **Done when:** every connected participant sees the same authoritative towers,
 units, deaths and kill counts under concurrent build orders.
+
+**Accepted 2026-10-29:** real two-player performance was excellent, Hunter
+AttackMove and ownership enforcement passed, attack/building animations passed,
+and host handover/reconnect preserved the match. Death animations and the
+authoritative end-state/victory flow remain open.
 
 ### 6. Proposed next features — 2026-10-28
 

@@ -11,19 +11,19 @@
 - [x] 1.9 Test stance defaults, rejection of foreign and Builder stance commands, Aggressive and Defensive acquisition, leash and return, hand-over, Patrol looping and engagement, and stance wire round trips and privacy.
 - [x] 1.10 Verify interactively in solo, then on two processes with the Hunter as a guest.
 - [x] 1.11a Document the stances, Patrol and protocol v14 in `assets/fvd/README.md`.
-- [ ] 1.11b Update the Hunter rule in `openspec/config.yaml` and `openspec/ROADMAP.md` once this proposal is accepted.
+- [x] 1.11b Update the Hunter rule in `openspec/config.yaml` and `openspec/ROADMAP.md` after acceptance.
 
 ## Patrol/stance regression (manual acceptance 2026-10-28)
 
-- [ ] 1.12 Decouple Hunter stance behaviour from the Patrol order. A horse on Patrol must obey its selected Observe/Aggressive/Defensive stance **the same as when stationary**, while retaining its patrol route; implement and rerun the regression on solo and guest-Hunter multiplayer clients. The 2026-10-28 manual Hunter combat/stances session **failed**; implementation fix assigned to Linux developer (not yet made here).
+- [x] 1.12 Decouple Hunter stance behaviour from the Patrol order. A horse on Patrol obeys its selected Observe/Aggressive/Defensive stance **the same as when stationary** while retaining its patrol route. **User acceptance, 2026-10-29:** the corrected Patrol/stance interactions pass real gameplay testing.
 
   Manual regression (repeat each stance first stationary, then while patrolling between two waypoints):
-  1. Observe (Z): no autonomous target acquisition or attack; a patrol continues without engaging unless given a separate explicit combat order.
-  2. Aggressive (X): acquire eligible enemies within 8 tiles, favour Towers, engage without a leash, and resume the patrol route after the engagement when still valid.
-  3. Defensive (C): acquire eligible enemies within 4 tiles, respect the 6-tile leash from the applicable patrol/engagement anchor, disengage and return when exceeded, then continue patrol. Confirm the exact anchor policy is deterministic and matches stationary Defensive semantics.
+  1. Observe (C): no autonomous target acquisition or attack; a patrol continues without engaging unless given a separate explicit combat order.
+  2. Aggressive (Z): acquire eligible visible enemies, favour Towers, engage without a leash, and resume the patrol route after the engagement when still valid.
+  3. Defensive (X): acquire eligible enemies within 4 tiles, respect the 6-tile leash from the applicable patrol/engagement anchor, disengage and return when exceeded, then continue patrol. Confirm the exact anchor policy is deterministic and matches stationary Defensive semantics.
   4. Switch Z/X/C during an active patrol and repeat near Towers and Builders. Verify stance changes take effect immediately rather than being overridden by the Patrol order, and replicate correctly to the guest Hunter.
   5. Check that AttackMove behaviour is unchanged and that Patrol waypoint switching remains reliable after each encounter.
 
-  **Pass:** with otherwise identical enemy arrangements, the stance determines acquisition, engagement and disengagement in both stationary and patrolling cases; Patrol determines only the route, not a forced aggression policy. Record the Linux developer's fix and graphical rerun before checking 1.12.
+  **Pass:** with otherwise identical enemy arrangements, the stance determines acquisition, engagement and disengagement in both stationary and patrolling cases; Patrol determines only the route, not a forced aggression policy.
 
-  **Fix (Linux developer):** Patrol now only sets the route; the stance decides engagement. Observe never engages. Defensive engages within 4 tiles, gives up 6 tiles (the stationary leash) from where it left the route, returns there and resumes. Aggressive chases with no leash while the target stays in its sight, and resumes the patrol after the target dies or escapes. Aggressive acquisition is capped at the horse's 7-tile sight by fog of war, not 8. Covered by `fvd_hunter_patrol_stances`. Graphical rerun still pending.
+  **Fix (Linux developer):** Patrol now only sets the route; the stance decides engagement. Observe never engages. Defensive engages within 4 tiles, gives up 6 tiles (the stationary leash) from where it left the route, returns there and resumes. Aggressive chases with no leash while the target stays in its sight, and resumes the patrol after the target dies or escapes. Aggressive acquisition is capped at the horse's 7-tile sight by fog of war, not 8. Covered by `fvd_hunter_patrol_stances` and the accepted graphical rerun.

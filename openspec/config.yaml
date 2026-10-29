@@ -22,6 +22,9 @@ context: |
   AttackMove engages eligible enemies encountered en route, then resumes
   travel to the ordered destination. The Hunter may set a rally point on the
   Hunter tower; new horses then ride there (or as close as they can get).
+  Hunter horses use Observe, Aggressive or Defensive stances. Patrol only
+  defines their route: the active stance determines whether they engage,
+  pursue, disengage and return to that route.
   Tower kills are credited to the tower's owner and displayed locally.
   Windows networking is required; cross-platform is optional.
   Follow openspec/ROADMAP.md as the product source of truth, including

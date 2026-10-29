@@ -112,10 +112,9 @@ Each horse also has a stance for when it has no order, shown in the HUD for the 
 Orders always take precedence, so a Move travels past enemies; an arrived Attack-move hands over to an Aggressive or Defensive stance.
 Press **P** and left-click a point to Patrol: the horses loop between their starting positions and that point, and their stance decides how they fight on the way.
 Observe horses never attack while patrolling.
-Defensive horses attack enemies within four tiles, give up once the chase is more than ten tiles from where they left the route, then return and carry on.
-Aggressive horses attack anything within eight tiles; if the target escapes beyond that, they stop patrolling and stay where they are.
+Defensive horses attack enemies within four tiles, give up once the chase is more than six tiles from where they left the route, then return and carry on.
+Aggressive horses attack visible enemies without a leash and resume their patrol route after the target dies or escapes.
 Run `bin/run test openage::gamestate::tests::fvd_hunter_stances` and `openage::gamestate::tests::fvd_hunter_patrol_stances` for the stance and Patrol rules.
-The gather point remains unimplemented.
 
 **Fog of war.** Each side shares one view: the Hunter sees what its horses see, and all Builders see what any Builder or completed tower sees.
 Vision ranges come from each type's `LineOfSight` ability in [entities.nyan](data/entities.nyan): Builder 6 tiles, horse 7, tower 8.
