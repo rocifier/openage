@@ -64,8 +64,8 @@ and recipient-update p50/p95/max latency.
   payload bytes observed by the proxy, not authoritative simulation traffic
   statistics.
 
-The Python launcher emits `FVD_NETWORK_REPORT` JSON including the two
-latency distributions, per-link bytes, shaping configuration, execution
+The Python launcher emits `FVD_NETWORK_REPORT` JSON including aggregate and
+**per-guest** p50/p95/max, per-link bytes, shaping configuration, execution
 status and a warning about the non-graphical coverage. It can also save JSON.
 
 The benchmark does **not** assert absolute latency thresholds: saturated
@@ -102,10 +102,10 @@ chunks and may vary with how TCP coalesces writes.
    Windows + Linux. Check a baseline and a fixed-RTT result; keep latency
    measurements labelled *transport* rather than visual responsiveness.
    Introduce controlled process/CPU measurements and repeatable percentiles.
-2. **Independent slow-client isolation:** export **per-guest** turnaround and
-   update age, not just aggregate p95, so we can explicitly assert whether
-   healthy guests are delayed by a saturated guest. A slow client may
-   otherwise distort aggregate results without identifying its neighbours.
+2. **Independent slow-client isolation:** per-guest turnaround and delivery
+   latency are now exported. Compare each healthy guest to its own baseline,
+   repeat fixed-seed runs, and add fair thresholds and dedicated regressions
+   for a stalled recipient. An aggregate p95 alone is insufficient.
 3. **Actual gameplay workload:** run asset-backed FVD simulation alongside the
    relay instead of scripted acceptances/private snapshots. Generate
    deterministic construction and Hunter combat loads and measure real shots
@@ -122,3 +122,8 @@ This is an additive tool for the outstanding
 `complete-gameplay-replication` **1.3b / 1.5b / 1.9** follow-ups.
 It does not complete hardware, rendering, real-combat or recovery
 acceptance tasks. Record measured CI/desktop output before checking boxes.
+
+## Follow-on OpenSpec
+
+See `openspec/changes/simulated-multiplayer-testing/tasks.md` for the staged
+implementation, validation, real-simulation and graphical acceptance work.
