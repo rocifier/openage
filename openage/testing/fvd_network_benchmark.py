@@ -208,6 +208,32 @@ class TcpShaper:
             thread.join(timeout=2)
 
 
+def resolve_runner(name: str) -> str:
+    """Find a native launcher, giving an actionable Windows error if absent."""
+    requested = Path(name).expanduser()
+    candidates = [requested]
+    if os.name == "nt" and requested.suffix.lower() != ".exe":
+        # subprocess/CreateProcess does not reliably resolve the extension
+        # for the Windows bin/run path documented by Linux instructions.
+        candidates.insert(0, Path(str(requested) + ".exe"))
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate.resolve())
+    # Allow bare commands discoverable on PATH, but not arbitrary missing
+    # relative paths that would otherwise produce an opaque WinError 2.
+    import shutil
+    which = shutil.which(name)
+    if which:
+        return which
+    tried = ", ".join(str(p) for p in candidates)
+    raise FileNotFoundError(
+        f"FVD test runner not found: {tried}. "
+        "Build openage first, then pass the actual run.exe location using "
+        "'--runner .\\bin\\run.exe' (PowerShell: Get-ChildItem -Recurse "
+        "-Filter run.exe -File)."
+    )
+
+
 RESULT = re.compile(r"FVD_BENCH_RESULT (.+)")
 CLIENT = re.compile(r"FVD_BENCH_CLIENT (.+)")
 
@@ -267,7 +293,7 @@ def main() -> int:
         })
         print("Starting real 5-client FVD relay harness; "
               "proxy delay is per guest TCP connection", flush=True)
-        cmd = [args.runner, "test", "network::tests::lobby_latency"]
+        cmd = [resolve_runner(args.runner), "test", "network::tests::lobby_latency"]
         try:
             completed = subprocess.run(
                 cmd, env=env, text=True, stdout=subprocess.PIPE,
