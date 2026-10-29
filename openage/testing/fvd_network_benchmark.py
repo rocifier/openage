@@ -90,6 +90,7 @@ class TcpShaper:
             try:
                 upstream = socket.create_connection(
                     ("127.0.0.1", self.target_port), timeout=10)
+                upstream.settimeout(None)  # Blocking TCP sendall; reader uses select().
             except OSError:
                 incoming.close()
                 continue
@@ -141,7 +142,8 @@ class TcpShaper:
                             break
                         except queue.Full:
                             continue
-            except OSError:
+            except (OSError, ValueError):
+                # Closing the proxy may invalidate a socket in select().
                 pass
             finally:
                 reader_done.set()
