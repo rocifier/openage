@@ -176,6 +176,7 @@ class TcpShaper:
 
 
 RESULT = re.compile(r"FVD_BENCH_RESULT (.+)")
+CLIENT = re.compile(r"FVD_BENCH_CLIENT (.+)")
 
 
 def main() -> int:
@@ -251,12 +252,16 @@ def main() -> int:
         for proxy in proxies:
             proxy.close()
     match = RESULT.search(output)
-    measurements = {}
-    if match:
-        for token in match.group(1).split():
+    def parse_numbers(text: str) -> dict:
+        values = {}
+        for token in text.split():
             if "=" in token:
                 key, value = token.split("=", 1)
-                measurements[key] = float(value) if "." in value else int(value)
+                values[key] = float(value) if "." in value else int(value)
+        return values
+
+    measurements = parse_numbers(match.group(1)) if match else {}
+    clients = [parse_numbers(m.group(1)) for m in CLIENT.finditer(output)]
     report = {
         "pass": return_code == 0 and bool(match),
         "exit_code": return_code,
@@ -269,6 +274,7 @@ def main() -> int:
             "rounds": args.rounds, "seed": args.seed,
         },
         "measurements": measurements,
+        "clients": clients,
         "links": [
             {"client": i + 1, "bytes_up": p.bytes_up, "bytes_down": p.bytes_down}
             for i, p in enumerate(proxies)
