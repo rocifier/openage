@@ -130,3 +130,17 @@ requirement.
 phase/parity; live projectile volume/backpressure; construction overlays
 across cameras; Linux/cross-platform behavior; repeated startup and extended
 failure-path stress during alpha.
+
+## Replication hardening follow-up — pending test execution
+
+- The presenter now evaluates each authoritative combat state transition even
+  when the simulation timestamp has not advanced; a zero-HP retained entity
+  produces a death cue rather than a nonlethal flash.
+- The `world_delta` test adds same-tick and zero-HP deaths, fog disappearance,
+  6,144 sequential projectile IDs in three 2,048-event batches, confirmed HP
+  parity and resynchronization from a fresh authoritative snapshot.
+- **Not run here:** Windows/Linux compilation, `bin/run test
+  network::tests::world_delta`, full asset-backed tests and `checkmerge`.
+  Test actual horse/tower death animation playback on both host and guest.
+- This synthetic backlog is not a live TCP backpressure or bandwidth test.
+  Keep multi-client visual and network adversity acceptance open.
