@@ -381,6 +381,8 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 		};
 		std::vector<double> command_ms{};
 		std::vector<double> world_ms{};
+		std::map<gamestate::player_id_t, std::vector<double>> command_per_client{};
+		std::map<gamestate::player_id_t, std::vector<double>> world_per_client{};
 		command_ms.reserve(rounds * builders.size());
 		world_ms.reserve(rounds * builders.size());
 		for (const auto &[player, client] : builders) {
@@ -421,8 +423,10 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 					for (const auto &result : client->take_command_results()) {
 						TESTEQUALS(result.status, CommandStatus::ACCEPTED);
 						TESTEQUALS(completed.insert(player).second, true);
-						command_ms.push_back(
-							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count());
+						const auto elapsed_ms =
+							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count();
+						command_ms.push_back(elapsed_ms);
+						command_per_client[player].push_back(elapsed_ms);
 					}
 				}
 				return completed.size() == builders.size();
@@ -450,8 +454,10 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 					if (tracker and tracker->get_revision() >= expected.at(player)) {
 						TESTEQUALS(tracker->get_local_kills().value(), 1000 + round + player);
 						completed.insert(player);
-						world_ms.push_back(
-							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count());
+						const auto elapsed_ms =
+							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count();
+						world_ms.push_back(elapsed_ms);
+						world_per_client[player].push_back(elapsed_ms);
 					}
 				}
 				return completed.size() == builders.size();
@@ -470,6 +476,22 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 			<< " world_p95_ms=" << percentile(world_ms, 95)
 			<< " world_max_ms=" << *std::max_element(world_ms.begin(), world_ms.end())
 			<< std::endl;
+		for (const auto &[player, client] : builders) {
+			(void) client;
+			const auto &command = command_per_client.at(player);
+			const auto &world = world_per_client.at(player);
+			TESTEQUALS(command.size(), rounds);
+			TESTEQUALS(world.size(), rounds);
+			std::cout << std::fixed << std::setprecision(2)
+				<< "FVD_BENCH_CLIENT player=" << player
+				<< " command_p50_ms=" << percentile(command, 50)
+				<< " command_p95_ms=" << percentile(command, 95)
+				<< " command_max_ms=" << *std::max_element(command.begin(), command.end())
+				<< " world_p50_ms=" << percentile(world, 50)
+				<< " world_p95_ms=" << percentile(world, 95)
+				<< " world_max_ms=" << *std::max_element(world.begin(), world.end())
+				<< std::endl;
+		}
 	}
 	// The original Builder creator is just another guest after rehosting.
 	// Its loss must not close the Hunter's room or other Builder transports.
