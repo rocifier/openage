@@ -7,6 +7,16 @@ and recipient-private `WorldState` delta pipelines. Five clients = one
 authority plus four independent guest workers, running in one test process
 through real loopback TCP sockets.
 
+**Benchmark topology:** the five-client case uses a deterministic
+role-preserving Hunter rehost: the authoritative Hunter connects directly to
+the relay, and each of four Builders uses exactly one dedicated proxy port.
+The benchmark asserts this mapping and logs
+`FVD_BENCH_TOPOLOGY hunter=direct builders=proxied`. This matters:
+early versions used a random Hunter role draw, which could put the authority
+behind the supposedly slow Builder link. Results from that version are **not
+valid for testing slow-Builder isolation** and must be rerun after rebuilding
+the C++ test.
+
 The **scripted test** sends Move command intents and returns accepted
 authoritative command results; it also offers synthetic world updates (with
 optional batches of timed projectile launch records). It does **not** run
@@ -93,6 +103,11 @@ capacity smoke checks run before timed rounds.
 | International | 220ms | +/-40ms total | 2Mbps | prospective NZ-to-overseas play |
 | Difficult | 320ms | +/-80ms total | 256kbps | congested/remote players |
 | Slow-recipient isolation | 220ms | +/-40ms total | 2Mbps except one at 256kbps with 3s stall | whether one client delays the others |
+
+**Interpretation warning:** use `--slow-client 4` to throttle the
+Builder attached to proxy 4 (player 5). After the topology fix, the Hunter is
+always direct. Compare each Builder's metrics with an identical no-slow-client
+run, not just the aggregate p95.
 
 Run each profile several times in isolation and compare the same
 `--rounds`/`--arrows`/seed. **Test the slow-recipient case both with
