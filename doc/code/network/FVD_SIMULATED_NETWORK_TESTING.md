@@ -35,9 +35,19 @@ python3 -m openage.testing.fvd_network_benchmark \
   --arrows 1024 --rounds 20 --json /tmp/fvd-network-stall.json
 ```
 
-Windows: substitute the locally configured launcher (for example,
-`bin/run.exe`) and use `py -3 -m openage.testing.fvd_network_benchmark`.
-No Linux `tc` or elevated permissions are needed.
+Windows: from PowerShell in the openage repository, use a native launcher:
+
+```powershell
+Test-Path .\bin\run.exe
+python -m openage.testing.fvd_network_benchmark --runner .\bin\run.exe --rtt-ms 220 --jitter-ms 40 --kbps 2000 --rounds 20 --json fvd-network-results.json
+```
+
+If the first line prints `False`, locate the build with
+`Get-ChildItem -Recurse -Filter run.exe -File` and supply its path to
+`--runner`. The benchmark now resolves `bin/run` to `bin/run.exe` on
+Windows automatically when that file exists. Do not attempt to launch the
+Unix-only `bin/run` directly through Windows subprocess. No Linux `tc` or
+elevated permissions are needed.
 
 The Python launcher starts **four ordinary TCP byte-stream proxies** in
 threads, one for each guest, between those workers and the real local relay.
