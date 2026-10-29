@@ -163,3 +163,13 @@ registered tests passed with assets (`run.exe test -a --have-assets`), and
 working reconnect and host handover, and passing attack/building animations.
 Death animations fail. Linux execution and four/eight-player graphical load
 testing remain alpha follow-up.
+
+**2026-10-29 follow-up PR (awaiting execution):** Hardened the confirmation
+path for same-tick entity deaths (including zero-HP entities retained until
+removal). Extended `world_delta` regression with fog visibility, three
+2,048-event batches (6,144 launches), authoritative HP parity and stale
+delta rejection after snapshot recovery. These source/test changes are **not
+compiled or run** here. They neither establish animation asset playback nor
+replace real TCP congestion, Windows/Linux and 4/8-client visual acceptance.
+Leave 1.4c, 1.5b, 1.6b, 1.8 and 1.10 unchecked; match end-state remains a
+separate implementation dependency.
