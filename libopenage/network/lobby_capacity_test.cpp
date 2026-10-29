@@ -232,6 +232,17 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 		TESTEQUALS(creator.is_authority(), true);
 		TESTEQUALS(builders.contains(original_creator_player), true);
 	}
+	if (benchmark) {
+		// Verify the network topology used by the proxy and timing reports.
+		// Only the Hunter uses the unshaped listener; all Builders are shaped.
+		TESTEQUALS(authority == &creator, true);
+		for (const auto &[player, builder] : builders) {
+			TESTEQUALS(player >= 2 and player <= 5, true);
+			TESTEQUALS(builder != authority, true);
+		}
+		std::cout << "FVD_BENCH_TOPOLOGY hunter=direct builders=proxied"
+		          << " remote_builders=" << builders.size() << std::endl;
+	}
 	// Every Builder sees its own snapshot, score and fixed role.
 	for (const auto &[player, builder] : builders) {
 		authority->provide_host_snapshot(
@@ -570,8 +581,13 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 } // namespace
 
 void lobby_latency() {
-	// Opt-in real-socket microbenchmark. See doc/code/network/FVD_SIMULATED_NETWORK_TESTING.md.
-	run_capacity_case(5, false, true);
+	// The public lobby's random role draw can make a proxy-connected guest
+	// become Hunter authority. That would put ALL downstream world traffic
+	// through one shaped "Builder" link and invalidate the benchmark.
+	// Use the existing deterministic Hunter-rehost scenario instead: the
+	// benchmark creator is Hunter on the direct relay socket, and all four
+	// Builder clients connect through their dedicated shaping proxies.
+	run_capacity_case(5, true, true);
 }
 
 void lobby_capacity() {
