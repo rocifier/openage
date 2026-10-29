@@ -908,6 +908,10 @@ void Presenter::refresh_fvd_guest_visuals() {
 		     this->simulation->get_game()->get_state()->get_game_entities()) {
 			if (auto visual = entity->get_render_entity()) visual->deactivate(0);
 		}
+		// Local presentation filters the shared world stage to its fog-visible
+		// entity IDs. Guest snapshots are already filtered by the host, so drop
+		// that filter before the first replicated proxy is rendered.
+		this->world_renderer->set_shown(std::nullopt);
 		this->fvd_guest_visuals_initialized = true;
 	}
 	std::unordered_set<gamestate::entity_id_t> present;
@@ -1490,13 +1494,6 @@ void Presenter::render() {
 				std::optional<network::WorldState> local_view{};
 				if (local_hud) {
 					local_view = this->fvd_local_view(*local_hud, controlled);
-				}
-				else if (this->fvd_replication) {
-					// A guest draws only proxies built from the host's already
-					// filtered snapshot. Clear the shown filter a pre-match local
-					// view left behind, or anything created after the match
-					// starts (new towers, horses) stays hidden.
-					this->world_renderer->set_shown(std::nullopt);
 				}
 				const network::WorldState *construction_world = replica_for_hud ? &*replica_for_hud
 				                                              : local_view ? &*local_view : nullptr;
