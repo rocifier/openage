@@ -8,9 +8,13 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
+#include <iomanip>
+#include <iostream>
 #include <exception>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <string>
 #include <thread>
@@ -71,12 +75,29 @@ WorldState private_world(size_t count, gamestate::player_id_t recipient,
 	return result;
 }
 
-void run_capacity_case(size_t count, bool force_builder_creator) {
+// Opt-in benchmark mode uses the real relay and RelayLobbyClient workers.
+ // It deliberately supplies scripted authoritative worlds instead of a Qt
+ // graphical process; networking measurements must be labelled accordingly.
+void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark = false) {
 	// Four and eight actual lobby clients use independent background workers,
 	// not the simplified raw TCP handshake harness.
-	TESTEQUALS(count == 4 or count == 8, true);
+	TESTEQUALS(count == 4 or count == 5 or count == 8, true);
 	RelayRoomDirectory directory{4};
-	auto listener = TcpListener::listen("127.0.0.1", 0);
+	const auto optional_port = [](const char *name, uint32_t maximum) -> uint32_t {
+		const auto raw = std::getenv(name);
+		if (not raw or not *raw) return 0;
+		const auto number = std::stoul(raw);
+		if (number == 0 or number > maximum) {
+			throw Error{MSG(err) << "Invalid FVD benchmark port: " << name};
+		}
+		return static_cast<uint32_t>(number);
+	};
+	const auto relay_port = benchmark ? optional_port("FVD_BENCH_RELAY_PORT", 65535) : 0;
+	const auto proxy_base = benchmark ? optional_port("FVD_BENCH_PROXY_BASE", 65535) : 0;
+	if (proxy_base and proxy_base + count - 2 > 65535) {
+		throw Error{MSG(err) << "FVD benchmark proxy port range exceeds 65535"};
+	}
+	auto listener = TcpListener::listen("127.0.0.1", static_cast<uint16_t>(relay_port));
 	std::exception_ptr relay_error{};
 	std::jthread relay{[&]() {
 		try {
@@ -137,7 +158,8 @@ void run_capacity_case(size_t count, bool force_builder_creator) {
 		for (size_t i = 1; i < count; ++i) {
 			RelayLobbyConfig guest{};
 			guest.address = host.address;
-			guest.port = host.port;
+			guest.port = (benchmark and proxy_base)
+			             ? static_cast<uint16_t>(proxy_base + i - 1) : host.port;
 			guest.hosting = false;
 			guest.room_id = room_id;
 			guest.name = static_cast<gamestate::player_id_t>(i + 1)
@@ -162,7 +184,8 @@ void run_capacity_case(size_t count, bool force_builder_creator) {
 		for (size_t i = 1; i < count; ++i) {
 			RelayLobbyConfig guest{};
 			guest.address = host.address;
-			guest.port = host.port;
+			guest.port = (benchmark and proxy_base)
+			             ? static_cast<uint16_t>(proxy_base + i - 1) : host.port;
 			guest.room_id = room_id;
 			guest.name = "Builder " + std::to_string(i + 1);
 			clients[i]->connect(guest);
@@ -332,6 +355,122 @@ void run_capacity_case(size_t count, bool force_builder_creator) {
 		TESTEQUALS(builder->get_replication()->get_local_kills().value(),
 		           uint64_t{200 + player});
 	}
+	if (benchmark) {
+		// Baseline and shaped runs use identical commands / private snapshots.
+		// The external proxy (if used) delays actual TCP bytes on each guest
+		// connection. Synthetic arrow records stress the same wire codec as
+		// gameplay, but cannot establish simulated combat or frame rendering.
+		const auto config_number = [](const char *name, size_t fallback, size_t maximum) {
+			const auto raw = std::getenv(name);
+			if (not raw or not *raw) return fallback;
+			const auto value = std::stoul(raw);
+			if (value == 0 or value > maximum) {
+				throw Error{MSG(err) << "Invalid FVD benchmark parameter " << name};
+			}
+			return static_cast<size_t>(value);
+		};
+		const size_t rounds = config_number("FVD_BENCH_ROUNDS", 12, 200);
+		const size_t arrows = std::getenv("FVD_BENCH_ARROWS")
+			? static_cast<size_t>(std::stoul(std::getenv("FVD_BENCH_ARROWS"))) : 0;
+		if (arrows > MAX_STATE_ARROWS) {
+			throw Error{MSG(err) << "FVD benchmark arrows must be <= MAX_STATE_ARROWS"};
+		}
+		auto percentile = [](std::vector<double> samples, size_t percent) {
+			std::sort(samples.begin(), samples.end());
+			return samples[(samples.size() * percent + 99) / 100 - 1];
+		};
+		std::vector<double> command_ms{};
+		std::vector<double> world_ms{};
+		command_ms.reserve(rounds * builders.size());
+		world_ms.reserve(rounds * builders.size());
+		for (const auto &[player, client] : builders) {
+			(void) player;
+			client->take_command_results(); // Drain previous smoke-check results.
+		}
+		uint64_t next_revision = 100;
+		uint64_t next_arrow_id = 1;
+		for (size_t round = 0; round < rounds; ++round) {
+			std::map<gamestate::player_id_t, clock_t::time_point> began{};
+			for (const auto &[player, client] : builders) {
+				CommandIntent move{};
+				move.kind = CommandKind::MOVE;
+				move.entity_ids = {uint64_t{10000} + player};
+				move.target = {static_cast<int64_t>(50 + round), static_cast<int64_t>(40 + player), 0};
+				began[player] = clock_t::now();
+				TESTEQUALS(client->send_guest_command(std::move(move)), true);
+			}
+			std::vector<AuthenticatedCommand> pending{};
+			await_condition("benchmark commands arrived at Hunter", [&]() {
+				auto more = authority->take_host_commands();
+				pending.insert(pending.end(), more.begin(), more.end());
+				return pending.size() >= builders.size();
+			});
+			TESTEQUALS(pending.size(), builders.size());
+			for (const auto &command : pending) {
+				TESTEQUALS(command.intent.kind, CommandKind::MOVE);
+				CommandResult accepted{};
+				accepted.command_id = command.intent.command_id;
+				accepted.status = CommandStatus::ACCEPTED;
+				accepted.world_revision = next_revision;
+				TESTEQUALS(authority->send_command_result(
+					command.identity, authority->get_session_generation(), std::move(accepted)), true);
+			}
+			std::set<gamestate::player_id_t> completed{};
+			await_condition("benchmark guest command ACKs", [&]() {
+				for (const auto &[player, client] : builders) {
+					for (const auto &result : client->take_command_results()) {
+						TESTEQUALS(result.status, CommandStatus::ACCEPTED);
+						TESTEQUALS(completed.insert(player).second, true);
+						command_ms.push_back(
+							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count());
+					}
+				}
+				return completed.size() == builders.size();
+			});
+			began.clear();
+			std::map<gamestate::player_id_t, uint64_t> expected{};
+			for (const auto &[player, client] : builders) {
+				began[player] = clock_t::now();
+				auto world = private_world(count, player, next_revision++, 1000 + round + player);
+				world.simulation_time = time::time_t::from_int(100 + static_cast<int64_t>(round));
+				for (size_t index = 0; index < arrows; ++index) {
+					world.arrows.push_back({
+						next_arrow_id++, 1, 1,
+						{40, 40, 1}, {42, 42, 0},
+						time::time_t::from_int(90), time::time_t::from_double(90.2)});
+				}
+				expected[player] = world.world_revision;
+				authority->provide_host_update(std::move(world));
+			}
+			completed.clear();
+			await_condition("benchmark world delivered to guests", [&]() {
+				for (const auto &[player, client] : builders) {
+					if (completed.contains(player)) continue;
+					auto tracker = client->get_replication();
+					if (tracker and tracker->get_revision() >= expected.at(player)) {
+						TESTEQUALS(tracker->get_local_kills().value(), 1000 + round + player);
+						completed.insert(player);
+						world_ms.push_back(
+							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count());
+					}
+				}
+				return completed.size() == builders.size();
+			});
+		}
+		std::cout << std::fixed << std::setprecision(2)
+			<< "FVD_BENCH_RESULT players=" << count
+			<< " remote=" << builders.size()
+			<< " rounds=" << rounds << " arrows_per_recipient_update=" << arrows
+			<< " command_samples=" << command_ms.size()
+			<< " command_p50_ms=" << percentile(command_ms, 50)
+			<< " command_p95_ms=" << percentile(command_ms, 95)
+			<< " command_max_ms=" << *std::max_element(command_ms.begin(), command_ms.end())
+			<< " world_samples=" << world_ms.size()
+			<< " world_p50_ms=" << percentile(world_ms, 50)
+			<< " world_p95_ms=" << percentile(world_ms, 95)
+			<< " world_max_ms=" << *std::max_element(world_ms.begin(), world_ms.end())
+			<< std::endl;
+	}
 	// The original Builder creator is just another guest after rehosting.
 	// Its loss must not close the Hunter's room or other Builder transports.
 	const auto departed_id = force_builder_creator
@@ -407,6 +546,11 @@ void run_capacity_case(size_t count, bool force_builder_creator) {
 }
 
 } // namespace
+
+void lobby_latency() {
+	// Opt-in real-socket microbenchmark. See doc/code/network/FVD_SIMULATED_NETWORK_TESTING.md.
+	run_capacity_case(5, false, true);
+}
 
 void lobby_capacity() {
 	run_capacity_case(4, false);

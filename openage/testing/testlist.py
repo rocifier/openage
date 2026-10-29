@@ -95,6 +95,11 @@ def tests_cpp():
     yield "openage::network::tests::lobby"
     yield "openage::network::tests::lobby_relay_client"
     yield (
+        "openage::network::tests::lobby_latency",
+        "Five-player relay command and recipient-update benchmark (run separately with optional shaping)",
+        lambda _env: False,  # Opt-in: slower than the ordinary correctness suite.
+    )
+    yield (
         "openage::network::tests::lobby_capacity",
         "Full 4/8-player relay, Hunter rehost, contested Builder orders, "
         "disconnect continuation and match termination",
