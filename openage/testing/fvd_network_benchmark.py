@@ -12,6 +12,8 @@ import argparse
 import json
 import os
 import random
+import queue
+import select
 import re
 import socket
 import subprocess
@@ -111,36 +113,63 @@ class TcpShaper:
         self, direction: str, source: socket.socket,
         dest: socket.socket, start: float, connection_id: int,
     ) -> None:
+        # Separate reader from sender: delaying each recv(4096) in sequence
+        # would multiply 110ms of one-way latency by every 4KB of a big
+        # WORLD_DELTA, badly overstating lag under projectile-heavy traffic.
+        # Read promptly, schedule each chunk once and pace the output queue.
         rng = random.Random(self.seed + connection_id * 101
                             + (1 if direction == "down" else 0))
-        source.settimeout(0.2)
+        pending: queue.Queue[tuple[float, bytes]] = queue.Queue(maxsize=256)
+        reader_done = threading.Event()
+        local_stop = threading.Event()
+
+        def read_loop() -> None:
+            try:
+                while not self.stopping.is_set() and not local_stop.is_set():
+                    readable, _, _ = select.select([source], [], [], 0.2)
+                    if not readable:
+                        continue
+                    data = source.recv(4096)
+                    if not data:
+                        break
+                    delay = max(0.0, self.one_way_s
+                                + rng.uniform(-self.jitter_s, self.jitter_s))
+                    due = time.monotonic() + delay
+                    while not self.stopping.is_set() and not local_stop.is_set():
+                        try:
+                            pending.put((due, data), timeout=0.2)
+                            break
+                        except queue.Full:
+                            continue
+            except OSError:
+                pass
+            finally:
+                reader_done.set()
+
+        reader = threading.Thread(target=read_loop, daemon=True)
+        reader.start()
         next_send = 0.0
         try:
             while not self.stopping.is_set():
                 try:
-                    data = source.recv(4096)
-                except socket.timeout:
+                    scheduled, data = pending.get(timeout=0.2)
+                except queue.Empty:
+                    if reader_done.is_set():
+                        break
                     continue
-                if not data:
-                    break
-                # The chosen slow client's downstream stall begins relative
-                # to its actual TCP connection, not benchmark process startup.
-                if direction == "down" and self.stall_after_s >= 0:
+                # Applies only to the selected client's downstream link.
+                if direction == "down" and self.stall_after_s >= 0 and self.stall_s:
                     stall_at = start + self.stall_after_s
-                    if time.monotonic() >= stall_at and self.stall_s:
-                        until = stall_at + self.stall_s
-                        while not self.stopping.is_set() and time.monotonic() < until:
-                            time.sleep(min(0.02, until - time.monotonic()))
-                delay = max(0.0, self.one_way_s
-                            + rng.uniform(-self.jitter_s, self.jitter_s))
-                deliver_at = max(time.monotonic() + delay, next_send)
+                    if time.monotonic() >= stall_at and time.monotonic() < stall_at + self.stall_s:
+                        scheduled = max(scheduled, stall_at + self.stall_s)
+                deliver_at = max(scheduled, next_send)
                 while not self.stopping.is_set() and time.monotonic() < deliver_at:
                     time.sleep(min(0.02, deliver_at - time.monotonic()))
                 if self.stopping.is_set():
                     break
                 dest.sendall(data)
                 if self.bytes_per_s:
-                    next_send = deliver_at + len(data) / self.bytes_per_s
+                    next_send = max(deliver_at, time.monotonic()) + len(data) / self.bytes_per_s
                 with self._lock:
                     if direction == "up":
                         self.bytes_up += len(data)
@@ -149,6 +178,7 @@ class TcpShaper:
         except OSError:
             pass
         finally:
+            local_stop.set()
             for sock in (source, dest):
                 try:
                     sock.shutdown(socket.SHUT_RDWR)
@@ -158,6 +188,7 @@ class TcpShaper:
                     sock.close()
                 except OSError:
                     pass
+            reader.join(timeout=2)
 
     def close(self) -> None:
         self.stopping.set()
