@@ -321,8 +321,12 @@ def main() -> int:
 
     measurements = parse_numbers(match.group(1)) if match else {}
     clients = [parse_numbers(m.group(1)) for m in CLIENT.finditer(output)]
+    # Reject old compiled runners which produce plausible but misleading
+    # results with random Hunter authority behind a shaped guest proxy.
+    topology_verified = "FVD_BENCH_TOPOLOGY hunter=direct builders=proxied remote_builders=4" in output
     report = {
-        "pass": return_code == 0 and bool(match),
+        "pass": return_code == 0 and bool(match) and topology_verified,
+        "topology_verified": topology_verified,
         "exit_code": return_code,
         "elapsed_s": round(time.monotonic() - began, 3),
         "profile": {
@@ -341,6 +345,10 @@ def main() -> int:
         "warning": "Scripted relay workers, not graphical play or authoritative combat. "
                    "Synthetic byte delays are not an OS-level packet-loss emulator.",
     }
+    if match and not topology_verified:
+        print("FVD benchmark runner is stale or topology was not verified. "
+              "Recompile PR #7's C++ test before trusting performance results.",
+              file=sys.stderr, flush=True)
     print("FVD_NETWORK_REPORT " + json.dumps(report, sort_keys=True), flush=True)
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
