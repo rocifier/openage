@@ -58,6 +58,23 @@ python3 -m openage.testing.fvd_network_benchmark \
   --json /tmp/fvd-network-stall.json
 ```
 
+**Calibrate the Python proxy without starting FVD:**
+
+```powershell
+python -m openage.testing.fvd_network_benchmark --calibrate --kbps 2000 --rtt-ms 220 --jitter-ms 0 --calibrate-kb 1024 --json fvd-shaper-calibration.json
+```
+
+This transfers a known 1 MiB payload through the exact local TCP proxy
+implementation and writes `FVD_SHAPER_CALIBRATION` JSON. The result contains
+`peak_1s_forwarded_kbps` (the largest one-second forwarded byte count,
+converted to decimal kilobits per second) and `end_to_end_kbps` (payload
+divided by elapsed wall-clock time, including connection setup and latency).
+For an actively saturated 2 Mbps link, the former should be in the vicinity
+of 2000 kbps; small bursts, thread scheduling and OS TCP buffering can shift
+it. A low achieved rate warns that the proxy or test host needs investigation.
+The `pass` flag checks complete byte delivery, **not** that the link
+achieved its target bandwidth. No C++ rebuild is needed for Python changes.
+
 Windows: from PowerShell in the openage repository, use a native launcher:
 
 ```powershell
@@ -77,6 +94,32 @@ threads, one for each guest, between those workers and the real local relay.
 It passes the relay and proxy ports into the opt-in C++ test using environment
 variables. A fixed seed makes requested jitter schedules reproducible, but
 OS scheduling and actual duration are **not** deterministic.
+
+### Bounded shaping and real sender backpressure
+
+`--kbps 2000` now uses a clock-replenished **token bucket**, not an
+additional 16 ms delay scheduled after each 4 KiB send. Tokens accrue while
+Windows is scheduling other threads, so a delayed wakeup permits a limited
+catch-up burst instead of permanently reducing the byte rate. The default
+`--burst-ms 50` allows at most 50 ms of traffic to accumulate (minimum
+one 4096-byte chunk); `--kbps 0` remains unlimited.
+
+The proxy previously buffered roughly 1 MiB of bytes per direction before
+stopping its reader. Its default queue is now **64 KiB per direction**
+(`--proxy-buffer-kb 64`), and it requests **32 KiB TCP send/receive socket
+buffers** from the OS (`--socket-buffer-kb 32`). The latter settings apply
+only to the **proxy's** sockets, not to the game's own sender socket.
+These limits help stop a slow receiving Builder from being hidden behind
+large proxy-side queues, allowing TCP backpressure to propagate toward
+the Hunter if the rate differential is sustained. The kernel is free to
+clamp or adjust requested socket buffer sizes: inspect
+`links[].observed_recvbuf_bytes` in the JSON. Set
+`--socket-buffer-kb 0` to leave OS buffers at their defaults; use
+`--proxy-buffer-kb 256` or larger for less aggressive buffering.
+
+The old and new 2 Mbps reports are **not directly comparable** because
+both the pacing algorithm and default buffering have changed. Run matched
+healthy and slow-client profiles again with the same new flags.
 
 ### Metrics
 
@@ -115,9 +158,20 @@ client stops receiving; inspect outstanding and state-age metrics too.
   `world_offered`, `world_samples`, `world_skipped`,
   `latest_offered_revision`, `latest_applied_revision` and `alive`.
   An unfinished slow peer is *not* silently counted as up-to-date.
-- **Traffic**: proxy byte counts in both directions. These are actual TCP
-  payload bytes observed by the proxy, not authoritative simulation traffic
-  statistics.
+- **Traffic and achieved rate**: `links[].bytes_up/down` are actual
+  forwarded application payload bytes. Each link also contains independent
+  `up` and `down` measurements:
+  `peak_1s_kbps` is the **peak count in a trailing one-second window**;
+  `session_average_kbps` averages over the entire benchmark process,
+  **including lobby setup and drain** (so it will generally be much lower
+  than the configured rate); `first_to_last_kbps` averages between the
+  first and last forwarded bytes and may include idle lobby time.
+  `pacing_wait_ms` records the token budget wait,
+  `reader_blocked_ms` records time the bounded queue blocked its reader,
+  `peak_queue_chunks` and `full_queue_events` show proxy saturation.
+  These are not per-packet measurements of a real Internet path or the
+  Hunter's socket send durations. For actual achieved-rate calibration,
+  prefer the standalone known-payload command above.
 
 The Python launcher emits `FVD_NETWORK_REPORT` JSON including aggregate and
 **per-guest** p50/p95/max, per-link bytes, shaping configuration, execution
@@ -160,8 +214,12 @@ Caveats: the proxy shapes **TCP bytes after the sender's kernel**, not IP
 packets, congestion control, dropped packets or physical upload queueing.
 No packet loss is injected in this phase; TCP loss/delay requires a later
 system-level network emulator or an extended proxy. The per-direction
-bandwidth cap is a pacing approximation. Jitter is applied to forwarding
-chunks and may vary with how TCP coalesces writes.
+bandwidth cap now uses a bounded token bucket, but achieved throughput still
+depends on scheduler timing and OS buffering. Jitter is applied to forwarding
+chunks and may vary with how TCP coalesces writes. A low-buffer proxy can
+trigger a real 15s FVD socket-send timeout under extreme sustained overload;
+treat that as a stress finding and inspect the logs, not as packet loss
+injected by the proxy.
 
 ## High-priority next increments
 
