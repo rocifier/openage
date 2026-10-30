@@ -146,6 +146,17 @@ void replication() {
 	tracker.accept_snapshot(decode_world_state(encode_world_state(finished_snapshot)));
 	TESTEQUALS(tracker.get_world_state()->match_outcome,
 	           finished_world.match_outcome);
+	// Even a newer authenticated recovery snapshot cannot erase or change
+	// a terminal result accepted earlier in the same match.
+	auto erased_result = finished_snapshot;
+	erased_result.world_revision = 13;
+	erased_result.match_outcome.reset();
+	TESTTHROWS(tracker.accept_snapshot(erased_result));
+	erased_result.match_outcome = MatchOutcome{MatchWinner::HUNTER,
+	                                           MatchEndReason::ALL_BUILDERS_DEAD,
+	                                           finished_world.simulation_time};
+	TESTTHROWS(tracker.accept_snapshot(erased_result));
+	TESTEQUALS(tracker.get_revision(), uint64_t{12});
 
 	auto bad_snapshot = recovered;
 	bad_snapshot.base_revision = 1;
