@@ -72,8 +72,41 @@ recipient but must not stall healthy recipients or the Hunter simulation.
    a surviving Builder can order units, and closing the Hunter terminates
    all recipient workers and clients without stuck or orphaned sockets.
 
-No validated performance claim is made yet: this PR changes production C++
-transport and requires a Windows rebuild and actual shaped-link benchmark.
+### Windows evidence received — 2026-10-30
+
+User-reported `network::tests::lobby_capacity` on the combined PR #7 + PR #8
+Windows MSVC build **exited 0**, including four- and eight-player scenarios
+with Hunter rehost and intentional disconnects. The test still needs repeat
+runs and independent Linux verification.
+
+A user-reported PR #7 five-player run using the async C++ worker build
+(`--rtt-ms 220 --jitter-ms 40 --kbps 2000 --arrows 1024 --rounds 20
+--update-ms 500 --command-ms 500 --slow-client 4 --slow-kbps 256
+--stall-after-s 6.5 --stall-s 3`; 64-KiB proxy queue, 32-KiB proxy sockets)
+returned `pass: true`. Builders 2–4 had:
+
+| Metric, three healthy Builders | Previous sequential build, slow Builder 5 | Async build, slow Builder 5 |
+|---|---:|---:|
+| Command P95 | ~5,812–5,843ms | ~495–496ms |
+| State age P95 | ~5,749ms | ~1,397ms |
+| Commands received | 54 / 60 | 60 / 60 |
+| World updates observed | 24 / 60 | 60 / 60 |
+| World captures skipped | 30 total | 0 total |
+| Downstream bytes / healthy Builder | ~725KB | ~1.81MB |
+
+The async healthy Builders' command P95 (~495ms) was also essentially
+unchanged versus the previous all-healthy baseline (~497ms). Builder 5
+remained intentionally congested: 18 of 20 command results pending,
+2 of 20 world captures observed, state-age P95 ~10.39 seconds.
+These results **demonstrate recipient isolation in this synthetic scripted
+scenario**, not real combat or render smoothness. The reported state-age
+P95 includes the benchmark's 1.5-second post-workload drain.
+
+**Still open before merge/acceptance:** repeated tests, Linux build, actual
+gameplay projectile burst/recovery and disconnect under saturation, and
+explicit fresh snapshot consistency after a slow client catches up. Keep
+the PR draft until those checks are reviewed.
+
 The previous sequential code allowed a stalled recipient's send to delay
 every other recipient's next pass.
 
