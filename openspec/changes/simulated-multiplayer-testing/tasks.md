@@ -18,6 +18,13 @@
   run baseline and fixed-delay sanity checks. Earlier barrier-based Windows
   results passed but are not comparable to the new experiment. This code
   has not been compiled or run in this editing environment.
+- [x] A5c Replace cumulative per-chunk pacing with a token bucket,
+  measure per-link actual forwarded 1s peak/application throughput, expose
+  queue backpressure and configurable proxy/socket buffer sizes, and add
+  standalone known-payload proxy calibration plus Python unit/loopback tests.
+- [ ] A5d Validate Python calibration at 2 Mbps on Windows and Linux,
+  including saturation accuracy and stalled-client queue metrics. Prior
+  Windows 2 Mbps figures used the superseded pacing implementation.
 - [ ] A6 Repeat **independently scheduled** 5-client tests with one 3s stalled
   guest; compare healthy clients' command P95 and state-age P95/max with the
   same-load control, and verify update skipping/recovery or file a game fix.
