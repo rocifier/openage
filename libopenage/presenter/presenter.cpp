@@ -1541,16 +1541,17 @@ void Presenter::render() {
 				if (game_over) {
 					const bool hunter_won = result->winner == network::MatchWinner::HUNTER;
 					const bool local_hunter = controlled == 1;
-					result_title = hunter_won == local_hunter ? "VICTORY" : "DEFEAT";
+					result_title = hunter_won == local_hunter
+						? QString{"VICTORY"} : QString{"DEFEAT"};
 					switch (result->reason) {
 					case network::MatchEndReason::ALL_BUILDERS_DEAD:
-						result_reason = "All Builders have been eliminated";
+						result_reason = QString{"All Builders have been eliminated"};
 						break;
 					case network::MatchEndReason::TIME_LIMIT:
-						result_reason = "Builders survived for 45 minutes";
+						result_reason = QString{"Builders survived for 45 minutes"};
 						break;
 					case network::MatchEndReason::TOWER_LIMIT:
-						result_reason = "Builders completed 7,000 towers";
+						result_reason = QString{"Builders completed 7,000 towers"};
 						break;
 					}
 				}
