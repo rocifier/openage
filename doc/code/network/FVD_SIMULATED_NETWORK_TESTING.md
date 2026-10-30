@@ -32,6 +32,13 @@ or that actual dense combat generates the tested projectile load.
 
 With the current FVD C++ build installed, from the repository root:
 
+The Python byte shaper clamps all scheduled sleep intervals to zero or above,
+even if a deadline elapses between checking the clock and sleeping. Any
+unexpected proxy forwarding worker exception marks the JSON result as failed
+and is included in `proxy_errors`; a crashed shaper can no longer silently
+produce a green benchmark report. Run the pure-Python regression with
+`python -m unittest openage.testing.test_fvd_network_benchmark`.
+
 ```sh
 # Opt-in no-impairment loopback microbenchmark
 bin/run test network::tests::lobby_latency
