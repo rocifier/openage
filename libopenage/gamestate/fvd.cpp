@@ -1674,6 +1674,7 @@ std::optional<time::time_t> FVD::get_first_hunter_spawn_time() const {
 
 void FVD::request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state,
                                          const time::time_t &time) {
+	if (this->match_outcome) return;
 	auto loop = this->event_loop.lock();
 	if (not loop or not this->horse_spawn_target) {
 		throw Error{ERR << "Cannot request a Hunter horse without FVD services"};
@@ -1686,6 +1687,7 @@ void FVD::request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state
 void FVD::spawn_hunter_horse(const std::shared_ptr<GameState> &state,
 	                            const time::time_t &time,
 	                            bool skip_initial_delay) {
+	if (this->match_outcome) return;
 	if (not this->hunter_wave_started) {
 		return;
 	}
