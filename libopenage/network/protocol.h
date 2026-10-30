@@ -18,9 +18,10 @@ constexpr uint32_t FRAME_MAGIC = 0x4656444e;
  */
 // Fog of war appends each side's map view to world state and adds
 // remembered buildings, which older clients cannot parse (v15 added Builder
-// tower demolition). Refuse them at the handshake rather than mid-match.
+// tower demolition). v17 adds authoritative match outcomes to full and delta
+// world state. Refuse older clients at the handshake rather than mid-match.
 // Minor versions continue to gate compatible relay features.
-constexpr uint16_t PROTOCOL_MAJOR = 16;
+constexpr uint16_t PROTOCOL_MAJOR = 17;
 constexpr uint16_t PROTOCOL_MINOR = 4;
 
 /** Oldest protocol minor version compatible with this implementation. */
