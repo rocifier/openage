@@ -164,13 +164,19 @@
     recovery snapshots preserve it. Add message, delta and replication
     regressions. **Source/tests committed; Windows/Linux compilation
     pending.**
-  - [ ] 1.10b Host simulation detects all-Builder deaths, 45-minute time
-    limit and 7,000 completed Builder towers, and owns the irreversible
-    outcome. Set it on every recipient capture; stop taking new commands.
-  - [ ] 1.10c Present consistent terminal screens and timer for Hunter and
-    Builders (including late recipient/recovery), and verify on real
-    Windows/Linux 2/4/8-player games. Coordinate with the separate
-    `match-end-conditions` change for death-triggered tower collapse.
+  - [x] 1.10b Host simulation now evaluates all-Builder deaths,
+    the 45-minute simulation-clock limit and 7,000 **completed** Builder
+    towers after authoritative event processing. Dead Builders lose towers,
+    sites and foundations; disconnected Builders count as eliminated but
+    keep their structures. Commands, scheduled combat/damage and spawns
+    stop after the irreversible result. All recipient captures carry it.
+    Rule and post-result command rejection tests added.
+    **Source committed; Windows/Linux build and gameplay verification pending.**
+  - [ ] 1.10c Host/guest QML now presents recipient-authoritative
+    VICTORY/DEFEAT and outcome reason, including when it arrives via
+    recovery. Complete the synchronized 45-minute countdown HUD and
+    visually verify 2/4/8-player matches, killed-Builder collapse and
+    shutdown on Windows/Linux. Keep the larger endgame task open.
 
 ## Remaining gaps from the current audit
 
