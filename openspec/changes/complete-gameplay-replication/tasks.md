@@ -157,6 +157,20 @@
   notices and worker teardown, and Linux verification.
 - [ ] 1.10 Add match end-state and victory feedback to the same replicated
   state/event pipeline when win/loss rules are implemented.
+  - [x] 1.10a Add versioned, strictly validated **authoritative terminal
+    outcome** to public recipient snapshots and world deltas (v17), with
+    Hunter win / Builders win (timer or tower threshold) and authoritative
+    simulation end timestamp. Deltas must not clear or change an outcome;
+    recovery snapshots preserve it. Add message, delta and replication
+    regressions. **Source/tests committed; Windows/Linux compilation
+    pending.**
+  - [ ] 1.10b Host simulation detects all-Builder deaths, 45-minute time
+    limit and 7,000 completed Builder towers, and owns the irreversible
+    outcome. Set it on every recipient capture; stop taking new commands.
+  - [ ] 1.10c Present consistent terminal screens and timer for Hunter and
+    Builders (including late recipient/recovery), and verify on real
+    Windows/Linux 2/4/8-player games. Coordinate with the separate
+    `match-end-conditions` change for death-triggered tower collapse.
 
 ## Remaining gaps from the current audit
 
