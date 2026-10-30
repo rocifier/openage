@@ -19,7 +19,11 @@ the C++ test.
 
 The **scripted test** sends Move command intents and returns accepted
 authoritative command results; it also offers synthetic world updates (with
-optional batches of timed projectile launch records). It does **not** run
+optional batches of timed projectile launch records). **Since the independent
+scheduler update, command generation and authoritative world updates continue
+on separate wall-clock schedules even if a guest fails to respond.** No
+Builder's acknowledgement gates the next update or command. This fixes the
+old benchmark's accidental lockstep, not the game's transport implementation. It does **not** run
 Hunter/Builder combat, pathfinding or QML rendering. This gives repeatable
 transport measurements, **not** proof that five humans will see smooth graphics
 or that actual dense combat generates the tested projectile load.
@@ -36,20 +40,22 @@ bin/run test network::tests::lobby_latency
 # and 2 Mbps per-direction to each remote participant.
 python3 -m openage.testing.fvd_network_benchmark \
   --runner bin/run --rtt-ms 220 --jitter-ms 40 --kbps 2000 \
-  --rounds 20 --json /tmp/fvd-network-220ms.json
+  --rounds 20 --update-ms 500 --command-ms 500 \
+  --json /tmp/fvd-network-220ms.json
 
 # Heavy serialization + one struggling guest. Still *synthetic* projectiles.
 python3 -m openage.testing.fvd_network_benchmark \
   --runner bin/run --rtt-ms 220 --jitter-ms 40 --kbps 2000 \
   --slow-client 4 --slow-kbps 256 --stall-after-s 6.5 --stall-s 3 \
-  --arrows 1024 --rounds 20 --json /tmp/fvd-network-stall.json
+  --arrows 1024 --rounds 20 --update-ms 500 --command-ms 500 \
+  --json /tmp/fvd-network-stall.json
 ```
 
 Windows: from PowerShell in the openage repository, use a native launcher:
 
 ```powershell
-Test-Path .\bin\run.exe
-python -m openage.testing.fvd_network_benchmark --runner .\bin\run.exe --rtt-ms 220 --jitter-ms 40 --kbps 2000 --rounds 20 --json fvd-network-results.json
+Test-Path .\.bin\msvc-vcpkg\run.exe
+python -m openage.testing.fvd_network_benchmark --runner .\.bin\msvc-vcpkg\run.exe --rtt-ms 220 --jitter-ms 40 --kbps 2000 --rounds 20 --json fvd-network-results.json
 ```
 
 If the first line prints `False`, locate the build with
@@ -67,9 +73,18 @@ OS scheduling and actual duration are **not** deterministic.
 
 ### Metrics
 
-The test prints one machine-readable `FVD_BENCH_RESULT` line with the
-number of clients, rounds, command samples, command p50/p95/max latency,
-and recipient-update p50/p95/max latency.
+The test logs `FVD_BENCH_SCHEDULE mode=independent`, then prints an
+aggregate `FVD_BENCH_RESULT` line and separate `FVD_BENCH_CLIENT` lines.
+`--rounds` is the number of world-update scheduling intervals. For example,
+`--rounds 20 --update-ms 500` generates a **10-second continuously scheduled
+workload**, plus 1.5 seconds of measurement drain. `--command-ms` independently
+sets each Builder's command rate; by default both schedules run at 500 ms.
+Heavy-update pressure therefore coexists with command traffic throughout.
+
+Measured p50/p95/max command and world-delivery latency are computed for
+**received** messages, not for unsent, overwritten or still-pending work.
+Reporting only received-message latency risks survivorship bias when a slow
+client stops receiving; inspect outstanding and state-age metrics too.
 
 - **Command turnaround**: wall-clock time from the guest's
   `send_guest_command()` request to receiving the authoritative command
@@ -78,8 +93,21 @@ and recipient-update p50/p95/max latency.
   gamestate accepting or rendering the move.
 - **World delivery**: wall-clock time from a scripted
   `provide_host_update()` call to that guest's ReplicationTracker accepting
-  the expected revision. It does **not** include simulation capture time,
-  frame rendering or human reaction time.
+  the observed revision. Intermediate offered captures may be **superseded**
+  before transmission and are counted as `world_skipped`, not lost network
+  packets. A slow guest can lag behind without preventing the next host offer.
+  This measurement excludes simulation capture, frame rendering and reaction.
+- **State age**: sampled every ~50 ms per guest, measuring wall-clock time
+  since the captured world update currently applied by that guest was offered.
+  It increases during stalls even when no new world update is received.
+  A guest that has not received any benchmark update yet is measured relative
+  to the benchmark start. Inspect `state_age_p95_ms` and
+  `state_age_max_ms` to detect unhealthy stalls.
+- **Outstanding commands and state revision**: each client reports
+  `command_offered`, `command_samples`, `command_pending`,
+  `world_offered`, `world_samples`, `world_skipped`,
+  `latest_offered_revision`, `latest_applied_revision` and `alive`.
+  An unfinished slow peer is *not* silently counted as up-to-date.
 - **Traffic**: proxy byte counts in both directions. These are actual TCP
   payload bytes observed by the proxy, not authoritative simulation traffic
   statistics.
@@ -90,9 +118,14 @@ status and a warning about the non-graphical coverage. It can also save JSON.
 
 The benchmark does **not** assert absolute latency thresholds: saturated
 test machines should be reported, not automatically declared incorrect.
-Functional checks still fail if command results, snapshots, ownership or
-revisions are lost or inconsistent. The five-second role reveal and existing
-capacity smoke checks run before timed rounds.
+Its `pass` field indicates that the test ran and its required protocol and
+identity assertions passed; **it does not mean that every scheduled update
+arrived or that every Builder was responsive**. Inspect the per-client
+pending/backlog/age metrics. The five-second role reveal and original capacity
+handshake/command smoke checks run before the timed workload. The test skips
+the original post-workload disconnect smoke checks because a deliberately slow
+recipient may still be catching up; those are still covered by `lobby_capacity`.
+It performs explicit client/relay cleanup at the end.
 
 ## Profiles to collect
 
@@ -110,7 +143,9 @@ always direct. Compare each Builder's metrics with an identical no-slow-client
 run, not just the aggregate p95.
 
 Run each profile several times in isolation and compare the same
-`--rounds`/`--arrows`/seed. **Test the slow-recipient case both with
+`--rounds`/`--arrows`/`--update-ms`/`--command-ms`/seed. **Old results from
+the barrier-based benchmark are not directly comparable to the new continuous
+scheduler. Rebuild the C++ executable as well as updating the Python script.** **Test the slow-recipient case both with
 `--arrows 0` and with `--arrows 1024`** so TCP backpressure has data to
 act on. A 3-second stop is intentionally below FVD's 15-second timeout.
 
