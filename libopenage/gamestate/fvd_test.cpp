@@ -1210,6 +1210,60 @@ void fvd_builder_delete_foundation() {
 	TESTEQUALS(fvd->get_build_order(builder) == nullptr, true);
 }
 
+void fvd_match_outcome_rules() {
+	auto at = [](int seconds) { return time::time_t::from_int(seconds); };
+	const auto deadline = at(45 * 60);
+	TESTEQUALS(decide_fvd_match_outcome(true, 6999, at(2699), deadline).has_value(), false);
+	TESTEQUALS(decide_fvd_match_outcome(true, 7000, at(2699), deadline)->winner,
+	           network::MatchWinner::BUILDERS);
+	TESTEQUALS(decide_fvd_match_outcome(true, 7000, at(2699), deadline)->reason,
+	           network::MatchEndReason::TOWER_LIMIT);
+	TESTEQUALS(decide_fvd_match_outcome(true, 0, at(2700), deadline)->reason,
+	           network::MatchEndReason::TIME_LIMIT);
+	TESTEQUALS(decide_fvd_match_outcome(true, 0, at(2699), deadline).has_value(), false);
+	TESTEQUALS(decide_fvd_match_outcome(false, 7000, at(2700), deadline)->winner,
+	           network::MatchWinner::HUNTER);
+	TESTEQUALS(decide_fvd_match_outcome(false, 0, at(10), deadline)->reason,
+	           network::MatchEndReason::ALL_BUILDERS_DEAD);
+	TESTEQUALS(decide_fvd_match_outcome(true, 7000, at(2700), std::nullopt)->reason,
+	           network::MatchEndReason::TOWER_LIMIT);
+
+	// Exercise the actual authoritative FVD state and recipient capture,
+	// not merely the rule helper. Disconnections count as dead without
+	// requiring mutation of game entities or destruction of their towers.
+	auto root = util::Path{
+		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
+	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	TESTEQUALS(fvd->get_match_outcome().has_value(), false);
+	TESTEQUALS(fvd->get_match_end_deadline().has_value(), false);
+	fvd->start_hunter_wave(state, at(0));
+	TESTEQUALS(fvd->get_match_end_deadline().value(), deadline);
+	fvd->evaluate_match_outcome(state, at(2699));
+	TESTEQUALS(fvd->get_match_outcome().has_value(), false);
+	// A fully disconnected team is eliminated, but its structures remain.
+	const auto entity_count = state->get_game_entities().size();
+	fvd->evaluate_match_outcome(state, at(20), {2, 3, 4, 5, 6, 7, 8});
+	TESTEQUALS(fvd->get_match_outcome()->winner, network::MatchWinner::HUNTER);
+	TESTEQUALS(fvd->get_match_outcome()->ended_at, at(20));
+	TESTEQUALS(state->get_game_entities().size(), entity_count);
+	fvd->evaluate_match_outcome(state, at(2700));
+	TESTEQUALS(fvd->get_match_outcome()->reason,
+	           network::MatchEndReason::ALL_BUILDERS_DEAD);
+	auto state_on_wire = network::capture_fvd_presentation_state(state, at(20));
+	TESTEQUALS(state_on_wire.match_outcome, fvd->get_match_outcome());
+}
+
 void fvd_hunter_spawning() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
 	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
