@@ -1249,7 +1249,7 @@ void fvd_match_outcome_rules() {
 	TESTEQUALS(fvd->get_match_end_deadline().has_value(), false);
 	fvd->start_hunter_wave(state, at(0));
 	TESTEQUALS(fvd->get_match_end_deadline().value(), deadline);
-	fvd->evaluate_match_outcome(state, at(2699));
+	fvd->evaluate_match_outcome(state, at(19));
 	TESTEQUALS(fvd->get_match_outcome().has_value(), false);
 	// A fully disconnected team is eliminated, but its structures remain.
 	const auto entity_count = state->get_game_entities().size();
