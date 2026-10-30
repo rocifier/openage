@@ -13,6 +13,23 @@ through the actual public-room relay, without human input.
 - **THEN** the authority receives all commands with their correct immutable
   identities and all four receive matching authoritative responses
 
+### Requirement: No artificial multiplayer lockstep
+
+The benchmark SHALL schedule host world-state offers and guest commands on
+independent wall-clock intervals, regardless of whether other guests have
+received or acknowledged earlier work. It SHALL report per-recipient state
+staleness and outstanding commands, including those not yet completed.
+
+#### Scenario: Slow client does not gate the workload
+- **WHEN** a Builder is delayed for several seconds during a busy five-player
+  synthetic projectile test
+- **THEN** the Hunter continues offering private world captures and each
+  healthy Builder continues issuing commands without waiting for that Builder
+- **AND** each client reports its own command latency, state age, pending
+  commands, latest delivered revision and superseded intermediate captures
+- **AND** the report distinguishes a transport benchmark pass from all
+  recipients being fully caught up
+
 ### Requirement: Separate simulated network conditions
 
 The benchmark tooling SHALL allow distinct simulated latency, jitter,
