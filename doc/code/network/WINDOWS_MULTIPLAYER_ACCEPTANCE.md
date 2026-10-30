@@ -32,6 +32,51 @@ the authoritative game simulation and tests disconnect continuation.
 The runner uses zero-based progress and prints failures only: returning to
 PowerShell with exit code 0 indicates success.
 
+## Asynchronous per-Builder Hunter streams (new, requires validation)
+
+After initial world bootstrap completes, the Hunter starts one independent
+C++ transport worker per connected Builder (at most seven remote Builders).
+Each worker is the **sole owner** of that Builder's authenticated
+`ConnectionSession` and TCP send/receive path. Its ordered outbound flow
+prioritizes participant disconnect notices and command results before a
+coalesced private world update; its host-side delta baseline, projectile
+delivery cursor and snapshot-recovery replies remain recipient-specific.
+
+The Hunter's coordinator only processes worker-reported departures and queues
+notifications for other workers. It **never calls `send_frame()` on any live
+Builder's streaming socket**. A blocked 15-second TCP send can stall that
+recipient but must not stall healthy recipients or the Hunter simulation.
+
+### Windows validation of this change
+
+1. Build this PR's C++ branch (the Python proxy changes belong to
+   independent draft PR #7). Run `run.exe test network::tests::lobby_capacity`,
+   including its new 4/8-player rapid private-capture, simultaneous recovery
+   snapshot, and post-recovery command checks.
+2. Run the other existing network regressions
+   `network::tests::lobby_relay_client`,
+   `network::tests::fvd_multi_session` and
+   `network::tests::world_delta`. Re-run `lobby_capacity` multiple
+   times to detect teardown or worker lifetime races.
+3. Combine the **PR #7 benchmark** with this branch in a local test branch
+   or rebuilt workspace. Repeat the same
+   `--kbps 2000 --rtt-ms 220 --jitter-ms 40 --arrows 1024`
+   five-player baseline, then
+   `--slow-client 4 --slow-kbps 256 --stall-after-s 6.5 --stall-s 3`,
+   with `--proxy-buffer-kb 64 --socket-buffer-kb 32`.
+   Confirm Builders 2–4 continue receiving fresh world captures and
+   command results despite Builder 5's backpressure. Inspect per-client
+   `state_age_p95_ms`, `command_p95_ms`, pending commands,
+   revisions, and proxy bytes—not only the aggregate `pass` field.
+4. Verify that closing Builder 5 still notifies the other Builders,
+   a surviving Builder can order units, and closing the Hunter terminates
+   all recipient workers and clients without stuck or orphaned sockets.
+
+No validated performance claim is made yet: this PR changes production C++
+transport and requires a Windows rebuild and actual shaped-link benchmark.
+The previous sequential code allowed a stalled recipient's send to delay
+every other recipient's next pass.
+
 ## Two Windows PCs (required)
 
 1. Run the **same FVD branch build and gameplay assets** on both PCs.
