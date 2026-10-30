@@ -22,6 +22,7 @@
 #include "coord/phys.h"
 #include "coord/tile.h"
 #include "gamestate/types.h"
+#include "network/messages.h"
 #include "pathfinding/types.h"
 #include "time/time.h"
 
@@ -252,6 +253,19 @@ public:
 	 * Empty before the wave starts and after the first horse spawns.
 	 */
 	std::optional<time::time_t> get_first_hunter_spawn_time() const;
+
+	/** Evaluate match end only on the authoritative simulation owner thread.
+	 * Disconnects count as eliminated Builders; they do not remove towers.
+	 * The first result is terminal, even across subsequent captures. */
+	void evaluate_match_outcome(const std::shared_ptr<GameState> &state,
+	                            const time::time_t &now,
+	                            const std::vector<player_id_t> &disconnected = {});
+
+	/** The final public winner and reason, if the match has ended. */
+	std::optional<network::MatchOutcome> get_match_outcome() const;
+
+	/** Host-simulation end-time deadline, if a match has started. */
+	std::optional<time::time_t> get_match_end_deadline() const;
 
 	/** Queue the first Hunter spawn immediately and replace its delayed schedule. */
 	void request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state,
@@ -632,6 +646,9 @@ private:
 	std::shared_ptr<openage::event::EventEntity> horse_spawn_target;
 	std::shared_ptr<openage::event::Event> next_hunter_spawn_event;
 	bool hunter_wave_started = false;
+	/** Simulation time pauses during lobby setup, suspension and authority handoff. */
+	std::optional<time::time_t> match_started_at{};
+	std::optional<network::MatchOutcome> match_outcome{};
 	/** Protect the match-relative first-spawn deadline read by the presenter. */
 	mutable std::mutex hunter_spawn_time_mutex;
 	std::optional<time::time_t> first_hunter_spawn_time;
