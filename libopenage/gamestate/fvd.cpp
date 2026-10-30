@@ -1546,9 +1546,66 @@ void FVD::start_hunter_wave(const std::shared_ptr<GameState> &state,
 	}
 	this->hunter_tower_active_from = spawn_time;
 	this->hunter_wave_started = true;
+	this->match_started_at = match_start;
 	this->next_hunter_spawn_event = loop->create_event(
 		"game.fvd_spawn_horse", this->horse_spawn_target, state, spawn_time);
 	loop->create_event("game.fvd_combat_tick", this->horse_spawn_target, state, match_start);
+}
+
+std::optional<network::MatchOutcome> FVD::get_match_outcome() const {
+	return this->match_outcome;
+}
+
+std::optional<time::time_t> FVD::get_match_end_deadline() const {
+	if (not this->match_started_at) return std::nullopt;
+	return *this->match_started_at + time::time_t::from_int(45 * 60);
+}
+
+void FVD::evaluate_match_outcome(
+	const std::shared_ptr<GameState> &state,
+	const time::time_t &now,
+	const std::vector<player_id_t> &disconnected) {
+	if (not this->match_started_at or this->match_outcome) return;
+	// Count only actually admitted Builders. Unused slots have no initial
+	// Builder entity after the lobby's pre-bootstrap pruning.
+	std::vector<bool> alive(this->player_count + 1, false);
+	size_t completed_towers = 0;
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		(void) id;
+		const auto &definition = entity->get_definition();
+		if (definition != this->builder and definition != this->tower) continue;
+		if (not builder_alive(entity, now)) continue;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (not ownership) continue;
+		const auto owner = ownership->get_owners().get(now);
+		if (owner < 2 or owner > this->player_count) continue;
+		if (definition == this->builder
+		    and std::find(disconnected.begin(), disconnected.end(), owner)
+		        == disconnected.end()) {
+			alive[owner] = true;
+		}
+		else if (definition == this->tower) {
+			++completed_towers;
+		}
+	}
+	const bool any_builder_alive = std::any_of(
+		alive.begin() + 2, alive.end(), [](bool value) { return value; });
+	if (not any_builder_alive) {
+		this->match_outcome = network::MatchOutcome{
+			network::MatchWinner::HUNTER,
+			network::MatchEndReason::ALL_BUILDERS_DEAD, now};
+	}
+	else if (completed_towers >= 7000) {
+		this->match_outcome = network::MatchOutcome{
+			network::MatchWinner::BUILDERS,
+			network::MatchEndReason::TOWER_LIMIT, now};
+	}
+	else if (now >= *this->get_match_end_deadline()) {
+		this->match_outcome = network::MatchOutcome{
+			network::MatchWinner::BUILDERS,
+			network::MatchEndReason::TIME_LIMIT, now};
+	}
 }
 
 std::optional<int> hunter_spawn_countdown(
