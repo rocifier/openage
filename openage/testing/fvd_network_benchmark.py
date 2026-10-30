@@ -9,6 +9,7 @@ See doc/code/network/FVD_SIMULATED_NETWORK_TESTING.md.
 from __future__ import annotations
 
 import argparse
+from collections import deque
 import json
 import os
 import random
@@ -55,6 +56,92 @@ def bounded_sleep_seconds(deadline: float, now: float) -> float:
     return max(0.0, min(0.02, deadline - now))
 
 
+class TokenBucketPacer:
+    """A clock-replenished byte budget; late wakeups never incur extra debt.
+
+    Each forward direction owns its own pacer. Bursts are bounded by
+    burst_ms of capacity, with enough allowance for one 4096-byte recv.
+    """
+
+    def __init__(self, kbps: float, burst_ms: float = 50.0,
+                 chunk_bytes: int = 4096, now: float | None = None):
+        self.rate = kbps * 125.0  # decimal kilobits/second -> bytes/second
+        self.capacity = max(float(chunk_bytes),
+                            self.rate * burst_ms / 1000.0) if self.rate else 0.0
+        self.tokens = self.capacity
+        self.last = time.monotonic() if now is None else now
+
+    def wait_seconds(self, size: int, now: float) -> float:
+        """Consume available tokens or return required wait (no consumption)."""
+        if not self.rate:
+            return 0.0
+        if size > self.capacity:
+            raise ValueError("Pacer chunk exceeds burst capacity")
+        self.tokens = min(self.capacity,
+                          self.tokens + max(0.0, now - self.last) * self.rate)
+        self.last = now
+        if self.tokens >= size:
+            self.tokens -= size
+            return 0.0
+        return (size - self.tokens) / self.rate
+
+
+class TransferStats:
+    """Forwarded bytes and backpressure, aggregated per proxy direction."""
+
+    def __init__(self):
+        self.bytes = 0
+        self.first_at: float | None = None
+        self.last_at: float | None = None
+        self.pacing_wait_s = 0.0
+        self.reader_blocked_s = 0.0
+        self.peak_queue_chunks = 0
+        self.full_queue_events = 0
+        self.peak_1s_kbps = 0.0
+        self._trailing: deque[tuple[float, int]] = deque()
+        self._trailing_bytes = 0
+
+    def delivered(self, size: int, at: float) -> None:
+        if self.first_at is None:
+            self.first_at = at
+        self.last_at = at
+        self.bytes += size
+        self._trailing.append((at, size))
+        self._trailing_bytes += size
+        while self._trailing and self._trailing[0][0] < at - 1.0:
+            _, expired = self._trailing.popleft()
+            self._trailing_bytes -= expired
+        # A trailing one-second window, not an instantaneous rate.
+        self.peak_1s_kbps = max(self.peak_1s_kbps,
+                                self._trailing_bytes * 8.0 / 1000.0)
+
+    def report(self, window_seconds: float) -> dict:
+        active_seconds = (self.last_at - self.first_at
+                          if self.first_at is not None and self.last_at is not None
+                          else 0.0)
+        return {
+            "bytes": self.bytes,
+            "peak_1s_kbps": round(self.peak_1s_kbps, 2),
+            "session_average_kbps": round(
+                self.bytes * 8.0 / (1000.0 * max(window_seconds, 0.001)), 2),
+            "first_to_last_kbps": round(
+                self.bytes * 8.0 / (1000.0 * max(active_seconds, 0.001)), 2),
+            "pacing_wait_ms": round(self.pacing_wait_s * 1000.0, 2),
+            "reader_blocked_ms": round(self.reader_blocked_s * 1000.0, 2),
+            "peak_queue_chunks": self.peak_queue_chunks,
+            "full_queue_events": self.full_queue_events,
+        }
+
+
+def sleep_until(deadline: float, stopping: threading.Event) -> None:
+    """Deadline-based sleeping, immune to negative-delay clock races."""
+    while not stopping.is_set():
+        delay = bounded_sleep_seconds(deadline, time.monotonic())
+        if delay <= 0.0:
+            return
+        time.sleep(delay)
+
+
 class TcpShaper:
     """Full-duplex TCP proxy. Each direction preserves byte order and reliability."""
 
@@ -62,6 +149,8 @@ class TcpShaper:
         self, listen_port: int, target_port: int, *,
         rtt_ms: float, jitter_ms: float, kbps: float, seed: int,
         stall_after_s: float = -1, stall_s: float = 0,
+        proxy_buffer_kb: int = 64, socket_buffer_kb: int = 32,
+        burst_ms: float = 50.0,
     ):
         self.target_port = target_port
         self.one_way_s = rtt_ms / 2000.0
@@ -70,6 +159,10 @@ class TcpShaper:
         self.seed = seed
         self.stall_after_s = stall_after_s
         self.stall_s = stall_s
+        self.proxy_queue_chunks = max(1, proxy_buffer_kb * 1024 // 4096)
+        self.socket_buffer_bytes = socket_buffer_kb * 1024
+        self.burst_ms = burst_ms
+        self.observed_socket_recvbuf_bytes: list[int] = []
         self.stopping = threading.Event()
         self.listener = socket.socket()
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -80,6 +173,7 @@ class TcpShaper:
         self.threads: list[threading.Thread] = []
         self.bytes_up = 0
         self.bytes_down = 0
+        self.stats = {"up": TransferStats(), "down": TransferStats()}
         self._lock = threading.Lock()
         self.worker_errors: list[str] = []
         self.acceptor = threading.Thread(target=self._accept, daemon=True)
@@ -97,12 +191,28 @@ class TcpShaper:
                 upstream = socket.create_connection(
                     ("127.0.0.1", self.target_port), timeout=10)
                 upstream.settimeout(None)  # Blocking TCP sendall; reader uses select().
-            except OSError:
+                if self.socket_buffer_bytes:
+                    # Bound both proxy kernel receive buffers to propagate
+                    # backpressure instead of buffering megabytes invisibly.
+                    # Actual sizes are OS-dependent and reported.
+                    for endpoint in (incoming, upstream):
+                        endpoint.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF,
+                                            self.socket_buffer_bytes)
+                        endpoint.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF,
+                                            self.socket_buffer_bytes)
+            except OSError as exc:
+                with self._lock:
+                    self.worker_errors.append(
+                        f"proxy connection setup failed: {type(exc).__name__}: {exc}")
                 incoming.close()
+                if "upstream" in locals():
+                    upstream.close()
                 continue
             with self._lock:
                 connection_id = len(self.sockets) // 2
                 self.sockets.extend((incoming, upstream))
+                self.observed_socket_recvbuf_bytes.append(
+                    upstream.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF))
             start = time.monotonic()
             for direction, source, dest in (
                 ("up", incoming, upstream),
@@ -126,7 +236,10 @@ class TcpShaper:
         # Read promptly, schedule each chunk once and pace the output queue.
         rng = random.Random(self.seed + connection_id * 101
                             + (1 if direction == "down" else 0))
-        pending: queue.Queue[tuple[float, bytes]] = queue.Queue(maxsize=256)
+        pending: queue.Queue[tuple[float, bytes]] = queue.Queue(
+            maxsize=self.proxy_queue_chunks)
+        pacer = TokenBucketPacer(self.bytes_per_s * 8.0 / 1000.0,
+                                 self.burst_ms)
         reader_done = threading.Event()
         local_stop = threading.Event()
 
@@ -143,11 +256,22 @@ class TcpShaper:
                                 + rng.uniform(-self.jitter_s, self.jitter_s))
                     due = time.monotonic() + delay
                     while not self.stopping.is_set() and not local_stop.is_set():
+                        full_before_put = pending.full()
+                        entered = time.monotonic()
                         try:
-                            pending.put((due, data), timeout=0.2)
+                            pending.put((due, data), timeout=0.05)
+                            with self._lock:
+                                stats = self.stats[direction]
+                                stats.peak_queue_chunks = max(
+                                    stats.peak_queue_chunks, pending.qsize())
+                                if full_before_put:
+                                    stats.reader_blocked_s += time.monotonic() - entered
                             break
                         except queue.Full:
-                            continue
+                            with self._lock:
+                                stats = self.stats[direction]
+                                stats.full_queue_events += 1
+                                stats.reader_blocked_s += time.monotonic() - entered
             except (OSError, ValueError):
                 # Closing the proxy may invalidate a socket in select().
                 pass
@@ -156,7 +280,8 @@ class TcpShaper:
 
         reader = threading.Thread(target=read_loop, daemon=True)
         reader.start()
-        next_send = 0.0
+        stall_at = start + self.stall_after_s
+        stall_until = stall_at + self.stall_s
         try:
             while not self.stopping.is_set():
                 try:
@@ -165,22 +290,41 @@ class TcpShaper:
                     if reader_done.is_set():
                         break
                     continue
-                # Applies only to the selected client's downstream link.
-                if direction == "down" and self.stall_after_s >= 0 and self.stall_s:
-                    stall_at = start + self.stall_after_s
-                    if time.monotonic() >= stall_at and time.monotonic() < stall_at + self.stall_s:
-                        scheduled = max(scheduled, stall_at + self.stall_s)
-                deliver_at = max(scheduled, next_send)
-                while not self.stopping.is_set() and time.monotonic() < deliver_at:
-                    remaining = bounded_sleep_seconds(deliver_at, time.monotonic())
-                    if remaining > 0:
-                        time.sleep(remaining)
+                # Wait for per-chunk one-way latency once, not once per
+                # 4096-byte recv after the previous chunk finished.
+                due = scheduled
+                if (direction == "down" and self.stall_s
+                        and stall_at <= due < stall_until):
+                    due = stall_until
+                sleep_until(due, self.stopping)
+                if self.stopping.is_set():
+                    break
+                # Clock-replenished tokens allow short catch-up bursts after
+                # OS scheduler delays instead of accumulating delay on each
+                # forwarded chunk. The two directions are independent.
+                while not self.stopping.is_set():
+                    wait_s = pacer.wait_seconds(len(data), time.monotonic())
+                    if wait_s == 0:
+                        break
+                    entered = time.monotonic()
+                    sleep_until(entered + wait_s, self.stopping)
+                    with self._lock:
+                        self.stats[direction].pacing_wait_s += (
+                            time.monotonic() - entered)
+                if self.stopping.is_set():
+                    break
+                # A stall can begin during bandwidth pacing. Check again
+                # immediately before forwarding downstream bytes.
+                if direction == "down" and self.stall_s:
+                    now = time.monotonic()
+                    if stall_at <= now < stall_until:
+                        sleep_until(stall_until, self.stopping)
                 if self.stopping.is_set():
                     break
                 dest.sendall(data)
-                if self.bytes_per_s:
-                    next_send = max(deliver_at, time.monotonic()) + len(data) / self.bytes_per_s
+                finished = time.monotonic()
                 with self._lock:
+                    self.stats[direction].delivered(len(data), finished)
                     if direction == "up":
                         self.bytes_up += len(data)
                     else:
@@ -208,6 +352,15 @@ class TcpShaper:
                 except OSError:
                     pass
             reader.join(timeout=2)
+
+    def report_stats(self, window_seconds: float) -> dict:
+        with self._lock:
+            return {
+                "configured_kbps": round(self.bytes_per_s * 8.0 / 1000.0, 2),
+                "observed_recvbuf_bytes": list(self.observed_socket_recvbuf_bytes),
+                "up": self.stats["up"].report(window_seconds),
+                "down": self.stats["down"].report(window_seconds),
+            }
 
     def close(self) -> None:
         self.stopping.set()
@@ -288,6 +441,12 @@ def main() -> int:
                         help="Maximum added variation of simulated RTT (ms)")
     parser.add_argument("--kbps", type=float, default=2000,
                         help="Per-direction bandwidth for each guest; zero means unlimited")
+    parser.add_argument("--proxy-buffer-kb", type=int, default=64,
+                        help="Maximum queued bytes per proxy direction (default 64 KiB)")
+    parser.add_argument("--socket-buffer-kb", type=int, default=32,
+                        help="Requested TCP socket send/receive buffer KiB; 0 leaves OS defaults")
+    parser.add_argument("--burst-ms", type=float, default=50.0,
+                        help="Token bucket burst capacity in milliseconds of link data")
     parser.add_argument("--slow-client", type=int, default=0, choices=range(0, 5),
                         help="1-4 selects one of four guest endpoints for a stall")
     parser.add_argument("--stall-after-s", type=float, default=6.5)
@@ -311,7 +470,10 @@ def main() -> int:
             or args.rounds < 1 or args.rounds > 200
             or args.update_ms < 1 or args.update_ms > 2000
             or args.command_ms < 1 or args.command_ms > 2000
-            or args.arrows < 0 or args.arrows > 2048):
+            or args.arrows < 0 or args.arrows > 2048
+            or not 4 <= args.proxy_buffer_kb <= 4096
+            or not 0 <= args.socket_buffer_kb <= 4096
+            or not 0 <= args.burst_ms <= 1000):
         parser.error("Negative network parameters or unsupported rounds/arrows")
 
     relay_port = free_port()
@@ -330,6 +492,9 @@ def main() -> int:
                 seed=args.seed + i * 10000,
                 stall_after_s=args.stall_after_s if slow else -1,
                 stall_s=args.stall_s if slow else 0,
+                proxy_buffer_kb=args.proxy_buffer_kb,
+                socket_buffer_kb=args.socket_buffer_kb,
+                burst_ms=args.burst_ms,
             ))
         env = os.environ.copy()
         env.update({
@@ -360,6 +525,7 @@ def main() -> int:
         for proxy in proxies:
             proxy.close()
     proxy_errors = [error for proxy in proxies for error in proxy.worker_errors]
+    duration = time.monotonic() - began
     match = RESULT.search(output)
     measurements = parse_report_fields(match.group(1)) if match else {}
     clients = [parse_report_fields(m.group(1)) for m in CLIENT.finditer(output)]
@@ -374,7 +540,7 @@ def main() -> int:
         "independently_scheduled": independently_scheduled,
         "topology_verified": topology_verified,
         "exit_code": return_code,
-        "elapsed_s": round(time.monotonic() - began, 3),
+        "elapsed_s": round(duration, 3),
         "profile": {
             "rtt_ms": args.rtt_ms, "jitter_ms": args.jitter_ms,
             "kbps": args.kbps, "slow_client": args.slow_client,
@@ -382,6 +548,9 @@ def main() -> int:
             "slow_kbps": args.slow_kbps, "arrows": args.arrows,
             "rounds": args.rounds, "seed": args.seed,
             "update_ms": args.update_ms, "command_ms": args.command_ms,
+            "proxy_buffer_kb": args.proxy_buffer_kb,
+            "socket_buffer_kb": args.socket_buffer_kb,
+            "burst_ms": args.burst_ms,
         },
         "measurements": measurements,
         "clients": [
@@ -392,12 +561,16 @@ def main() -> int:
             for client in clients
         ],
         "links": [
-            {"client": i + 1, "bytes_up": p.bytes_up, "bytes_down": p.bytes_down}
+            {"client": i + 1, "bytes_up": p.bytes_up, "bytes_down": p.bytes_down,
+             **p.report_stats(duration)}
             for i, p in enumerate(proxies)
         ],
         "warning": "Continuous scripted relay workers, not graphical play or authoritative combat. "
                    "World updates may be superseded before delivery; command_pending, "
                    "latest_applied_revision, world_skipped and state_age measure backlogs. "
+                   "The proxy peak_1s_kbps measures forwarded application bytes, not "
+                   "an end-to-end network goodput guarantee. Proxy buffers are "
+                   "bounded but cannot fully control OS/game socket buffers. "
                    "Synthetic byte delays are not an OS-level packet-loss emulator.",
     }
     if proxy_errors:
