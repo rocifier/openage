@@ -332,6 +332,76 @@ void run_capacity_case(size_t count, bool force_builder_creator) {
 		TESTEQUALS(builder->get_replication()->get_local_kills().value(),
 		           uint64_t{200 + player});
 	}
+	// Exercise real concurrent recipient workers: overwrite several private
+	// host captures before waiting, and require the final capture to arrive
+	// intact for every Builder. A worker must delta against its *transmitted*
+	// baseline rather than against a skipped intermediate capture.
+	std::map<gamestate::player_id_t, uint64_t> final_revisions{};
+	for (uint64_t wave = 0; wave < 8; ++wave) {
+		for (const auto &[player, builder] : builders) {
+			(void) builder;
+			final_revisions[player] = revision;
+			authority->provide_host_update(private_world(
+				count, player, revision++, 1000 + wave * 100 + player));
+		}
+	}
+	for (const auto &[player, builder] : builders) {
+		await_condition("independent recipient final revision " + std::to_string(player),
+		                [&]() {
+			                auto tracker = builder->get_replication();
+			                return tracker
+			                    and tracker->get_revision() >= final_revisions.at(player);
+		                });
+		TESTEQUALS(builder->get_replication()->get_revision(),
+		           final_revisions.at(player));
+		TESTEQUALS(builder->get_replication()->get_local_kills().value(),
+		           uint64_t{1700 + player});
+	}
+	// Each worker must also service its own authenticated recovery request
+	// without corrupting other recipients' baselines or session sequences.
+	for (const auto &[player, builder] : builders) {
+		(void) player;
+		TESTEQUALS(builder->request_recovery_snapshot(), true);
+	}
+	for (const auto &[player, builder] : builders) {
+		await_condition("independent recipient snapshot recovery "
+		                + std::to_string(player), [&]() {
+			return builder->status().snapshot_recoveries >= 1;
+		});
+		TESTEQUALS(builder->get_replication()->get_revision(),
+		           final_revisions.at(player));
+	}
+	// Authenticated commands are still accepted on all peer sockets after
+	// concurrent delta streaming and recovery snapshots.
+	for (const auto &[player, builder] : builders) {
+		CommandIntent move{};
+		move.kind = CommandKind::MOVE;
+		move.entity_ids = {static_cast<uint64_t>(10000 + player)};
+		move.target = {72, static_cast<int64_t>(50 + player), 0};
+		TESTEQUALS(builder->send_guest_command(std::move(move)), true);
+	}
+	std::vector<AuthenticatedCommand> concurrent_orders{};
+	await_condition("post-recovery parallel commands", [&]() {
+		auto batch = authority->take_host_commands();
+		concurrent_orders.insert(concurrent_orders.end(),
+		                         batch.begin(), batch.end());
+		return concurrent_orders.size() >= builders.size();
+	});
+	TESTEQUALS(concurrent_orders.size(), builders.size());
+	for (const auto &command : concurrent_orders) {
+		TESTEQUALS(builders.contains(command.identity.player_id), true);
+		CommandResult result{};
+		result.command_id = command.intent.command_id;
+		result.status = CommandStatus::ACCEPTED;
+		result.world_revision = revision;
+		TESTEQUALS(authority->send_command_result(
+			command.identity, authority->get_session_generation(),
+			std::move(result)), true);
+	}
+	for (const auto &[player, builder] : builders) {
+		await_condition("post-recovery command ACK " + std::to_string(player),
+		                [&]() { return builder->status().pending_order_count == 0; });
+	}
 	// The original Builder creator is just another guest after rehosting.
 	// Its loss must not close the Hunter's room or other Builder transports.
 	const auto departed_id = force_builder_creator
