@@ -133,6 +133,21 @@
   alpha target. **User acceptance, 2026-10-29:** reconnect works and a real
   host handover preserved the match. Four/eight-player, cross-platform and
   extended failure-path stress remain alpha follow-up rather than blockers.
+- [x] 1.9a Implement an independent TCP/ConnectionSession owner for each
+  Builder after authenticated multi-host bootstrap. Each worker advances
+  recipient-private delta/projectile cursors, sends command decisions and
+  recovery snapshots, and reads that Builder's commands and heartbeats.
+  The Hunter coordinator handles disconnect bookkeeping and queues notices,
+  never sending frames on another Builder's socket. Add 4/8-client
+  integration regressions for rapid captures, concurrent recovery requests,
+  post-recovery commands, and existing disconnect/handoff checks.
+  **Implementation committed on a separate PR; compilation pending.**
+- [ ] 1.9b Verify true slow-recipient isolation with the calibrated PR #7
+  TCP proxy, particularly Builder 5 at 256 kbps and a 3s stall versus
+  Builders 2–4 at 2 Mbps. Require healthy clients' command P95, state-age
+  P95/max, private revisions and pending orders to remain near the
+  no-slow-client control; confirm correct Builder departure notices,
+  queue coalescing, recovery and worker teardown on Windows and Linux.
 - [ ] 1.10 Add match end-state and victory feedback to the same replicated
   state/event pipeline when win/loss rules are implemented.
 
