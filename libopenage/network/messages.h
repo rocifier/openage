@@ -277,6 +277,27 @@ struct ArrowState {
 	time::time_t impact_time{};
 };
 
+/** The authoritative winner, never inferred by a recipient from fogged state. */
+enum class MatchWinner : uint16_t {
+	HUNTER = 1,
+	BUILDERS = 2,
+};
+
+/** Why the host ended the game. Reasons have fixed winner semantics. */
+enum class MatchEndReason : uint16_t {
+	ALL_BUILDERS_DEAD = 1,
+	TIME_LIMIT = 2,
+	TOWER_LIMIT = 3,
+};
+
+struct MatchOutcome {
+	MatchWinner winner{MatchWinner::HUNTER};
+	MatchEndReason reason{MatchEndReason::ALL_BUILDERS_DEAD};
+	time::time_t ended_at{time::TIME_ZERO};
+
+	bool operator==(const MatchOutcome &other) const = default;
+};
+
 /** Complete authoritative FVD state carried by a snapshot or delta. */
 struct WorldState {
 	uint64_t base_revision{0};
@@ -287,6 +308,8 @@ struct WorldState {
 	uint64_t local_kill_count{0};
 	/** Pending first Hunter spawn deadline, authored by the simulation. */
 	std::optional<time::time_t> first_hunter_spawn_time{};
+	/** Set only after authoritative victory detection; terminal and public. */
+	std::optional<MatchOutcome> match_outcome{};
 	std::vector<PlayerState> players{};
 	std::vector<EntityState> entities{};
 	std::vector<TileReservation> reservations{};
