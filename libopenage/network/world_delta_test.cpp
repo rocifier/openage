@@ -163,6 +163,26 @@ void world_delta() {
 	TESTEQUALS(observed_death.size(), size_t{1});
 	TESTEQUALS(observed_death.front().death, true);
 	TESTEQUALS(observed_death.front().position, (coord::phys3{30, 30, 0}));
+	// Same-tick removal is a real authoritative death, even if the
+	// presenter has not observed a clock advance since the last capture.
+	auto same_tick_death = hp_dead;
+	same_tick_death.simulation_time = hp_hit.simulation_time;
+	TESTEQUALS(confirmed_combat_effects(hp_hit, same_tick_death).size(), size_t{1});
+	// A zero-HP retained corpse produces a death visual immediately;
+	// its later removal must not produce the same death a second time.
+	auto zero_hp = hp_hit;
+	zero_hp.entities.front().health = 0;
+	auto lethal_effects = confirmed_combat_effects(hp_hit, zero_hp);
+	TESTEQUALS(lethal_effects.size(), size_t{1});
+	TESTEQUALS(lethal_effects.front().death, true);
+	TESTEQUALS(confirmed_combat_effects(zero_hp, hp_dead).empty(), true);
+	// An opponent vanishing into fog is not an authoritative death.
+	auto fog_hidden = hp_dead;
+	fog_hidden.map_size = 128;
+	fog_hidden.fog.push_back({PlayerRole::BUILDER,
+		std::vector<uint64_t>(fog_word_count(128), 0),
+		std::vector<uint64_t>(fog_word_count(128), 0), {}});
+	TESTEQUALS(confirmed_combat_effects(hp_hit, fog_hidden).empty(), true);
 
 	// A 0.2-second projectile can launch and hit between successive
 	// recipient captures. Keep its unique launch event for the guest's
@@ -269,6 +289,53 @@ void world_delta() {
 		cursor += 2048;
 	}
 	TESTEQUALS(cursor, uint64_t{4096});
+
+	// Simulate a backed-up recipient draining three consecutive 2048-event
+	// batches while health comes only from authoritative state. A new
+	// recovery snapshot must reject stale-session deltas and stale visuals.
+	auto stalled_initial = flood_base;
+	stalled_initial.world_revision = 100;
+	stalled_initial.simulation_time = time::time_t::from_int(70);
+	stalled_initial.entities = {
+		{300, 2, "fvd.data.entities.Builder", {40, 40, 0}, 25, 25}};
+	WorldDeltaBaseline stalled_host{};
+	stalled_host.accept_snapshot(stalled_initial);
+	auto stalled_guest = stalled_initial;
+	for (uint64_t batch = 0; batch < 3; ++batch) {
+		auto frame = stalled_initial;
+		frame.world_revision = 101 + batch;
+		frame.simulation_time = time::time_t::from_int(71 + batch);
+		frame.entities.front().health = 20 - static_cast<int64_t>(batch) * 5;
+		for (uint64_t id = batch * 2048 + 1; id <= (batch + 1) * 2048; ++id) {
+			frame.arrows.push_back({id, 1, 300, {40, 40, 1}, {41, 41, 0},
+				time::time_t::from_int(65),
+				time::time_t::from_double(65.45)});
+		}
+		auto batch_delta = stalled_host.advance(frame);
+		TESTEQUALS(batch_delta.changed.arrows.size(), size_t{2048});
+		TESTEQUALS(batch_delta.changed.arrows.front().arrow_id, batch * 2048 + 1);
+		stalled_guest = apply_world_delta(
+			stalled_guest, decode_world_delta(encode_world_delta(batch_delta)));
+		TESTEQUALS(stalled_guest.entities.front().health.value(),
+		           20 - static_cast<int64_t>(batch) * 5);
+		TESTEQUALS(stalled_guest.arrows.size(), size_t{2048});
+		TESTEQUALS(stalled_guest.arrows.back().arrow_id, (batch + 1) * 2048);
+	}
+	auto stalled_recovery = stalled_initial;
+	stalled_recovery.world_revision = 130;
+	stalled_recovery.simulation_time = time::time_t::from_int(80);
+	stalled_recovery.entities.front().health = 7;
+	stalled_recovery.arrows.clear();
+	stalled_host.accept_snapshot(stalled_recovery);
+	auto recovery_next = stalled_recovery;
+	recovery_next.world_revision = 131;
+	recovery_next.simulation_time = time::time_t::from_int(81);
+	auto recovered_delta = stalled_host.advance(recovery_next);
+	TESTTHROWS(apply_world_delta(stalled_guest, recovered_delta));
+	auto recovered_guest = apply_world_delta(stalled_recovery,
+		decode_world_delta(encode_world_delta(recovered_delta)));
+	TESTEQUALS(recovered_guest.entities.front().health.value(), int64_t{7});
+	TESTEQUALS(recovered_guest.arrows.empty(), true);
 
 	// Corruption, duplicate removals, wrong players and gaps cannot
 	// change a client's last accepted state.

@@ -280,8 +280,10 @@ std::vector<ConfirmedCombatEffect> confirmed_combat_effects(
 		}
 		else if (next->second->health
 		         and *next->second->health < *prior.health) {
+			// A zero-HP entity retained until removal is already dead:
+			// display the death effect once, never a nonlethal hit flash.
 			effects.push_back({
-				prior.entity_id, next->second->position, false});
+				prior.entity_id, next->second->position, *next->second->health <= 0});
 		}
 	}
 	return effects;

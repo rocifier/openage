@@ -858,8 +858,9 @@ void Presenter::record_confirmed_combat_effects(
 		this->fvd_previous_combat_world.reset();
 		this->fvd_combat_visuals.clear();
 	}
-	if (this->fvd_previous_combat_world
-	    and world.simulation_time != this->fvd_previous_combat_world->simulation_time) {
+	// A lethal state transition can be captured twice at the same simulation
+	// time. Diff every confirmed state; identical states produce no effects.
+	if (this->fvd_previous_combat_world) {
 		const auto confirmed = network::confirmed_combat_effects(
 			*this->fvd_previous_combat_world, world);
 		const auto now = std::chrono::steady_clock::now();
