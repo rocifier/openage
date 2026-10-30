@@ -72,6 +72,12 @@ void ReplicationTracker::accept_snapshot(const WorldState &snapshot) {
 		                     << snapshot.world_revision
 		                     << " is older than applied revision " << this->revision};
 	}
+	// A recovery snapshot must never silently undo or rewrite a result that
+	// this recipient has already accepted. A new match uses a new tracker.
+	if (this->initialized and this->reconstructed_world.match_outcome
+	    and snapshot.match_outcome != this->reconstructed_world.match_outcome) {
+		throw Error{MSG(err) << "FVD recovery snapshot changed terminal match outcome"};
+	}
 
 	auto towers = local_tower_kills(snapshot);
 	this->reconstructed_world = snapshot;
