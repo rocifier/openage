@@ -1607,6 +1607,42 @@ void FVD::evaluate_match_outcome(
 			++completed_towers;
 		}
 	}
+	// A genuinely killed Builder loses all towers, sites and foundations.
+	// Mere disconnection counts toward elimination but deliberately leaves
+	// that Builder's structures in the world, as the rules specify.
+	for (player_id_t owner = 2; owner <= this->player_count; ++owner) {
+		if (alive[owner]
+		    or std::find(disconnected.begin(), disconnected.end(), owner) != disconnected.end()
+		    or not this->collapsed_builders.insert(owner).second) continue;
+		std::vector<entity_id_t> pending_builders{};
+		for (const auto &[builder_id, build] : this->build_orders) {
+			if (build.order->get_owner() == owner) pending_builders.push_back(builder_id);
+		}
+		for (auto id : pending_builders) this->cancel_build(state, id, now, false);
+		std::vector<entity_id_t> towers{};
+		std::vector<entity_id_t> foundations{};
+		for (const auto &[id, entity] : state->get_game_entities()) {
+			const auto &definition = entity->get_definition();
+			if (definition != this->tower and definition != this->foundation) continue;
+			auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+				entity->get_component(component::component_t::OWNERSHIP));
+			if (not ownership or ownership->get_owners().get(now) != owner) continue;
+			if (definition == this->tower) towers.push_back(id);
+			else foundations.push_back(id);
+		}
+		for (auto id : towers) this->destroy_tower(state, id, now);
+		for (auto id : foundations) this->delete_owned_foundation(state, owner, id, now);
+	}
+	// Recount after collapsing dead owners. Only *completed* living Towers
+	// count toward the 7,000-tower Builder win condition.
+	completed_towers = 0;
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		if (entity->get_definition() != this->tower
+		    or not builder_alive(entity, now)) continue;
+		const auto footprint = this->tower_footprints.find(id);
+		if (footprint != this->tower_footprints.end()
+		    and not footprint->second.under_construction) ++completed_towers;
+	}
 	const bool any_builder_alive = std::any_of(
 		alive.begin() + 2, alive.end(), [](bool value) { return value; });
 	this->match_outcome = decide_fvd_match_outcome(
