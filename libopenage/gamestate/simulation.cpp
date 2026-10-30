@@ -200,6 +200,17 @@ void GameSimulation::run() {
 				this->game->get_state(), current_time, std::move(request.callback));
 		}
 		this->event_loop->reach_time(current_time, this->game->get_state());
+		// Evaluate wins only on the simulation owner thread after all due
+		// combat/build events. The first result becomes immutable and appears
+		// in both the host presentation and subsequent recipient captures.
+		if (auto fvd = this->game->get_state()->get_fvd()) {
+			std::vector<player_id_t> departed{};
+			{
+				std::lock_guard lock{this->bootstrap_mutex};
+				departed = this->network_disconnected_players;
+			}
+			fvd->evaluate_match_outcome(this->game->get_state(), current_time, departed);
+		}
 		this->update_fvd_presentation_state(current_time);
 		// Capture only on the simulation owner thread: entity and event state
 		// must not be enumerated concurrently from the Qt/render thread.
