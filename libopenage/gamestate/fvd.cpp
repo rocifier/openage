@@ -935,6 +935,7 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
                         uint64_t route_revision,
                         bool finish,
                         const time::time_t &time) {
+	if (this->match_outcome) return;
 	auto it = this->build_orders.find(builder);
 	if (it == this->build_orders.end()
 	    or it->second.order->get_id() != order_id
@@ -1059,6 +1060,7 @@ void FVD::start_next_queued_build(const std::shared_ptr<GameState> &state,
 
 void FVD::refresh_paths(const std::shared_ptr<GameState> &state,
                         const time::time_t &time) {
+	if (this->match_outcome) return;
 	std::vector<entity_id_t> destroyed;
 	for (const auto &[tower_id, footprint] : this->tower_footprints) {
 		if (footprint.under_construction) {
