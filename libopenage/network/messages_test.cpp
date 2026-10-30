@@ -359,6 +359,32 @@ void messages() {
 	TESTEQUALS(roundtrip_hunter.arrows.back().owner_id, gamestate::player_id_t{1});
 	TESTEQUALS(roundtrip_hunter.arrows.back().impact_time,
 	           time::time_t::from_double(3.70));
+	// Match outcomes are host-authored and public: snapshots must reject
+	// unknown reasons, impossible winner/reason pairs and future end times.
+	auto winner_state = state;
+	winner_state.match_outcome = {MatchWinner::BUILDERS,
+	                              MatchEndReason::TOWER_LIMIT,
+	                              state.simulation_time};
+	auto winner_bytes = encode_world_state(winner_state);
+	auto winner_roundtrip = decode_world_state(winner_bytes);
+	TESTEQUALS(winner_roundtrip.match_outcome, winner_state.match_outcome);
+	auto invalid_winner = winner_state;
+	invalid_winner.match_outcome->winner = MatchWinner::HUNTER;
+	TESTTHROWS(encode_world_state(invalid_winner));
+	invalid_winner = winner_state;
+	invalid_winner.match_outcome->reason = static_cast<MatchEndReason>(99);
+	TESTTHROWS(encode_world_state(invalid_winner));
+	invalid_winner = winner_state;
+	invalid_winner.match_outcome->ended_at = time::time_t::from_int(99);
+	TESTTHROWS(encode_world_state(invalid_winner));
+	// v17 always includes 12 bytes of result metadata, with a flag that
+	// distinguishes an absent outcome from the legitimate zero timestamp.
+	auto invalid_winner_wire = winner_bytes;
+	invalid_winner_wire[57] = 9; // Invalid winner enum in the fixed header.
+	TESTTHROWS(decode_world_state(invalid_winner_wire));
+	auto false_outcome = encode_world_state(state);
+	false_outcome[57] = 1; // Result fields without outcome flag.
+	TESTTHROWS(decode_world_state(false_outcome));
 	auto expired_spawn = state;
 	expired_spawn.first_hunter_spawn_time = time::time_t::from_int(3);
 	TESTTHROWS(encode_world_state(expired_spawn));
