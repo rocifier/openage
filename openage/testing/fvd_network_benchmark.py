@@ -433,10 +433,101 @@ def parse_report_fields(line: str) -> dict[str, int | float | str]:
     return fields
 
 
+def run_calibration(args: argparse.Namespace) -> int:
+    """Calibrate this proxy against a known localhost byte stream (no FVD)."""
+    expected = args.calibrate_kb * 1024
+    payload = bytes([0xA5]) * expected
+    relay = socket.socket()
+    relay.bind(("127.0.0.1", 0))
+    relay.listen(1)
+    relay.settimeout(args.timeout_s)
+    proxy = TcpShaper(
+        free_port(), relay.getsockname()[1],
+        rtt_ms=args.rtt_ms, jitter_ms=args.jitter_ms,
+        kbps=args.kbps, seed=args.seed,
+        proxy_buffer_kb=args.proxy_buffer_kb,
+        socket_buffer_kb=args.socket_buffer_kb,
+        burst_ms=args.burst_ms,
+    )
+    server_errors: list[str] = []
+
+    def send_known_bytes() -> None:
+        try:
+            conn, _ = relay.accept()
+            with conn:
+                conn.settimeout(args.timeout_s)
+                conn.sendall(payload)
+                conn.shutdown(socket.SHUT_WR)
+        except Exception as exc:
+            server_errors.append(f"{type(exc).__name__}: {exc}")
+
+    sender = threading.Thread(target=send_known_bytes, daemon=True)
+    sender.start()
+    received = bytearray()
+    started = time.monotonic()
+    transfer_error: str | None = None
+    try:
+        with socket.create_connection(("127.0.0.1", proxy.listen_port),
+                                      timeout=args.timeout_s) as client:
+            client.settimeout(args.timeout_s)
+            while len(received) < expected:
+                chunk = client.recv(min(65536, expected - len(received)))
+                if not chunk:
+                    break
+                received.extend(chunk)
+    except Exception as exc:
+        transfer_error = f"{type(exc).__name__}: {exc}"
+    finally:
+        duration = time.monotonic() - started
+        proxy.close()
+        relay.close()
+        sender.join(timeout=2)
+    errors = server_errors + list(proxy.worker_errors)
+    if transfer_error:
+        errors.append(transfer_error)
+    stats = proxy.report_stats(duration)
+    passed = bytes(received) == payload and not errors
+    # This includes handshake, propagation delay and small initial burst.
+    # The peak one-second forwarded rate is the better saturation estimate.
+    observed_kbps = len(received) * 8.0 / max(duration, 0.001) / 1000.0
+    report = {
+        "pass": passed,
+        "profile": {
+            "mode": "calibration",
+            "target_kbps": args.kbps, "rtt_ms": args.rtt_ms,
+            "jitter_ms": args.jitter_ms,
+            "proxy_buffer_kb": args.proxy_buffer_kb,
+            "socket_buffer_kb": args.socket_buffer_kb,
+            "burst_ms": args.burst_ms,
+        },
+        "bytes_expected": expected,
+        "bytes_received": len(received),
+        "elapsed_s": round(duration, 3),
+        "end_to_end_kbps": round(observed_kbps, 2),
+        "peak_1s_forwarded_kbps": stats["down"]["peak_1s_kbps"],
+        "link": stats,
+        "errors": errors,
+        "warning": "Loopback proxy calibration, not FVD gameplay. End-to-end "
+                   "rate includes setup/latency; peak_1s_forwarded_kbps "
+                   "indicates saturation and is not TCP/IP wire throughput.",
+    }
+    print("FVD_SHAPER_CALIBRATION " + json.dumps(report, sort_keys=True),
+          flush=True)
+    if args.json:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps(report, indent=2) + "\n",
+                             encoding="utf-8")
+    return 0 if passed else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runner", default="bin/run",
                         help="Configured openage launcher, e.g. bin/run or bin/run.exe")
+    parser.add_argument("--calibrate", action="store_true",
+                        help="Measure proxy rate using known local bytes; do not launch FVD")
+    parser.add_argument("--calibrate-kb", type=int, default=256,
+                        help="Payload size in KiB for --calibrate (default 256)")
     parser.add_argument("--rtt-ms", type=float, default=180,
                         help="Added round-trip delay in milliseconds")
     parser.add_argument("--jitter-ms", type=float, default=30,
@@ -475,8 +566,12 @@ def main() -> int:
             or args.arrows < 0 or args.arrows > 2048
             or not 4 <= args.proxy_buffer_kb <= 4096
             or not 0 <= args.socket_buffer_kb <= 4096
-            or not 0 <= args.burst_ms <= 1000):
+            or not 0 <= args.burst_ms <= 1000
+            or not 4 <= args.calibrate_kb <= 8192):
         parser.error("Negative network parameters or unsupported rounds/arrows")
+
+    if args.calibrate:
+        return run_calibration(args)
 
     relay_port = free_port()
     base = free_port_block(4, args.seed, {relay_port})
