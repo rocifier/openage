@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <iomanip>
+#include <iterator>
 #include <iostream>
 #include <exception>
 #include <map>
@@ -499,7 +500,7 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 							++p.updates_received;
 							p.skipped += static_cast<uint64_t>(
 								std::distance(p.offered_worlds.begin(), applied));
-							p.offered_worlds.erase(p.offered_worlds.begin(), applied);
+							p.offered_worlds.erase(p.offered_worlds.begin(), std::next(applied));
 						}
 						p.applied = revision;
 					}
