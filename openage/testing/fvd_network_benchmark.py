@@ -253,7 +253,12 @@ def main() -> int:
     parser.add_argument("--stall-after-s", type=float, default=6.5)
     parser.add_argument("--stall-s", type=float, default=0.0)
     parser.add_argument("--slow-kbps", type=float, default=0.0)
-    parser.add_argument("--rounds", type=int, default=12)
+    parser.add_argument("--rounds", type=int, default=20,
+                        help="Number of host world-update scheduling intervals")
+    parser.add_argument("--update-ms", type=int, default=500,
+                        help="Independent Hunter world-update interval in milliseconds")
+    parser.add_argument("--command-ms", type=int, default=500,
+                        help="Independent per-Builder command interval in milliseconds")
     parser.add_argument("--arrows", type=int, default=0,
                         help="Synthetic projectile records per recipient update (0-2048)")
     parser.add_argument("--seed", type=int, default=4242)
@@ -264,6 +269,8 @@ def main() -> int:
     if (args.rtt_ms < 0 or args.jitter_ms < 0 or args.kbps < 0
             or args.slow_kbps < 0 or args.stall_s < 0 or args.stall_after_s < 0
             or args.rounds < 1 or args.rounds > 200
+            or args.update_ms < 1 or args.update_ms > 2000
+            or args.command_ms < 1 or args.command_ms > 2000
             or args.arrows < 0 or args.arrows > 2048):
         parser.error("Negative network parameters or unsupported rounds/arrows")
 
@@ -289,6 +296,8 @@ def main() -> int:
             "FVD_BENCH_RELAY_PORT": str(relay_port),
             "FVD_BENCH_PROXY_BASE": str(base),
             "FVD_BENCH_ROUNDS": str(args.rounds),
+            "FVD_BENCH_UPDATE_MS": str(args.update_ms),
+            "FVD_BENCH_COMMAND_MS": str(args.command_ms),
             "FVD_BENCH_ARROWS": str(args.arrows),
         })
         print("Starting real 5-client FVD relay harness; "
@@ -324,8 +333,10 @@ def main() -> int:
     # Reject old compiled runners which produce plausible but misleading
     # results with random Hunter authority behind a shaped guest proxy.
     topology_verified = "FVD_BENCH_TOPOLOGY hunter=direct builders=proxied remote_builders=4" in output
+    independently_scheduled = "FVD_BENCH_SCHEDULE mode=independent" in output
     report = {
-        "pass": return_code == 0 and bool(match) and topology_verified,
+        "pass": return_code == 0 and bool(match) and topology_verified and independently_scheduled,
+        "independently_scheduled": independently_scheduled,
         "topology_verified": topology_verified,
         "exit_code": return_code,
         "elapsed_s": round(time.monotonic() - began, 3),
@@ -335,16 +346,28 @@ def main() -> int:
             "stall_s": args.stall_s, "stall_after_s": args.stall_after_s,
             "slow_kbps": args.slow_kbps, "arrows": args.arrows,
             "rounds": args.rounds, "seed": args.seed,
+            "update_ms": args.update_ms, "command_ms": args.command_ms,
         },
         "measurements": measurements,
-        "clients": clients,
+        "clients": [
+            {**client,
+             "proxy": int(client.get("player", 0)) - 1,
+             "slow_client": int(client.get("player", 0)) - 1 == args.slow_client
+                            and args.slow_client != 0}
+            for client in clients
+        ],
         "links": [
             {"client": i + 1, "bytes_up": p.bytes_up, "bytes_down": p.bytes_down}
             for i, p in enumerate(proxies)
         ],
-        "warning": "Scripted relay workers, not graphical play or authoritative combat. "
+        "warning": "Continuous scripted relay workers, not graphical play or authoritative combat. "
+                   "World updates may be superseded before delivery; command_pending, "
+                   "latest_applied_revision, world_skipped and state_age measure backlogs. "
                    "Synthetic byte delays are not an OS-level packet-loss emulator.",
     }
+    if match and not independently_scheduled:
+        print("FVD benchmark runner is stale: continuous scheduling marker missing. "
+              "Recompile PR #7's C++ test.", file=sys.stderr, flush=True)
     if match and not topology_verified:
         print("FVD benchmark runner is stale or topology was not verified. "
               "Recompile PR #7's C++ test before trusting performance results.",
