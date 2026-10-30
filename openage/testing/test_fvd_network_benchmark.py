@@ -49,12 +49,12 @@ class FVDNetworkReportParsingTests(unittest.TestCase):
 class FVDTokenBucketTests(unittest.TestCase):
     def test_2_mbps_budget_with_late_clock_wakeups(self):
         pacer = TokenBucketPacer(2000, burst_ms=50, now=0.0)
-        self.assertEqual(pacer.wait_seconds(4096, 0.0), 0.0)
-        self.assertEqual(pacer.wait_seconds(4096, 0.0), 0.0)
+        for _ in range(3):
+            self.assertEqual(pacer.wait_seconds(4096, 0.0), 0.0)
         self.assertGreater(pacer.wait_seconds(4096, 0.0), 0.0)
         # A 100ms scheduling pause refills only the bounded burst allowance.
-        self.assertEqual(pacer.wait_seconds(4096, 0.1), 0.0)
-        self.assertEqual(pacer.wait_seconds(4096, 0.1), 0.0)
+        for _ in range(3):
+            self.assertEqual(pacer.wait_seconds(4096, 0.1), 0.0)
         self.assertGreater(pacer.wait_seconds(4096, 0.1), 0.0)
 
     def test_sustained_rate_is_close_to_requested_bandwidth(self):
