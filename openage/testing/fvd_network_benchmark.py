@@ -255,6 +255,29 @@ RESULT = re.compile(r"FVD_BENCH_RESULT (.+)")
 CLIENT = re.compile(r"FVD_BENCH_CLIENT (.+)")
 
 
+def parse_report_fields(line: str) -> dict[str, int | float | str]:
+    """Parse C++ benchmark key=value fields, retaining textual metadata.
+
+    Earlier versions tried int("independent") for mode=independent and
+    crashed after a successful network run, discarding its useful report.
+    """
+    fields: dict[str, int | float | str] = {}
+    for token in line.split():
+        if "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        try:
+            fields[key] = int(value)
+            continue
+        except ValueError:
+            pass
+        try:
+            fields[key] = float(value)
+        except ValueError:
+            fields[key] = value
+    return fields
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runner", default="bin/run",
@@ -338,16 +361,8 @@ def main() -> int:
             proxy.close()
     proxy_errors = [error for proxy in proxies for error in proxy.worker_errors]
     match = RESULT.search(output)
-    def parse_numbers(text: str) -> dict:
-        values = {}
-        for token in text.split():
-            if "=" in token:
-                key, value = token.split("=", 1)
-                values[key] = float(value) if "." in value else int(value)
-        return values
-
-    measurements = parse_numbers(match.group(1)) if match else {}
-    clients = [parse_numbers(m.group(1)) for m in CLIENT.finditer(output)]
+    measurements = parse_report_fields(match.group(1)) if match else {}
+    clients = [parse_report_fields(m.group(1)) for m in CLIENT.finditer(output)]
     # Reject old compiled runners which produce plausible but misleading
     # results with random Hunter authority behind a shaped guest proxy.
     topology_verified = "FVD_BENCH_TOPOLOGY hunter=direct builders=proxied remote_builders=4" in output
