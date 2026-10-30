@@ -1605,9 +1605,6 @@ void FVD::evaluate_match_outcome(
 		        == disconnected.end()) {
 			alive[owner] = true;
 		}
-		else if (definition == this->tower) {
-			++completed_towers;
-		}
 	}
 	// A genuinely killed Builder loses all towers, sites and foundations.
 	// Mere disconnection counts toward elimination but deliberately leaves
