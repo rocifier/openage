@@ -213,8 +213,12 @@ class TcpShaper:
             with self._lock:
                 connection_id = len(self.sockets) // 2
                 self.sockets.extend((incoming, upstream))
-                self.observed_socket_recvbuf_bytes.append(
-                    upstream.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF))
+                try:
+                    actual_recvbuf = upstream.getsockopt(
+                        socket.SOL_SOCKET, socket.SO_RCVBUF)
+                except OSError:
+                    actual_recvbuf = 0  # Socket was already torn down.
+                self.observed_socket_recvbuf_bytes.append(actual_recvbuf)
             start = time.monotonic()
             for direction, source, dest in (
                 ("up", incoming, upstream),
@@ -505,6 +509,10 @@ def run_calibration(args: argparse.Namespace) -> int:
         "elapsed_s": round(duration, 3),
         "end_to_end_kbps": round(observed_kbps, 2),
         "peak_1s_forwarded_kbps": stats["down"]["peak_1s_kbps"],
+        "peak_vs_target_pct": (
+            round(stats["down"]["peak_1s_kbps"] * 100.0 / args.kbps, 2)
+            if args.kbps else None
+        ),
         "link": stats,
         "errors": errors,
         "warning": "Loopback proxy calibration, not FVD gameplay. End-to-end "
