@@ -1,8 +1,8 @@
 # Tasks
 
-- [ ] 1.1 Host-side outcome detection: all Builders dead, 45-minute timer, 7000 towers.
-- [ ] 1.2 Collapse a dead Builder's towers, sites and foundations.
-- [ ] 1.3 Replicate the outcome; stop accepting orders.
+- [x] 1.1 Host-side outcome detection: all Builders dead, 45-minute simulation-clock timer, 7000 completed towers. Source and boundary tests committed; build verification pending.
+- [x] 1.2 Collapse a killed Builder's towers, sites and foundations; disconnect-only players keep structures. Source committed; manual death cleanup verification pending.
+- [ ] 1.3 Replicate the outcome; stop accepting orders and autonomous combat. C++ implementation committed in PR #9; build/visual acceptance pending.
   - [x] 1.3a Terminal result wire format and snapshot/delta/recovery
     invariants implemented in the replication OpenSpec (protocol v17).
     Source is committed; build/test evidence remains pending.
