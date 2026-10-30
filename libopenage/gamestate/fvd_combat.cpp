@@ -605,6 +605,7 @@ bool FVD::begin_stance_engagement(const std::shared_ptr<GameState> &state,
 
 void FVD::combat_tick(const std::shared_ptr<GameState> &state,
                       const time::time_t &time) {
+	if (this->match_outcome) return;
 	const auto horses = entities_by_definition(state, this->horse);
 	const auto builders = entities_by_definition(state, this->builder);
 	const auto towers = entities_by_definition(state, this->tower);
