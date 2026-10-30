@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <chrono>
 #include <deque>
+#include <atomic>
+#include <mutex>
+#include <vector>
 #include <limits>
 #include <utility>
 
@@ -1368,6 +1371,16 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 						departed, DisconnectReason::CONNECTION_LOST})));
 			}
 		}
+		// The coordinator never sends on an active Builder socket. Each
+		// recipient's streaming worker owns its ConnectionSession and TCP
+		// reads/writes, so a backpressured send_frame() can block only that
+		// recipient. Bootstrap above deliberately remains synchronous.
+		std::map<gamestate::player_id_t,
+		         std::deque<gamestate::player_id_t>> pending_departure_notices{};
+		std::mutex failures_mutex{};
+		std::deque<std::pair<gamestate::player_id_t, std::string>> failures{};
+		std::atomic<bool> stop_peers{false};
+		std::vector<std::thread> peer_workers{};
 		auto disconnect_peer = [&](gamestate::player_id_t player) {
 			if (not live[player]) return AuthorityLossAction::CONTINUE;
 			const auto consequence = authority.disconnected(player);
@@ -1377,14 +1390,15 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 			                                     ? "continue" : "end_match")
 			              << " room=" << lobby->room_id());
 			live[player] = false;
-			const auto &peer = *peers.at(player);
-			peer.socket->close();
+			// The failed worker is exiting; nobody else accesses this socket.
+			peers.at(player)->socket->close();
 			{
 				std::lock_guard lock{this->mutex};
 				this->active_multi_identities.erase(player);
 				this->pending_multi_results.erase(player);
 				this->pending_multi_updates.erase(player);
 				this->pending_multi_snapshots.erase(player);
+				pending_departure_notices.erase(player);
 				auto &ids = this->current.remote_player_ids;
 				ids.erase(std::remove(ids.begin(), ids.end(), player), ids.end());
 				auto &commands = this->incoming_host_commands;
@@ -1400,96 +1414,150 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 					? "Hunter disconnected; match ended."
 					: "Builder player " + std::to_string(player)
 					  + " disconnected; match continues.";
-			}
-			for (const auto &[other, recipient] : peers) {
-				if (not live[other]) continue;
-				try {
-					recipient->socket->send_frame(recipient->session->make_frame(
-						MessageType::PARTICIPANT_DISCONNECTED,
-						encode_participant_disconnected({
-							player, DisconnectReason::CONNECTION_LOST})));
-				}
-				catch (...) {
-					// This peer is reaped on the next loop pass; don't
-					// incorrectly terminate the entire Hunter's game.
+				// No direct TCP sends from this coordinator: a blocked
+				// recipient cannot delay notices to healthy recipients.
+				for (const auto &[other, peer] : peers) {
+					(void) peer;
+					if (live[other]) pending_departure_notices[other].push_back(player);
 				}
 			}
 			return consequence;
 		};
-
-		while (not this->stopping) {
-			std::map<gamestate::player_id_t, WorldState> updates{};
-			std::map<gamestate::player_id_t, std::deque<CommandResult>> decisions{};
-			{
-				std::lock_guard lock{this->mutex};
-				updates.swap(this->pending_multi_updates);
-				decisions.swap(this->pending_multi_results);
-			}
+		auto stop_peer_workers = [&]() {
+			stop_peers = true;
+			// shutdown() interrupts a concurrent send_frame() before join.
 			for (const auto &[id, peer] : peers) {
-				if (not live[id]) continue;
-				try {
-					auto &socket = *peer->socket;
-					auto &session = *peer->session;
-					auto update = updates.find(id);
-					if (update != updates.end()) {
-						auto delta = baselines.at(id).advance(std::move(update->second));
-						socket.send_frame(session.make_frame(
-							MessageType::WORLD_DELTA, encode_world_delta(delta)));
-						if (not delta.changed.arrows.empty()) {
-							const auto last_id = delta.changed.arrows.back().arrow_id;
-							std::lock_guard lock{this->mutex};
-							this->delivered_projectiles[id] =
-								std::max(this->delivered_projectiles[id], last_id);
-						}
-						this->publish_stream_revision(
-							baselines.at(id).current_snapshot().world_revision, true);
-					}
-					auto decisions_for_peer = decisions.find(id);
-					if (decisions_for_peer != decisions.end()) {
-						for (auto &decision : decisions_for_peer->second) {
-							socket.send_frame(session.make_frame(
-								MessageType::COMMAND_RESULT, encode_command_result(decision)));
-						}
-					}
-					for (size_t i = 0; i < 32; ++i) {
-						auto frame = socket.try_receive_frame();
-						if (not frame) break;
-						session.validate_incoming(*frame);
-						last_seen[id] = std::chrono::steady_clock::now();
-						if (frame->message_type == MessageType::PING) {
-							if (not frame->payload.empty()) {
-								throw Error{MSG(err) << "Invalid multi-guest heartbeat"};
+				(void) id;
+				peer->socket->close();
+			}
+			for (auto &worker : peer_workers) {
+				if (worker.joinable()) worker.join();
+			}
+		};
+		try {
+			for (const auto &[id, peer] : peers) {
+				if (not live.at(id)) continue;
+				// Baselines and heartbeat clocks belong exclusively to the
+				// recipient worker after its bootstrap handoff.
+				peer_workers.emplace_back(
+					[&, id, peer, baseline = std::move(baselines.at(id)),
+					 seen = last_seen.at(id)]() mutable {
+						auto &socket = *peer->socket;
+						auto &session = *peer->session;
+						try {
+							while (not this->stopping and not stop_peers) {
+								std::optional<WorldState> update{};
+								std::deque<CommandResult> decisions{};
+								std::deque<gamestate::player_id_t> notices{};
+								{
+									std::lock_guard lock{this->mutex};
+									auto found = this->pending_multi_updates.find(id);
+									if (found != this->pending_multi_updates.end()) {
+										update = std::move(found->second);
+										this->pending_multi_updates.erase(found);
+									}
+									auto results = this->pending_multi_results.find(id);
+									if (results != this->pending_multi_results.end()) {
+										decisions.swap(results->second);
+										this->pending_multi_results.erase(results);
+									}
+									auto departures = pending_departure_notices.find(id);
+									if (departures != pending_departure_notices.end()) {
+										notices.swap(departures->second);
+										pending_departure_notices.erase(departures);
+									}
+								}
+								// Prioritize small, reliable protocol events.
+								// Only this worker assigns this session's
+								// outgoing sequence numbers, preserving order.
+								for (const auto departed : notices) {
+									socket.send_frame(session.make_frame(
+										MessageType::PARTICIPANT_DISCONNECTED,
+										encode_participant_disconnected({
+											departed, DisconnectReason::CONNECTION_LOST})));
+								}
+								for (auto &decision : decisions) {
+									socket.send_frame(session.make_frame(
+										MessageType::COMMAND_RESULT,
+										encode_command_result(decision)));
+								}
+								if (update) {
+									auto delta = baseline.advance(std::move(*update));
+									socket.send_frame(session.make_frame(
+										MessageType::WORLD_DELTA,
+										encode_world_delta(delta)));
+									// The projectile cursor advances only
+									// after that recipient's frame is sent.
+									if (not delta.changed.arrows.empty()) {
+										const auto last_id = delta.changed.arrows.back().arrow_id;
+										std::lock_guard lock{this->mutex};
+										this->delivered_projectiles[id] =
+											std::max(this->delivered_projectiles[id], last_id);
+									}
+									this->publish_stream_revision(
+										baseline.current_snapshot().world_revision, true);
+								}
+								for (size_t i = 0; i < 32; ++i) {
+									auto frame = socket.try_receive_frame();
+									if (not frame) break;
+									session.validate_incoming(*frame);
+									seen = std::chrono::steady_clock::now();
+									if (frame->message_type == MessageType::PING) {
+										if (not frame->payload.empty()) {
+											throw Error{MSG(err) << "Invalid multi-guest heartbeat"};
+										}
+										socket.send_frame(session.make_frame(MessageType::PONG, {}));
+										continue;
+									}
+									if (frame->message_type == MessageType::SNAPSHOT_REQUEST) {
+										auto request = decode_snapshot_request(frame->payload);
+										const auto &latest = baseline.current_snapshot();
+										if (request.last_applied_revision > latest.world_revision) {
+											throw Error{MSG(err) << "Future multi-guest snapshot revision requested"};
+										}
+										socket.send_frame(session.make_frame(
+											MessageType::WORLD_SNAPSHOT,
+											encode_world_state(latest)));
+										continue;
+									}
+									if (frame->message_type != MessageType::COMMAND_INTENT) {
+										throw Error{MSG(err) << "Unexpected multi-guest match frame"};
+									}
+									auto intent = decode_command_intent(frame->payload);
+									std::lock_guard lock{this->mutex};
+									if (this->incoming_host_commands.size() >= MAX_INFLIGHT_COMMANDS) {
+										throw Error{MSG(err) << "Multi-guest command mailbox full"};
+									}
+									this->incoming_host_commands.push_back({
+										session.get_identity(), std::move(intent)});
+								}
+								if (not socket.is_open() or not socket.peer_connected()
+								    or std::chrono::steady_clock::now() - seen > LIVE_SESSION_TIMEOUT) {
+									throw Error{MSG(err) << "Guest transport ended"};
+								}
+								std::this_thread::sleep_for(LIVE_POLL_INTERVAL);
 							}
-							socket.send_frame(session.make_frame(MessageType::PONG, {}));
-							continue;
 						}
-						if (frame->message_type == MessageType::SNAPSHOT_REQUEST) {
-							const auto request = decode_snapshot_request(frame->payload);
-							const auto &latest = baselines.at(id).current_snapshot();
-							if (request.last_applied_revision > latest.world_revision) {
-								throw Error{MSG(err) << "Future multi-guest snapshot revision requested"};
+						catch (const std::exception &error) {
+							if (not this->stopping and not stop_peers) {
+								std::lock_guard lock{failures_mutex};
+								failures.emplace_back(id, error.what());
 							}
-							socket.send_frame(session.make_frame(
-								MessageType::WORLD_SNAPSHOT, encode_world_state(latest)));
-							continue;
 						}
-						if (frame->message_type != MessageType::COMMAND_INTENT) {
-							throw Error{MSG(err) << "Unexpected multi-guest match frame"};
-						}
-						auto intent = decode_command_intent(frame->payload);
-						std::lock_guard lock{this->mutex};
-						if (this->incoming_host_commands.size() >= MAX_INFLIGHT_COMMANDS) {
-							throw Error{MSG(err) << "Multi-guest command mailbox full"};
-						}
-						this->incoming_host_commands.push_back({
-							session.get_identity(), std::move(intent)});
-					}
-					if (not socket.is_open() or not socket.peer_connected()
-					    or std::chrono::steady_clock::now() - last_seen[id] > LIVE_SESSION_TIMEOUT) {
-						throw Error{MSG(err) << "Guest transport ended"};
-					}
+					});
+			}
+			// The coordinator handles departures and authoritative status
+			// changes, but never enters a recipient's blocking send path.
+			while (not this->stopping) {
+				std::deque<std::pair<gamestate::player_id_t, std::string>> departed{};
+				{
+					std::lock_guard lock{failures_mutex};
+					departed.swap(failures);
 				}
-				catch (const std::exception &) {
+				for (const auto &[id, reason] : departed) {
+					if (not live.at(id)) continue;
+					log::log(WARN << "[FVD/match] recipient_transport_ended player="
+					              << id << " reason=" << reason);
 					auto consequence = disconnect_peer(id);
 					if (consequence == AuthorityLossAction::END_MATCH) {
 						throw Error{MSG(err) << "Hunter disconnected; match ended"};
@@ -1499,9 +1567,14 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 						                     << "takeover requires a complete simulation checkpoint"};
 					}
 				}
+				std::this_thread::sleep_for(LIVE_POLL_INTERVAL);
 			}
-			std::this_thread::sleep_for(LIVE_POLL_INTERVAL);
 		}
+		catch (...) {
+			stop_peer_workers();
+			throw;
+		}
+		stop_peer_workers();
 	}
 	catch (const std::exception &error) {
 		if (not this->stopping) {
