@@ -9,11 +9,18 @@
   approximate bandwidth shaping, a selected guest stall and JSON reports.
 - [x] A4 Support configurable synthetic arrow-record loads, and document that
   no actual Hunter combat is being simulated.
-- [ ] A5 Compile/run on Windows and Linux; run baseline and fixed-delay
-  sanity checks; verify observed RTTs match the injected profiles within
-  documented host scheduling tolerance. Tests have not run here.
-- [ ] A6 Repeat 5-client tests with one 3s stalled guest; verify healthy
-  client latency does not deteriorate excessively, or file a game fix.
+- [x] A5a Implement an independent continuously scheduled benchmark rather
+  than a command-barrier/world-barrier loop. Commands and world offers are
+  generated on separate configurable intervals, without waiting for slow
+  recipients. Pending commands, skipped captures, per-recipient revision
+  backlog and sampled state age are included in the report.
+- [ ] A5b Compile/run **the new continuous scheduler** on Windows and Linux;
+  run baseline and fixed-delay sanity checks. Earlier barrier-based Windows
+  results passed but are not comparable to the new experiment. This code
+  has not been compiled or run in this editing environment.
+- [ ] A6 Repeat **independently scheduled** 5-client tests with one 3s stalled
+  guest; compare healthy clients' command P95 and state-age P95/max with the
+  same-load control, and verify update skipping/recovery or file a game fix.
 - [ ] A7 Ensure benchmark relay shutdown, socket proxy cleanup and reruns
   succeed in loops with no stale sessions or flaky timeout tests.
 
