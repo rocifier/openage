@@ -654,6 +654,8 @@ private:
 	/** Simulation time pauses during lobby setup, suspension and authority handoff. */
 	std::optional<time::time_t> match_started_at{};
 	std::optional<network::MatchOutcome> match_outcome{};
+	/** Idempotent death cleanup; disconnects intentionally retain buildings. */
+	std::unordered_set<player_id_t> collapsed_builders{};
 	/** Protect the match-relative first-spawn deadline read by the presenter. */
 	mutable std::mutex hunter_spawn_time_mutex;
 	std::optional<time::time_t> first_hunter_spawn_time;
