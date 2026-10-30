@@ -59,6 +59,51 @@ void world_delta() {
 	TESTEQUALS(construction_recovered.constructions.front().progress_percent(
 	           time::time_t::from_int(30)), 47);
 
+	// Terminal outcomes must be replicated as an authoritative edge, then
+	// survive time-only deltas and replacement recovery snapshots.
+	auto game_over = initial;
+	game_over.world_revision = 11;
+	game_over.simulation_time = time::time_t::from_int(21);
+	game_over.match_outcome = {MatchWinner::HUNTER,
+	                           MatchEndReason::ALL_BUILDERS_DEAD,
+	                           game_over.simulation_time};
+	auto ended_delta = make_world_delta(initial, game_over);
+	TESTEQUALS(ended_delta.match_outcome_changed, true);
+	TESTEQUALS(ended_delta.changed.match_outcome, game_over.match_outcome);
+	auto ended_wire = decode_world_delta(encode_world_delta(ended_delta));
+	TESTEQUALS(ended_wire.match_outcome_changed, true);
+	auto ended_guest = apply_world_delta(initial, ended_wire);
+	TESTEQUALS(ended_guest.match_outcome, game_over.match_outcome);
+	auto postgame = game_over;
+	postgame.world_revision = 12;
+	postgame.simulation_time = time::time_t::from_int(22);
+	auto idle_delta = make_world_delta(game_over, postgame);
+	TESTEQUALS(idle_delta.match_outcome_changed, false);
+	TESTEQUALS(idle_delta.changed.match_outcome.has_value(), false);
+	auto postgame_guest = apply_world_delta(
+		ended_guest, decode_world_delta(encode_world_delta(idle_delta)));
+	TESTEQUALS(postgame_guest.match_outcome, game_over.match_outcome);
+	TESTEQUALS(decode_world_state(encode_world_state(postgame)).match_outcome,
+	           game_over.match_outcome);
+	auto cleared = postgame;
+	cleared.match_outcome.reset();
+	TESTTHROWS(make_world_delta(game_over, cleared));
+	cleared.match_outcome = MatchOutcome{MatchWinner::BUILDERS,
+	                                   MatchEndReason::TIME_LIMIT,
+	                                   game_over.simulation_time};
+	TESTTHROWS(make_world_delta(game_over, cleared));
+	auto fake_changed = idle_delta;
+	fake_changed.match_outcome_changed = true;
+	TESTTHROWS(encode_world_delta(fake_changed));
+	fake_changed = ended_delta;
+	fake_changed.match_outcome_changed = false;
+	TESTTHROWS(encode_world_delta(fake_changed));
+	// A second terminal change is invalid even if the packet is contiguous.
+	auto replay_end = ended_delta;
+	replay_end.changed.base_revision = game_over.world_revision;
+	replay_end.changed.world_revision = postgame.world_revision;
+	TESTTHROWS(apply_world_delta(game_over, replay_end));
+
 	WorldDeltaBaseline host{};
 	TESTEQUALS(host.initialized(), false);
 	TESTTHROWS(host.advance(initial));
