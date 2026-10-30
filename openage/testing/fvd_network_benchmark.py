@@ -167,6 +167,7 @@ class TcpShaper:
         self.listener = socket.socket()
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listener.bind(("127.0.0.1", listen_port))
+        self.listen_port = self.listener.getsockname()[1]
         self.listener.listen(16)
         self.listener.settimeout(0.2)
         self.sockets: list[socket.socket] = []
@@ -187,6 +188,7 @@ class TcpShaper:
                 continue
             except OSError:
                 break
+            upstream = None
             try:
                 upstream = socket.create_connection(
                     ("127.0.0.1", self.target_port), timeout=10)
@@ -205,7 +207,7 @@ class TcpShaper:
                     self.worker_errors.append(
                         f"proxy connection setup failed: {type(exc).__name__}: {exc}")
                 incoming.close()
-                if "upstream" in locals():
+                if upstream is not None:
                     upstream.close()
                 continue
             with self._lock:
