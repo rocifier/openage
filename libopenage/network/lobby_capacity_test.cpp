@@ -366,144 +366,214 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 		TESTEQUALS(builder->get_replication()->get_local_kills().value(),
 		           uint64_t{200 + player});
 	}
+
 	if (benchmark) {
-		// Baseline and shaped runs use identical commands / private snapshots.
-		// The external proxy (if used) delays actual TCP bytes on each guest
-		// connection. Synthetic arrow records stress the same wire codec as
-		// gameplay, but cannot establish simulated combat or frame rendering.
-		const auto config_number = [](const char *name, size_t fallback, size_t maximum) {
+		// No cross-client barriers: commands and recipient-private captures
+		// are emitted on independent wall-clock schedules throughout the run.
+		const auto param = [](const char *name, size_t fallback, size_t cap) {
 			const auto raw = std::getenv(name);
 			if (not raw or not *raw) return fallback;
-			const auto value = std::stoul(raw);
-			if (value == 0 or value > maximum) {
-				throw Error{MSG(err) << "Invalid FVD benchmark parameter " << name};
-			}
-			return static_cast<size_t>(value);
+			const auto n = std::stoul(raw);
+			if (n == 0 or n > cap) throw Error{MSG(err) << "Invalid network benchmark parameter " << name};
+			return static_cast<size_t>(n);
 		};
-		const size_t rounds = config_number("FVD_BENCH_ROUNDS", 12, 200);
+		const size_t rounds = param("FVD_BENCH_ROUNDS", 20, 200);
+		const size_t update_ms = param("FVD_BENCH_UPDATE_MS", 500, 2000);
+		const size_t command_ms = param("FVD_BENCH_COMMAND_MS", 500, 2000);
 		const size_t arrows = std::getenv("FVD_BENCH_ARROWS")
 			? static_cast<size_t>(std::stoul(std::getenv("FVD_BENCH_ARROWS"))) : 0;
 		if (arrows > MAX_STATE_ARROWS) {
-			throw Error{MSG(err) << "FVD benchmark arrows must be <= MAX_STATE_ARROWS"};
+			throw Error{MSG(err) << "FVD benchmark arrows exceed MAX_STATE_ARROWS"};
 		}
-		auto percentile = [](std::vector<double> samples, size_t percent) {
-			std::sort(samples.begin(), samples.end());
-			return samples[(samples.size() * percent + 99) / 100 - 1];
+		using instant = clock_t::time_point;
+		using samples_t = std::vector<double>;
+		const auto elapsed_ms = [](instant now, instant then) {
+			return std::chrono::duration<double, std::milli>(now - then).count();
 		};
-		std::vector<double> command_ms{};
-		std::vector<double> world_ms{};
-		std::map<gamestate::player_id_t, std::vector<double>> command_per_client{};
-		std::map<gamestate::player_id_t, std::vector<double>> world_per_client{};
-		command_ms.reserve(rounds * builders.size());
-		world_ms.reserve(rounds * builders.size());
+		const auto percentile = [](samples_t data, size_t percent) {
+			if (data.empty()) return 0.0;
+			std::sort(data.begin(), data.end());
+			return data[(data.size() * percent + 99) / 100 - 1];
+		};
+		const auto maximum = [](const samples_t &data) {
+			return data.empty() ? 0.0 : *std::max_element(data.begin(), data.end());
+		};
+		struct Peer {
+			samples_t commands{}, worlds{}, state_age{};
+			std::map<uint64_t, instant> pending_commands{}, offered_worlds{};
+			instant last_capture{};
+			uint64_t next_command_id{}, applied{}, offered{};
+			uint64_t commands_sent{}, commands_received{}, updates_sent{}, updates_received{}, skipped{};
+			bool alive{true};
+		};
+		std::map<gamestate::player_id_t, Peer> peers{};
 		for (const auto &[player, client] : builders) {
-			(void) player;
-			client->take_command_results(); // Drain previous smoke-check results.
+			auto &p = peers[player];
+			p.next_command_id = *seen_ids.at(player).rbegin() + 1;
+			p.applied = client->get_replication()->get_revision();
+			client->take_command_results();
 		}
-		uint64_t next_revision = 100;
-		uint64_t next_arrow_id = 1;
-		for (size_t round = 0; round < rounds; ++round) {
-			std::map<gamestate::player_id_t, clock_t::time_point> began{};
-			for (const auto &[player, client] : builders) {
-				CommandIntent move{};
-				move.kind = CommandKind::MOVE;
-				move.entity_ids = {uint64_t{10000} + player};
-				move.target = {static_cast<int64_t>(50 + round), static_cast<int64_t>(40 + player), 0};
-				began[player] = clock_t::now();
-				TESTEQUALS(client->send_guest_command(std::move(move)), true);
+		const auto started = clock_t::now();
+		const auto ending = started + std::chrono::milliseconds{static_cast<int64_t>(rounds * update_ms)};
+		const auto drain_ending = ending + std::chrono::milliseconds{1500};
+		const auto update_period = std::chrono::milliseconds{static_cast<int64_t>(update_ms)};
+		const auto command_period = std::chrono::milliseconds{static_cast<int64_t>(command_ms)};
+		auto next_update = started, next_command = started, next_age_sample = started;
+		uint64_t next_revision = 100, next_arrow_id = 1, update_round = 0, command_round = 0;
+		uint64_t accepted_by_host = 0;
+		std::cout << "FVD_BENCH_SCHEDULE mode=independent update_ms=" << update_ms
+		          << " command_ms=" << command_ms
+		          << " duration_ms=" << rounds * update_ms
+		          << " drain_ms=1500" << std::endl;
+		while (clock_t::now() < drain_ending) {
+			const auto now = clock_t::now();
+			if (now < ending and now >= next_command) {
+				for (const auto &[player, client] : builders) {
+					auto &p = peers.at(player);
+					CommandIntent move{};
+					move.kind = CommandKind::MOVE;
+					move.entity_ids = {uint64_t{10000} + player};
+					move.target = {static_cast<int64_t>(50 + command_round % 32),
+					               static_cast<int64_t>(40 + player), 0};
+					const auto id = p.next_command_id++;
+					TESTEQUALS(client->send_guest_command(std::move(move)), true);
+					TESTEQUALS(p.pending_commands.emplace(id, now).second, true);
+					++p.commands_sent;
+				}
+				++command_round;
+				next_command += command_period;
 			}
-			std::vector<AuthenticatedCommand> pending{};
-			await_condition("benchmark commands arrived at Hunter", [&]() {
-				auto more = authority->take_host_commands();
-				pending.insert(pending.end(), more.begin(), more.end());
-				return pending.size() >= builders.size();
-			});
-			TESTEQUALS(pending.size(), builders.size());
-			for (const auto &command : pending) {
+			if (now < ending and now >= next_update) {
+				for (const auto &[player, client] : builders) {
+					(void) client;
+					auto &p = peers.at(player);
+					auto world = private_world(count, player, next_revision++, 1000 + update_round);
+					world.simulation_time = time::time_t::from_int(100 + static_cast<int64_t>(update_round));
+					for (size_t index = 0; index < arrows; ++index) {
+						world.arrows.push_back({
+							next_arrow_id++, 1, 1, {40, 40, 1}, {42, 42, 0},
+							time::time_t::from_int(90), time::time_t::from_double(90.2)});
+					}
+					p.offered = world.world_revision;
+					p.offered_worlds.emplace(world.world_revision, now);
+					++p.updates_sent;
+					authority->provide_host_update(std::move(world));
+				}
+				++update_round;
+				next_update += update_period;
+			}
+			// A slow client never delays the next scheduled host offer.
+			for (auto &command : authority->take_host_commands()) {
+				const auto player = command.identity.player_id;
+				TESTEQUALS(peers.contains(player), true);
 				TESTEQUALS(command.intent.kind, CommandKind::MOVE);
-				CommandResult accepted{};
-				accepted.command_id = command.intent.command_id;
-				accepted.status = CommandStatus::ACCEPTED;
-				accepted.world_revision = next_revision;
+				TESTEQUALS(command.intent.entity_ids.size(), size_t{1});
+				TESTEQUALS(command.intent.entity_ids.front(), uint64_t{10000} + player);
+				CommandResult reply{};
+				reply.command_id = command.intent.command_id;
+				reply.status = CommandStatus::ACCEPTED;
+				reply.world_revision = next_revision;
 				TESTEQUALS(authority->send_command_result(
-					command.identity, authority->get_session_generation(), std::move(accepted)), true);
+					command.identity, authority->get_session_generation(), std::move(reply)), true);
+				++accepted_by_host;
 			}
-			std::set<gamestate::player_id_t> completed{};
-			await_condition("benchmark guest command ACKs", [&]() {
-				for (const auto &[player, client] : builders) {
-					for (const auto &result : client->take_command_results()) {
-						TESTEQUALS(result.status, CommandStatus::ACCEPTED);
-						TESTEQUALS(completed.insert(player).second, true);
-						const auto elapsed_ms =
-							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count();
-						command_ms.push_back(elapsed_ms);
-						command_per_client[player].push_back(elapsed_ms);
-					}
-				}
-				return completed.size() == builders.size();
-			});
-			began.clear();
-			std::map<gamestate::player_id_t, uint64_t> expected{};
 			for (const auto &[player, client] : builders) {
-				began[player] = clock_t::now();
-				auto world = private_world(count, player, next_revision++, 1000 + round + player);
-				world.simulation_time = time::time_t::from_int(100 + static_cast<int64_t>(round));
-				for (size_t index = 0; index < arrows; ++index) {
-					world.arrows.push_back({
-						next_arrow_id++, 1, 1,
-						{40, 40, 1}, {42, 42, 0},
-						time::time_t::from_int(90), time::time_t::from_double(90.2)});
+				auto &p = peers.at(player);
+				const auto observed = clock_t::now();
+				for (const auto &reply : client->take_command_results()) {
+					TESTEQUALS(reply.status, CommandStatus::ACCEPTED);
+					auto sent = p.pending_commands.find(reply.command_id);
+					TESTEQUALS(sent != p.pending_commands.end(), true);
+					p.commands.push_back(elapsed_ms(observed, sent->second));
+					p.pending_commands.erase(sent);
+					++p.commands_received;
 				}
-				expected[player] = world.world_revision;
-				authority->provide_host_update(std::move(world));
-			}
-			completed.clear();
-			await_condition("benchmark world delivered to guests", [&]() {
-				for (const auto &[player, client] : builders) {
-					if (completed.contains(player)) continue;
-					auto tracker = client->get_replication();
-					if (tracker and tracker->get_revision() >= expected.at(player)) {
-						TESTEQUALS(tracker->get_local_kills().value(), 1000 + round + player);
-						completed.insert(player);
-						const auto elapsed_ms =
-							std::chrono::duration<double, std::milli>(clock_t::now() - began.at(player)).count();
-						world_ms.push_back(elapsed_ms);
-						world_per_client[player].push_back(elapsed_ms);
+				auto tracker = client->get_replication();
+				if (tracker and tracker->has_state()) {
+					const auto revision = tracker->get_revision();
+					if (revision > p.applied) {
+						auto applied = p.offered_worlds.find(revision);
+						if (applied != p.offered_worlds.end()) {
+							p.worlds.push_back(elapsed_ms(observed, applied->second));
+							p.last_capture = applied->second;
+							++p.updates_received;
+							p.skipped += static_cast<uint64_t>(
+								std::distance(p.offered_worlds.begin(), applied));
+							p.offered_worlds.erase(p.offered_worlds.begin(), applied);
+						}
+						p.applied = revision;
 					}
 				}
-				return completed.size() == builders.size();
-			});
+				if (client->status().phase == "error") p.alive = false;
+				if (observed >= next_age_sample) {
+					p.state_age.push_back(elapsed_ms(observed,
+						p.last_capture == instant{} ? started : p.last_capture));
+				}
+			}
+			if (now >= next_age_sample) next_age_sample += std::chrono::milliseconds{50};
+			std::this_thread::sleep_for(std::chrono::milliseconds{5});
 		}
-		std::cout << std::fixed << std::setprecision(2)
-			<< "FVD_BENCH_RESULT players=" << count
-			<< " remote=" << builders.size()
-			<< " rounds=" << rounds << " arrows_per_recipient_update=" << arrows
-			<< " command_samples=" << command_ms.size()
-			<< " command_p50_ms=" << percentile(command_ms, 50)
-			<< " command_p95_ms=" << percentile(command_ms, 95)
-			<< " command_max_ms=" << *std::max_element(command_ms.begin(), command_ms.end())
-			<< " world_samples=" << world_ms.size()
-			<< " world_p50_ms=" << percentile(world_ms, 50)
-			<< " world_p95_ms=" << percentile(world_ms, 95)
-			<< " world_max_ms=" << *std::max_element(world_ms.begin(), world_ms.end())
-			<< std::endl;
-		for (const auto &[player, client] : builders) {
-			(void) client;
-			const auto &command = command_per_client.at(player);
-			const auto &world = world_per_client.at(player);
-			TESTEQUALS(command.size(), rounds);
-			TESTEQUALS(world.size(), rounds);
-			std::cout << std::fixed << std::setprecision(2)
-				<< "FVD_BENCH_CLIENT player=" << player
-				<< " command_p50_ms=" << percentile(command, 50)
-				<< " command_p95_ms=" << percentile(command, 95)
-				<< " command_max_ms=" << *std::max_element(command.begin(), command.end())
-				<< " world_p50_ms=" << percentile(world, 50)
-				<< " world_p95_ms=" << percentile(world, 95)
-				<< " world_max_ms=" << *std::max_element(world.begin(), world.end())
-				<< std::endl;
+		samples_t commands{}, worlds{}, state_ages{};
+		uint64_t total_sent = 0, total_returned = 0, total_offered = 0, total_received = 0, total_skipped = 0;
+		std::cout << std::fixed << std::setprecision(2);
+		for (const auto &[player, p] : peers) {
+			commands.insert(commands.end(), p.commands.begin(), p.commands.end());
+			worlds.insert(worlds.end(), p.worlds.begin(), p.worlds.end());
+			state_ages.insert(state_ages.end(), p.state_age.begin(), p.state_age.end());
+			total_sent += p.commands_sent;
+			total_returned += p.commands_received;
+			total_offered += p.updates_sent;
+			total_received += p.updates_received;
+			total_skipped += p.skipped;
+			std::cout << "FVD_BENCH_CLIENT player=" << player
+			          << " command_offered=" << p.commands_sent
+			          << " command_samples=" << p.commands.size()
+			          << " command_pending=" << p.pending_commands.size()
+			          << " command_p50_ms=" << percentile(p.commands, 50)
+			          << " command_p95_ms=" << percentile(p.commands, 95)
+			          << " command_max_ms=" << maximum(p.commands)
+			          << " world_offered=" << p.updates_sent
+			          << " world_samples=" << p.worlds.size()
+			          << " world_skipped=" << p.skipped
+			          << " world_p50_ms=" << percentile(p.worlds, 50)
+			          << " world_p95_ms=" << percentile(p.worlds, 95)
+			          << " world_max_ms=" << maximum(p.worlds)
+			          << " state_age_p95_ms=" << percentile(p.state_age, 95)
+			          << " state_age_max_ms=" << maximum(p.state_age)
+			          << " latest_offered_revision=" << p.offered
+			          << " latest_applied_revision=" << p.applied
+			          << " alive=" << (p.alive ? 1 : 0) << std::endl;
 		}
+		std::cout << "FVD_BENCH_RESULT players=" << count
+		          << " remote=" << builders.size()
+		          << " rounds=" << update_round
+		          << " arrows_per_recipient_update=" << arrows
+		          << " mode=independent"
+		          << " command_offered=" << total_sent
+		          << " command_samples=" << total_returned
+		          << " command_authority_accepted=" << accepted_by_host
+		          << " command_p50_ms=" << percentile(commands, 50)
+		          << " command_p95_ms=" << percentile(commands, 95)
+		          << " command_max_ms=" << maximum(commands)
+		          << " world_offered=" << total_offered
+		          << " world_samples=" << total_received
+		          << " world_skipped=" << total_skipped
+		          << " world_p50_ms=" << percentile(worlds, 50)
+		          << " world_p95_ms=" << percentile(worlds, 95)
+		          << " world_max_ms=" << maximum(worlds)
+		          << " state_age_p95_ms=" << percentile(state_ages, 95)
+		          << " state_age_max_ms=" << maximum(state_ages)
+		          << std::endl;
+		// Do not run the original post-benchmark capacity smoke tests:
+		// the slowest peer intentionally remains behind after this experiment.
+		for (auto &client : clients) client->close();
+		prepared.reset();
+		listener.close();
+		relay.join();
+		if (relay_error) std::rethrow_exception(relay_error);
+		return;
 	}
+
 	// The original Builder creator is just another guest after rehosting.
 	// Its loss must not close the Hunter's room or other Builder transports.
 	const auto departed_id = force_builder_creator
