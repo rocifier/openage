@@ -153,6 +153,7 @@ WorldState capture_fvd_presentation_state(
 	result.simulation_time = time;
 	result.map_size = static_cast<uint32_t>(fvd->get_map_size());
 	result.first_hunter_spawn_time = fvd->get_first_hunter_spawn_time();
+	result.match_outcome = fvd->get_match_outcome();
 
 	std::vector<gamestate::entity_id_t> entity_ids{};
 	entity_ids.reserve(state->get_game_entities().size());
