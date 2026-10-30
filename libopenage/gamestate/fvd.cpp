@@ -1552,6 +1552,24 @@ void FVD::start_hunter_wave(const std::shared_ptr<GameState> &state,
 	loop->create_event("game.fvd_combat_tick", this->horse_spawn_target, state, match_start);
 }
 
+std::optional<network::MatchOutcome> decide_fvd_match_outcome(
+	bool any_builder_alive, size_t completed_towers, const time::time_t &now,
+	const std::optional<time::time_t> &deadline) {
+	if (not any_builder_alive) {
+		return network::MatchOutcome{network::MatchWinner::HUNTER,
+		                             network::MatchEndReason::ALL_BUILDERS_DEAD, now};
+	}
+	if (completed_towers >= 7000) {
+		return network::MatchOutcome{network::MatchWinner::BUILDERS,
+		                             network::MatchEndReason::TOWER_LIMIT, now};
+	}
+	if (deadline and now >= *deadline) {
+		return network::MatchOutcome{network::MatchWinner::BUILDERS,
+		                             network::MatchEndReason::TIME_LIMIT, now};
+	}
+	return std::nullopt;
+}
+
 std::optional<network::MatchOutcome> FVD::get_match_outcome() const {
 	return this->match_outcome;
 }
