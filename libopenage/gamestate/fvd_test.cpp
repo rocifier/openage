@@ -1257,6 +1257,18 @@ void fvd_match_outcome_rules() {
 	TESTEQUALS(fvd->get_match_outcome()->winner, network::MatchWinner::HUNTER);
 	TESTEQUALS(fvd->get_match_outcome()->ended_at, at(20));
 	TESTEQUALS(state->get_game_entities().size(), entity_count);
+	bool accepted_after_end = true;
+	std::function<void(bool)> on_order = [&](bool accepted) {
+		accepted_after_end = accepted;
+	};
+	event::SendCommandHandler sender{};
+	sender.invoke(*loop, nullptr, state, at(21), {
+		{"type", component::command::command_t::MOVE},
+		{"owner", player_id_t{2}},
+		{"entity_ids", std::vector<entity_id_t>{}},
+		{"result_cb", on_order},
+	});
+	TESTEQUALS(accepted_after_end, false);
 	fvd->evaluate_match_outcome(state, at(2700));
 	TESTEQUALS(fvd->get_match_outcome()->reason,
 	           network::MatchEndReason::ALL_BUILDERS_DEAD);
