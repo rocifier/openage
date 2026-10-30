@@ -73,7 +73,7 @@ Builder(engine.util.game_entity.GameEntity):
 
 Horse(engine.util.game_entity.GameEntity):
     GameEntity.types = {}
-    GameEntity.abilities = {Idle, LineOfSight, Live, Move, Attack, Turn, Selectable}
+    GameEntity.abilities = {Idle, LineOfSight, Live, Move, Attack, Death, Turn, Selectable}
     GameEntity.modifiers = {}
     GameEntity.variants = {}
 
@@ -121,6 +121,15 @@ Horse(engine.util.game_entity.GameEntity):
 
             Animation(engine.util.graphics.Animation):
                 Animation.sprite = "../../../fvd/graphics/ethereal-hunter-horse/ethereal-hunter-horse-attack.sprite"
+
+    Death(engine.ability.Ability):
+        Ability.properties = {engine.ability.property.type.Animated: Animated}
+
+        Animated(engine.ability.property.type.Animated):
+            Animated.animations = {Animation}
+
+            Animation(engine.util.graphics.Animation):
+                Animation.sprite = "../../../fvd/graphics/ethereal-hunter-horse/ethereal-hunter-horse-death.sprite"
 
     Turn(engine.ability.type.Turn):
         Turn.turn_speed = inf

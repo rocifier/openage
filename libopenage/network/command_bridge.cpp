@@ -183,14 +183,18 @@ WorldState capture_fvd_presentation_state(
 			entity->get_definition(),
 			position->get_positions().get(time),
 		});
+		auto &entity_state = result.entities.back();
+		entity_state.angle = position->get_angles().get(time);
+		entity_state.animation_action = entity->get_animation_action();
+		entity_state.animation_started_at = entity->get_animation_started_at();
 		// Host-only presentation uses the same confirmed HP deltas as
 		// remote recipients, without predicting damage client-side.
 		if (auto hp = entity_health(entity, time)) {
-			result.entities.back().health = hp->first;
-			result.entities.back().maximum_health = hp->second;
+			entity_state.health = hp->first;
+			entity_state.maximum_health = hp->second;
 		}
 		if (entity->get_definition() == "fvd.data.entities.Horse") {
-			result.entities.back().hunter_stance = fvd->get_hunter_stance(entity_id);
+			entity_state.hunter_stance = fvd->get_hunter_stance(entity_id);
 		}
 	}
 	for (const auto &reservation : fvd->get_reserved_tiles()) {

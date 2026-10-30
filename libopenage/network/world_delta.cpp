@@ -271,19 +271,35 @@ std::vector<ConfirmedCombatEffect> confirmed_combat_effects(
 			// The host removed a previously living entity. The cue is
 			// cosmetic; only the host decides death and kill attribution.
 			// An entity merely walking into the recipient's fog is not dead.
-			if (current.fog.size() == 1
+			const bool own_side = current.local_player_id != 0
+			                   and prior.owner_id != 0
+			                   and (current.local_player_id == 1) == (prior.owner_id == 1);
+			if (not own_side and current.fog.size() == 1
 			    and not fog_tile_set(current.fog.front().visible, current.map_size,
 			                         prior.position.to_tile())) {
 				continue;
 			}
-			effects.push_back({prior.entity_id, prior.position, true});
+			effects.push_back({
+				prior.entity_id,
+				prior.owner_id,
+				prior.definition,
+				prior.position,
+				prior.angle,
+				true,
+			});
 		}
 		else if (next->second->health
 		         and *next->second->health < *prior.health) {
 			// A zero-HP entity retained until removal is already dead:
 			// display the death effect once, never a nonlethal hit flash.
 			effects.push_back({
-				prior.entity_id, next->second->position, *next->second->health <= 0});
+				prior.entity_id,
+				next->second->owner_id,
+				next->second->definition,
+				next->second->position,
+				next->second->angle,
+				*next->second->health <= 0,
+			});
 		}
 	}
 	return effects;

@@ -4,8 +4,9 @@
 MSVC RelWithDebInfo build and all 95 registered tests passed with FVD assets,
 and `checkmerge` passed. Real two-player alpha acceptance passed for
 performance, lobby/reconnect, host handover, Hunter AttackMove and ownership,
-Patrol/stance interaction, and attack/building animations. Death animations
-fail. Linux and four/eight-player graphical load testing remain follow-up.
+Patrol/stance interaction, and attack/building animations. Directional death
+animation playback is implemented and awaits live acceptance. Linux and
+four/eight-player graphical load testing remain follow-up.
 
 ## Automated preflight — Linux and Windows
 
@@ -49,7 +50,7 @@ configured.
 | OpenSpec scope | Automated evidence currently present | Status |
 |---|---|---|
 | Movement curves / sparse traffic (1.1–1.3a) | `world_delta` (512 horses, 2/4/8 player rosters, changed routes, packet size), `messages`, `replication` | Windows automation and real two-player performance pass; Linux and 4/8 graphical load remain |
-| Facing and animation (1.4a–b) | `messages`, `world_delta`, `fvd_animation_phase` (includes same-action ATTACK restart and recovery) | Attack/building animations pass in two-player testing; death animations fail |
+| Facing and animation (1.4a–b) | `messages`, `world_delta`, `fvd_animation_phase` (includes same-action ATTACK restart and recovery), `fvd_scenario` (death atlas direction, scale and timing) | Attack/building animations pass in two-player testing; death animation playback awaits live acceptance |
 | Projectile sequencing / late playback (1.5a–b) | `world_delta` (4,096 launches in two 2,048 batches), `messages`, `fvd_hunter_combat`, `fvd_hunter_focus_attack` (cancel after shot launch; no HP loss), `fvd_loopback` | Windows pass; live congestion unverified |
 | Construction and HUD state (1.6a–b) | `fvd_network_builder_count`, `fvd_construction`, `fvd_build_queue`, `fvd_build_line_order`, `fvd_retask_foundation`, `fvd_presentation_snapshot`, `replication` | Windows pass; Qt input/visual checks remain |
 | Hunter spawns, targeting and orders (1.7) | `messages`, `world_delta`, `replication` (authoritative order-marker resolution), `fvd_loopback`, `fvd_hunter_spawning`, `fvd_hunter_attack_move_regressions`, `fvd_hunter_focus_attack`, `fvd_hunter_stances` | Windows pass; target highlighting needs graphical inspection |
@@ -78,8 +79,8 @@ and save game/relay logs:
    attacks, correct horse facing and animation restart, tower and Hunter
    projectiles, confirmed HP change and authoritative death state, construction
    ownership/labels while cameras move, private kill totals. Attack and
-   building animation presentation pass; death animation presentation fails
-   and remains tracked separately.
+   building animation presentation pass; death animation presentation is
+   implemented and remains tracked for live acceptance.
 3. **Network adversity** — add packet delay/jitter/throughput limits or
    pause one recipient; verify backpressure recovery, no duplicate shots,
    no divergent damage, an interrupted/retasked Hunter attack, snapshot
@@ -112,16 +113,16 @@ cross-platform and adversity coverage as follow-up.
 | 3. Hunter combat and stances | **PASS** | Hunter-only AttackMove and the corrected Patrol/stance interactions pass real gameplay testing. |
 | 4. Disconnects and host migration | **PASS** | Reconnect and a real host handover preserved the match; wider stress remains alpha follow-up. |
 | 5. Building destruction and rendering | **PASS** | User confirmed the instructed hands-on destruction / depth / shadow smoke check; not a substitute for full graphical parity and recovery tests. |
-| 6. Animation parity | **PARTIAL** | Attack and building animations pass; death animations fail. |
+| 6. Animation parity | **PARTIAL** | Attack and building animations pass; directional death playback is implemented and awaits live acceptance. |
 
 The Windows build and all 95 automated tests plus `checkmerge` passed on
-2026-10-29. Four/eight-player graphical load, cross-platform behavior and
+2026-10-30. Four/eight-player graphical load, cross-platform behavior and
 network-adversity testing remain alpha follow-up.
 
 ## Outstanding implementation versus verification
 
-**Still implementation:** fix death animation presentation and implement 1.10
-authoritative victory/defeat state and result feedback. The accepted
+**Still implementation:** implement 1.10 authoritative victory/defeat state
+and result feedback. The accepted
 Hunter-owned authority topology makes the legacy mid-match Builder-authority
 checkpoint fallback unnecessary unless later alpha evidence restores it as a
 requirement.
@@ -131,7 +132,7 @@ phase/parity; live projectile volume/backpressure; construction overlays
 across cameras; Linux/cross-platform behavior; repeated startup and extended
 failure-path stress during alpha.
 
-## Replication hardening follow-up — pending test execution
+## Replication hardening follow-up — 2026-10-30 Windows execution
 
 - The presenter now evaluates each authoritative combat state transition even
   when the simulation timestamp has not advanced; a zero-HP retained entity
@@ -139,8 +140,8 @@ failure-path stress during alpha.
 - The `world_delta` test adds same-tick and zero-HP deaths, fog disappearance,
   6,144 sequential projectile IDs in three 2,048-event batches, confirmed HP
   parity and resynchronization from a fresh authoritative snapshot.
-- **Not run here:** Windows/Linux compilation, `bin/run test
-  network::tests::world_delta`, full asset-backed tests and `checkmerge`.
-  Test actual horse/tower death animation playback on both host and guest.
+- The MSVC RelWithDebInfo build, `network::tests::world_delta`, all 95
+  asset-backed tests and `checkmerge` pass.
+- Test actual horse death animation playback on both host and guest.
 - This synthetic backlog is not a live TCP backpressure or bandwidth test.
   Keep multi-client visual and network adversity acceptance open.

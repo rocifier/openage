@@ -71,6 +71,8 @@ namespace openage::presenter {
 
 namespace {
 
+constexpr double HORSE_DEATH_VISUAL_SECONDS = 3.1;
+
 std::shared_ptr<QQmlPropertyMap> create_property_map() {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 11, 0)
 	return std::shared_ptr<QQmlPropertyMap>{QQmlPropertyMap::create()};
@@ -361,7 +363,7 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 		this->fvd_last_guest_arrow_id = 0;
 		this->fvd_guest_late_arrows.clear();
 		this->fvd_previous_combat_world.reset();
-		this->fvd_combat_visuals.clear();
+		this->clear_fvd_combat_visuals();
 		for (auto &[id, visual] : this->fvd_guest_entities) visual->deactivate(0);
 		this->fvd_guest_entities.clear();
 		this->fvd_guest_sprite_paths.clear();
@@ -424,7 +426,7 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 	this->fvd_last_guest_arrow_id = 0;
 	this->fvd_guest_late_arrows.clear();
 	this->fvd_previous_combat_world.reset();
-	this->fvd_combat_visuals.clear();
+	this->clear_fvd_combat_visuals();
 	for (auto &[id, visual] : this->fvd_guest_entities) visual->deactivate(0);
 	this->fvd_guest_entities.clear();
 	this->fvd_guest_sprite_paths.clear();
@@ -785,6 +787,9 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 	for (const auto &entity : view.entities) {
 		shown.insert(static_cast<uint32_t>(entity.entity_id));
 	}
+	for (const auto &effect : this->fvd_combat_visuals) {
+		if (effect.render_entity) shown.insert(effect.render_entity->get_id());
+	}
 	this->world_renderer->set_shown(std::move(shown));
 	// A guest only knows a remembered building's last place, not its state.
 	for (auto &entity : view.entities) {
@@ -818,6 +823,7 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 	}
 	view.fog = {*fog};
 	view.fog.front().remembered.clear();
+	view.local_player_id = controlled;
 	return view;
 }
 
@@ -853,10 +859,12 @@ void Presenter::update_fvd_fog(const network::WorldState *world) {
 }
 
 void Presenter::record_confirmed_combat_effects(
-	const network::WorldState &world, bool reset) {
+	const network::WorldState &world,
+	bool reset,
+	const time::time_t &presentation_time) {
 	if (reset) {
 		this->fvd_previous_combat_world.reset();
-		this->fvd_combat_visuals.clear();
+		this->clear_fvd_combat_visuals();
 	}
 	// A lethal state transition can be captured twice at the same simulation
 	// time. Diff every confirmed state; identical states produce no effects.
@@ -866,11 +874,60 @@ void Presenter::record_confirmed_combat_effects(
 		const auto now = std::chrono::steady_clock::now();
 		for (const auto &effect : confirmed) {
 			if (this->fvd_combat_visuals.size() >= 512) break;
+			std::shared_ptr<renderer::world::RenderEntity> render_entity{};
+			if (effect.death
+			    and effect.definition == "fvd.data.entities.Horse"
+			    and this->world_renderer) {
+				const auto &paths = this->resolve_fvd_sprite_paths(
+					"fvd.data.entities.Horse.Death");
+				render_entity = std::make_shared<renderer::world::RenderEntity>(false);
+				this->world_renderer->add_render_entity(render_entity);
+				render_entity->update_sample(
+					effect.target_id, effect.position, paths, presentation_time,
+					std::nullopt, {}, presentation_time);
+				render_entity->update_facing(
+					effect.angle, presentation_time, {});
+				render_entity->set_occlusion_mode(
+					renderer::world::occlusion_mode::OUTLINED, effect.owner_id);
+			}
 			this->fvd_combat_visuals.push_back({
-				effect.position, effect.death, now});
+				effect.position, effect.death, now, presentation_time, std::move(render_entity)});
 		}
 	}
 	this->fvd_previous_combat_world = world;
+}
+
+void Presenter::clear_fvd_combat_visuals() {
+	for (auto &effect : this->fvd_combat_visuals) {
+		if (effect.render_entity) effect.render_entity->deactivate(0);
+	}
+	this->fvd_combat_visuals.clear();
+}
+
+const std::vector<std::string> &Presenter::resolve_fvd_sprite_paths(
+	const std::string &ability) {
+	auto path = this->fvd_guest_sprite_paths.find(ability);
+	if (path != this->fvd_guest_sprite_paths.end()) return path->second;
+
+	// The source attribute is relative to its nyan namespace. The API returns
+	// the asset-root-relative path expected by AssetManager.
+	auto view = this->simulation->get_game()->get_state()->get_db_view();
+	const auto ability_object = view->get_object(ability);
+	const auto animated = gamestate::api::APIAbility::get_property(
+		ability_object, gamestate::api::ability_property_t::ANIMATED);
+	const auto animations = gamestate::api::APIAbilityProperty::get_animations(animated);
+	auto paths = gamestate::api::APIAnimation::get_animation_paths(animations);
+	if (paths.empty()) {
+		throw Error{MSG(err) << "FVD entity has no animation: " << ability};
+	}
+	std::sort(paths.begin(), paths.end());
+	for (const auto &sprite_path : paths) {
+		const auto resolved = this->root_dir / "assets" / "converted" / sprite_path;
+		if (not resolved.is_file()) {
+			throw Error{MSG(err) << "FVD entity sprite not found: " << resolved};
+		}
+	}
+	return this->fvd_guest_sprite_paths.emplace(ability, std::move(paths)).first->second;
 }
 
 void Presenter::refresh_fvd_guest_visuals() {
@@ -885,11 +942,11 @@ void Presenter::refresh_fvd_guest_visuals() {
 	if (not reset and world->world_revision == this->fvd_guest_visual_revision) {
 		return;
 	}
-	this->record_confirmed_combat_effects(*world, reset);
 	const auto received_at = std::chrono::steady_clock::now();
 	const auto previous_time = this->fvd_guest_clock.update(
 		world->simulation_time, received_at, reset);
 	const auto presentation_time = this->fvd_guest_clock.get_time(received_at);
+	this->record_confirmed_combat_effects(*world, reset, presentation_time);
 	if (reset) this->fvd_guest_late_arrows.clear();
 	for (const auto &shot : world->arrows) {
 		if (shot.arrow_id <= this->fvd_last_guest_arrow_id) continue;
@@ -942,32 +999,7 @@ void Presenter::refresh_fvd_guest_visuals() {
 		const std::string cache_key = entity.definition
 		                              + (attacking ? ".Attack"
 		                                           : walking ? ".Move" : ".Idle");
-		auto path = this->fvd_guest_sprite_paths.find(cache_key);
-		if (path == this->fvd_guest_sprite_paths.end()) {
-			// The host resolves Animation.sprite relative to the nyan
-			// namespace of its Idle ability. The raw ../../../fvd/... file
-			// attribute was mistakenly passed directly to AssetManager on
-			// the guest, causing red-X placeholder sprites.
-			auto view = this->simulation->get_game()->get_state()->get_db_view();
-			const auto ability = view->get_object(cache_key);
-			const auto animated = gamestate::api::APIAbility::get_property(
-				ability, gamestate::api::ability_property_t::ANIMATED);
-			const auto animations = gamestate::api::APIAbilityProperty::get_animations(animated);
-			auto paths = gamestate::api::APIAnimation::get_animation_paths(animations);
-			if (paths.empty()) {
-				throw Error{MSG(err) << "FVD replica has no animation: " << cache_key};
-			}
-			std::sort(paths.begin(), paths.end());
-			for (const auto &sprite_path : paths) {
-				const auto resolved = this->root_dir / "assets" / "converted" / sprite_path;
-				if (not resolved.is_file()) {
-					throw Error{MSG(err) << "FVD replica sprite not found: " << resolved};
-				}
-			}
-			path = this->fvd_guest_sprite_paths.emplace(cache_key, std::move(paths)).first;
-			log::log(INFO << "FVD guest sprite " << entity.definition << " has "
-			              << path->second.size() << " variant(s)");
-		}
+		const auto &paths = this->resolve_fvd_sprite_paths(cache_key);
 		present.insert(entity.entity_id);
 		auto &visual = this->fvd_guest_entities[entity.entity_id];
 		const bool new_entity = not visual;
@@ -994,7 +1026,7 @@ void Presenter::refresh_fvd_guest_visuals() {
 			}
 		}
 		visual->update_sample(
-			entity.entity_id, entity.position, path->second, world->simulation_time,
+			entity.entity_id, entity.position, paths, world->simulation_time,
 			new_entity or not previous_time ? std::nullopt
 			                                : std::make_optional(presentation_time),
 			future_motion, entity.animation_started_at);
@@ -1499,7 +1531,10 @@ void Presenter::render() {
 				const network::WorldState *construction_world = replica_for_hud ? &*replica_for_hud
 				                                              : local_view ? &*local_view : nullptr;
 				if (not this->fvd_replication and local_view) {
-					this->record_confirmed_combat_effects(*local_view, false);
+					this->record_confirmed_combat_effects(
+						*local_view,
+						false,
+						this->time_loop->get_clock()->get_real_time());
 				}
 				this->update_fvd_fog(construction_world);
 				// The Hunter's own horse stances arrive in the same snapshot locally
@@ -1653,10 +1688,17 @@ void Presenter::render() {
 				// Use the same projection as projectiles, but emit flashes
 				// only after confirmed HP changes / authoritative removals.
 				const auto visual_now = std::chrono::steady_clock::now();
-				std::erase_if(this->fvd_combat_visuals, [&](const CombatVisual &fx) {
-					const auto elapsed = std::chrono::duration<double>(
-						visual_now - fx.started).count();
-					return elapsed >= (fx.death ? 0.72 : 0.36);
+				const auto visual_presentation_time = guest_time.value_or(
+					this->time_loop->get_clock()->get_real_time());
+				std::erase_if(this->fvd_combat_visuals, [&](CombatVisual &fx) {
+					const auto elapsed = fx.render_entity
+					                       ? (visual_presentation_time - fx.presentation_started).to_double()
+					                       : std::chrono::duration<double>(visual_now - fx.started).count();
+					const auto duration = fx.render_entity ? HORSE_DEATH_VISUAL_SECONDS
+					                                       : fx.death ? 0.72 : 0.36;
+					if (elapsed < duration) return false;
+					if (fx.render_entity) fx.render_entity->deactivate(0);
+					return true;
 				});
 				QVariantList combat_effects;
 				if (not this->fvd_combat_visuals.empty()) {
@@ -1664,6 +1706,10 @@ void Presenter::render() {
 					                     * this->camera->get_view_matrix();
 					const auto fx_viewport = this->camera->get_viewport_size();
 					for (const auto &fx : this->fvd_combat_visuals) {
+						const auto elapsed = std::chrono::duration<double>(
+							visual_now - fx.started).count();
+						const auto duration = fx.death ? 0.72 : 0.36;
+						if (elapsed >= duration) continue;
 						auto world_pos = fx.position;
 						world_pos.up += coord::phys_t::from_double(fx.death ? 0.5 : 0.8);
 						const auto world_point = world_pos.to_scene3().to_world_space();
@@ -1674,9 +1720,6 @@ void Presenter::render() {
 						const float y = (0.5f - clip.y() / clip.w() * 0.5f) * fx_viewport[1];
 						if (x < -40 or y < -40 or x > fx_viewport[0] + 40
 						    or y > fx_viewport[1] + 40) continue;
-						const auto elapsed = std::chrono::duration<double>(
-							visual_now - fx.started).count();
-						const auto duration = fx.death ? 0.72 : 0.36;
 						const double progress = std::clamp(elapsed / duration, 0.0, 1.0);
 						combat_effects.push_back(QVariantMap{
 							{"x", x}, {"y", y}, {"death", fx.death},

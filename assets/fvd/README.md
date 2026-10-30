@@ -20,6 +20,9 @@ Every Builder constructs the same medieval tower, whose sixteen 512 by 512 idle 
 Their 16-frame attack cycle lasts 0.6 seconds, matching the authoritative melee cooldown, and damage lands at the 75% hit frame.
 At the start of every idle loop, the renderer selects either idle1 or idle2 using the horse ID, authoritative animation start time and loop number.
 Idle1 uses 24 frames at 0.15 seconds per frame for a 3.6-second loop, while idle2 uses 12 frames at 0.4 seconds per frame for a 4.8-second loop.
+A confirmed horse death plays its 60-frame directional sequence once at 0.05 seconds per frame on both host and guests.
+The death sprite uses a 2.0 scale factor to compensate for its Blender orthographic camera scale increasing from 48 to 96 while retaining 256 by 256 frames.
+Its texture anchor is `(128, 160)`, which preserves the normal horse's ground contact after that 2.0 scale is applied.
 The atlas layouts and source angles are recorded in the JSON metadata files under `graphics/ethereal-hunter-horse/`.
 Source angle 0 faces down and right on screen and maps to openage angle 337 after a one-slot clockwise calibration.
 The atlas rows advance counter-clockwise, so their order is reversed and offset by one to match openage's clockwise angle sequence.

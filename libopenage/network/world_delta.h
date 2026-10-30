@@ -3,6 +3,7 @@
 #pragma once
 
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "network/messages.h"
@@ -40,7 +41,10 @@ WorldDelta make_world_delta(const WorldState &previous, const WorldState &curren
  * Never infer hit/death effects from projectile trajectories. */
 struct ConfirmedCombatEffect {
 	gamestate::entity_id_t target_id;
+	gamestate::player_id_t owner_id;
+	std::string definition;
 	coord::phys3 position;
+	coord::phys_angle_t angle;
 	bool death;
 };
 

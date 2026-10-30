@@ -19,6 +19,7 @@
 #include "presenter/hud_mouse_capture.h"
 
 #include "renderer/window.h"
+#include "time/time.h"
 #include "util/path.h"
 
 
@@ -253,7 +254,14 @@ protected:
 	uint64_t fvd_guest_snapshot_generation{0};
 	GuestClock fvd_guest_clock{};
 	/** Process only host-confirmed HP changes and entity deaths for visuals. */
-	void record_confirmed_combat_effects(const network::WorldState &world, bool reset);
+	void record_confirmed_combat_effects(
+		const network::WorldState &world,
+		bool reset,
+		const time::time_t &presentation_time);
+	/** Deactivate and forget transient combat render entities. */
+	void clear_fvd_combat_visuals();
+	/** Resolve and cache the animation variants for an FVD ability. */
+	const std::vector<std::string> &resolve_fvd_sprite_paths(const std::string &ability);
 	/**
 	 * Reduce a local snapshot to what the controlled player's side can see,
 	 * as a remote guest would receive it, and hide everything else.
@@ -268,6 +276,8 @@ protected:
 		coord::phys3 position;
 		bool death;
 		std::chrono::steady_clock::time_point started;
+		time::time_t presentation_started;
+		std::shared_ptr<renderer::world::RenderEntity> render_entity{};
 	};
 	std::vector<CombatVisual> fvd_combat_visuals{};
 

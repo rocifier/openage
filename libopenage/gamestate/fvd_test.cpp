@@ -206,18 +206,22 @@ void fvd_scenario() {
 		graphics / "ethereal-hunter-horse" / "ethereal-hunter-horse-gallop.sprite");
 	auto horse_attack = renderer::resources::parser::parse_sprite_file(
 		graphics / "ethereal-hunter-horse" / "ethereal-hunter-horse-attack.sprite");
+	auto horse_death = renderer::resources::parser::parse_sprite_file(
+		graphics / "ethereal-hunter-horse" / "ethereal-hunter-horse-death.sprite");
 	TESTEQUALS(animated_idle.get_texture_count(), size_t{16});
 	TESTEQUALS(animated_walk.get_texture_count(), size_t{16});
 	TESTEQUALS(horse_idle1.get_texture_count(), size_t{2});
 	TESTEQUALS(horse_idle2.get_texture_count(), size_t{1});
 	TESTEQUALS(horse_gallop.get_texture_count(), size_t{1});
 	TESTEQUALS(horse_attack.get_texture_count(), size_t{1});
+	TESTEQUALS(horse_death.get_texture_count(), size_t{4});
 	const auto &idle_layer = animated_idle.get_layer(0);
 	const auto &walk_layer = animated_walk.get_layer(0);
 	const auto &horse_idle1_layer = horse_idle1.get_layer(0);
 	const auto &horse_idle2_layer = horse_idle2.get_layer(0);
 	const auto &horse_gallop_layer = horse_gallop.get_layer(0);
 	const auto &horse_attack_layer = horse_attack.get_layer(0);
+	const auto &horse_death_layer = horse_death.get_layer(0);
 	const auto &tower_layer = tower_graphics.get_layer(0);
 	const auto &tower_demolition_layer = tower_demolition_graphics.get_layer(0);
 	TESTEQUALS(idle_layer.get_display_mode(),
@@ -232,6 +236,8 @@ void fvd_scenario() {
 	           renderer::resources::display_mode::LOOP);
 	TESTEQUALS(horse_attack_layer.get_display_mode(),
 	           renderer::resources::display_mode::LOOP);
+	TESTEQUALS(horse_death_layer.get_display_mode(),
+	           renderer::resources::display_mode::ONCE);
 	TESTEQUALS(tower_layer.get_display_mode(),
 	           renderer::resources::display_mode::LOOP);
 	TESTEQUALS(tower_demolition_layer.get_display_mode(),
@@ -242,6 +248,7 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle2_layer.get_angle_count(), size_t{16});
 	TESTEQUALS(horse_gallop_layer.get_angle_count(), size_t{16});
 	TESTEQUALS(horse_attack_layer.get_angle_count(), size_t{16});
+	TESTEQUALS(horse_death_layer.get_angle_count(), size_t{16});
 	// A frame duration is measured in seconds, not milliseconds.
 	TESTEQUALS(idle_layer.get_time_per_frame(), 0.125f);
 	TESTEQUALS(walk_layer.get_time_per_frame(), 0.07f);
@@ -249,6 +256,7 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle1_layer.get_time_per_frame(), 0.15f);
 	TESTEQUALS(horse_idle2_layer.get_time_per_frame(), 0.4f);
 	TESTEQUALS(horse_attack_layer.get_time_per_frame(), 0.0375f);
+	TESTEQUALS(horse_death_layer.get_time_per_frame(), 0.05f);
 	TESTEQUALS(tower_layer.get_time_per_frame(), 0.125f);
 	const auto idle_frames = idle_layer.get_frame_timing();
 	const auto walk_frames = walk_layer.get_frame_timing();
@@ -258,6 +266,7 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle1_layer.get_frame_timing()->size(), size_t{24});
 	TESTEQUALS(horse_idle2_layer.get_frame_timing()->size(), size_t{12});
 	TESTEQUALS(horse_attack_layer.get_frame_timing()->size(), size_t{16});
+	TESTEQUALS(horse_death_layer.get_frame_timing()->size(), size_t{60});
 	TESTEQUALS(tower_layer.get_frame_timing()->size(), size_t{16});
 	const auto &tower_angle = tower_layer.get_direction_angle(0.0f);
 	TESTEQUALS(tower_angle->get_frame_count(), size_t{16});
@@ -288,6 +297,7 @@ void fvd_scenario() {
 		const auto &idle2_angle = horse_idle2_layer.get_direction_angle(angle);
 		const auto &gallop_angle = horse_gallop_layer.get_direction_angle(angle);
 		const auto &attack_angle = horse_attack_layer.get_direction_angle(angle);
+		const auto &death_angle = horse_death_layer.get_direction_angle(angle);
 		TESTEQUALS(idle1_angle->get_frame_count(), size_t{24});
 		TESTEQUALS(idle2_angle->get_frame_count(), size_t{12});
 		const auto idle1_texture = row < 8 ? size_t{0} : size_t{1};
@@ -306,6 +316,14 @@ void fvd_scenario() {
 		TESTEQUALS(attack_angle->get_frame_count(), size_t{16});
 		TESTEQUALS(attack_angle->get_frame(0)->get_subtexture_idx(), row * 16);
 		TESTEQUALS(attack_angle->get_frame(15)->get_subtexture_idx(), row * 16 + 15);
+		TESTEQUALS(death_angle->get_frame_count(), size_t{60});
+		const auto death_texture = row / 4;
+		const auto death_row = row % 4;
+		for (size_t frame = 0; frame < 60; ++frame) {
+			TESTEQUALS(death_angle->get_frame(frame)->get_texture_idx(), death_texture);
+			TESTEQUALS(death_angle->get_frame(frame)->get_subtexture_idx(),
+			           death_row * 60 + frame);
+		}
 	}
 	TESTEQUALS(idle_frames->get_frame(time::time_t::from_double(0.26),
 	                                  time::TIME_ZERO), size_t{2});
@@ -350,6 +368,19 @@ void fvd_scenario() {
 		graphics / "ethereal-hunter-horse" / "ethereal-hunter-horse-attack.texture");
 	TESTEQUALS(horse_attack_sheet.get_size(), (std::pair<int32_t, int32_t>{4096, 4096}));
 	TESTEQUALS(horse_attack_sheet.get_subtex_count(), size_t{256});
+	for (const auto &death_name : {"ethereal-hunter-horse-death_page_00.texture",
+	                               "ethereal-hunter-horse-death_page_01.texture",
+	                               "ethereal-hunter-horse-death_page_02.texture",
+	                               "ethereal-hunter-horse-death_page_03.texture"}) {
+		auto death_sheet = renderer::resources::parser::parse_texture_file(
+			graphics / "ethereal-hunter-horse" / death_name);
+		TESTEQUALS(death_sheet.get_size(), (std::pair<int32_t, int32_t>{4096, 4096}));
+		TESTEQUALS(death_sheet.get_subtex_count(), size_t{240});
+		TESTEQUALS(death_sheet.get_subtex_info(0).get_anchor_pos()[0], 128);
+		TESTEQUALS(death_sheet.get_subtex_info(0).get_anchor_pos()[1], 160);
+		TESTEQUALS(death_sheet.get_subtex_info(239).get_anchor_pos()[0], 128);
+		TESTEQUALS(death_sheet.get_subtex_info(239).get_anchor_pos()[1], 160);
+	}
 	auto tower_sheet = renderer::resources::parser::parse_texture_file(
 		graphics / "medieval-tower" / "medieval_tower.texture");
 	TESTEQUALS(tower_sheet.get_size(), (std::pair<int32_t, int32_t>{4096, 1024}));
@@ -380,12 +411,17 @@ void fvd_scenario() {
 	TESTEQUALS(foundation_graphics.get_texture_count(), 1);
 	TESTEQUALS(tower_graphics.get_texture_count(), 1);
 	TESTEQUALS(tower_graphics.get_scalefactor(), 0.5f);
+	TESTEQUALS(horse_death.get_scalefactor(), 2.0f);
 	for (const auto &info : {plains_graphics.get_texture(0),
 	                        builder_graphics.get_texture(0),
 	                        horse_idle1.get_texture(0),
 	                        horse_idle1.get_texture(1),
 	                        horse_idle2.get_texture(0),
 	                        horse_attack.get_texture(0),
+	                        horse_death.get_texture(0),
+	                        horse_death.get_texture(1),
+	                        horse_death.get_texture(2),
+	                        horse_death.get_texture(3),
 	                        foundation_graphics.get_texture(0),
 	                        tower_graphics.get_texture(0)}) {
 		auto texture = renderer::resources::Texture2dData{info->get_image_path().value()};
@@ -474,6 +510,18 @@ void fvd_scenario() {
 	TESTEQUALS(horse_attack_paths.size(), size_t{1});
 	TESTEQUALS(horse_attack_paths.front().ends_with(
 		           "ethereal-hunter-horse-attack.sprite"),
+	           true);
+	const auto horse_death_ability = state->get_db_view()->get_object(
+		"fvd.data.entities.Horse.Death");
+	const auto horse_death_animated = api::APIAbility::get_property(
+		horse_death_ability, api::ability_property_t::ANIMATED);
+	const auto horse_death_animations = api::APIAbilityProperty::get_animations(
+		horse_death_animated);
+	const auto horse_death_paths = api::APIAnimation::get_animation_paths(
+		horse_death_animations);
+	TESTEQUALS(horse_death_paths.size(), size_t{1});
+	TESTEQUALS(horse_death_paths.front().ends_with(
+		           "ethereal-hunter-horse-death.sprite"),
 	           true);
 
 	auto fvd = state->get_fvd();

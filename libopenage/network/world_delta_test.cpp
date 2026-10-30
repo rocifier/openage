@@ -146,6 +146,7 @@ void world_delta() {
 	hp_before.entities = {
 		{100, 1, "fvd.data.entities.Horse", {30, 30, 0}, 90, 90},
 		{200, 2, "fvd.data.entities.Tower", {32, 32, 0}, 100, 100}};
+	hp_before.entities.front().angle = coord::phys_angle_t::from_int(225);
 	auto hp_hit = hp_before;
 	hp_hit.world_revision = 2;
 	hp_hit.simulation_time = time::time_t::from_int(3);
@@ -162,7 +163,11 @@ void world_delta() {
 	auto observed_death = confirmed_combat_effects(hp_hit, hp_dead);
 	TESTEQUALS(observed_death.size(), size_t{1});
 	TESTEQUALS(observed_death.front().death, true);
+	TESTEQUALS(observed_death.front().owner_id, gamestate::player_id_t{1});
+	TESTEQUALS(observed_death.front().definition, "fvd.data.entities.Horse");
 	TESTEQUALS(observed_death.front().position, (coord::phys3{30, 30, 0}));
+	TESTEQUALS(observed_death.front().angle,
+	           coord::phys_angle_t::from_int(225));
 	// Same-tick removal is a real authoritative death, even if the
 	// presenter has not observed a clock advance since the last capture.
 	auto same_tick_death = hp_dead;
@@ -183,6 +188,11 @@ void world_delta() {
 		std::vector<uint64_t>(fog_word_count(128), 0),
 		std::vector<uint64_t>(fog_word_count(128), 0), {}});
 	TESTEQUALS(confirmed_combat_effects(hp_hit, fog_hidden).empty(), true);
+	// The viewer already knows when one of its own units is removed, even if
+	// that unit's vision disappears from the same authoritative state.
+	auto own_unit_hidden = fog_hidden;
+	own_unit_hidden.local_player_id = 1;
+	TESTEQUALS(confirmed_combat_effects(hp_hit, own_unit_hidden).size(), size_t{1});
 
 	// A 0.2-second projectile can launch and hit between successive
 	// recipient captures. Keep its unique launch event for the guest's
