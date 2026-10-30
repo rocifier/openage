@@ -50,6 +50,11 @@ def free_port_block(length: int, seed: int, excluded: set[int]) -> int:
     raise RuntimeError("Cannot reserve consecutive localhost ports")
 
 
+def bounded_sleep_seconds(deadline: float, now: float) -> float:
+    """Never pass a negative delay to sleep after a deadline-check race."""
+    return max(0.0, min(0.02, deadline - now))
+
+
 class TcpShaper:
     """Full-duplex TCP proxy. Each direction preserves byte order and reliability."""
 
@@ -76,6 +81,7 @@ class TcpShaper:
         self.bytes_up = 0
         self.bytes_down = 0
         self._lock = threading.Lock()
+        self.worker_errors: list[str] = []
         self.acceptor = threading.Thread(target=self._accept, daemon=True)
         self.acceptor.start()
 
@@ -166,7 +172,9 @@ class TcpShaper:
                         scheduled = max(scheduled, stall_at + self.stall_s)
                 deliver_at = max(scheduled, next_send)
                 while not self.stopping.is_set() and time.monotonic() < deliver_at:
-                    time.sleep(min(0.02, deliver_at - time.monotonic()))
+                    remaining = bounded_sleep_seconds(deliver_at, time.monotonic())
+                    if remaining > 0:
+                        time.sleep(remaining)
                 if self.stopping.is_set():
                     break
                 dest.sendall(data)
@@ -178,7 +186,16 @@ class TcpShaper:
                     else:
                         self.bytes_down += len(data)
         except OSError:
+            # Peers can close during teardown or an actual disconnect test.
             pass
+        except Exception as exc:
+            # A shaper programming error must invalidate the test; otherwise
+            # the game might keep running and report a misleading PASS.
+            with self._lock:
+                self.worker_errors.append(
+                    f"proxy forwarding {direction} connection {connection_id}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
         finally:
             local_stop.set()
             for sock in (source, dest):
@@ -319,6 +336,7 @@ def main() -> int:
     finally:
         for proxy in proxies:
             proxy.close()
+    proxy_errors = [error for proxy in proxies for error in proxy.worker_errors]
     match = RESULT.search(output)
     def parse_numbers(text: str) -> dict:
         values = {}
@@ -335,7 +353,9 @@ def main() -> int:
     topology_verified = "FVD_BENCH_TOPOLOGY hunter=direct builders=proxied remote_builders=4" in output
     independently_scheduled = "FVD_BENCH_SCHEDULE mode=independent" in output
     report = {
-        "pass": return_code == 0 and bool(match) and topology_verified and independently_scheduled,
+        "pass": return_code == 0 and bool(match) and topology_verified
+                and independently_scheduled and not proxy_errors,
+        "proxy_errors": proxy_errors,
         "independently_scheduled": independently_scheduled,
         "topology_verified": topology_verified,
         "exit_code": return_code,
@@ -365,6 +385,9 @@ def main() -> int:
                    "latest_applied_revision, world_skipped and state_age measure backlogs. "
                    "Synthetic byte delays are not an OS-level packet-loss emulator.",
     }
+    if proxy_errors:
+        print("FVD benchmark proxy failure: " + "; ".join(proxy_errors),
+              file=sys.stderr, flush=True)
     if match and not independently_scheduled:
         print("FVD benchmark runner is stale: continuous scheduling marker missing. "
               "Recompile PR #7's C++ test.", file=sys.stderr, flush=True)
