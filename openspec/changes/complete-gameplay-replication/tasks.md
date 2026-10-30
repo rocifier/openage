@@ -141,13 +141,19 @@
   never sending frames on another Builder's socket. Add 4/8-client
   integration regressions for rapid captures, concurrent recovery requests,
   post-recovery commands, and existing disconnect/handoff checks.
-  **Implementation committed on a separate PR; compilation pending.**
+  **Implementation committed in draft PR #8; user-reported Windows
+  `lobby_capacity` exited 0 on 2026-10-30 (4/8-player and handoff cases).
+  Repeat runs and Linux build remain pending.**
 - [ ] 1.9b Verify true slow-recipient isolation with the calibrated PR #7
   TCP proxy, particularly Builder 5 at 256 kbps and a 3s stall versus
-  Builders 2–4 at 2 Mbps. Require healthy clients' command P95, state-age
-  P95/max, private revisions and pending orders to remain near the
-  no-slow-client control; confirm correct Builder departure notices,
-  queue coalescing, recovery and worker teardown on Windows and Linux.
+  Builders 2–4 at 2 Mbps. **Initial Windows evidence (2026-10-30) passes
+  scripted isolated-delivery performance:** healthy Builders 2–4 preserved
+  60/60 command results and 60/60 private world updates, command P95 ~495ms
+  (previous sequential run ~5.8s), state-age P95 ~1.40s (previous ~5.75s),
+  despite Builder 5 receiving only 2/20 world captures. Keep this task open
+  for repeated runs, actual gameplay and projectile/recovery stress, healthy
+  revision parity after a saturated client catches up, Builder disconnect
+  notices and worker teardown, and Linux verification.
 - [ ] 1.10 Add match end-state and victory feedback to the same replicated
   state/event pipeline when win/loss rules are implemented.
 
