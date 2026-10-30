@@ -1609,21 +1609,8 @@ void FVD::evaluate_match_outcome(
 	}
 	const bool any_builder_alive = std::any_of(
 		alive.begin() + 2, alive.end(), [](bool value) { return value; });
-	if (not any_builder_alive) {
-		this->match_outcome = network::MatchOutcome{
-			network::MatchWinner::HUNTER,
-			network::MatchEndReason::ALL_BUILDERS_DEAD, now};
-	}
-	else if (completed_towers >= 7000) {
-		this->match_outcome = network::MatchOutcome{
-			network::MatchWinner::BUILDERS,
-			network::MatchEndReason::TOWER_LIMIT, now};
-	}
-	else if (now >= *this->get_match_end_deadline()) {
-		this->match_outcome = network::MatchOutcome{
-			network::MatchWinner::BUILDERS,
-			network::MatchEndReason::TIME_LIMIT, now};
-	}
+	this->match_outcome = decide_fvd_match_outcome(
+		any_builder_alive, completed_towers, now, this->get_match_end_deadline());
 }
 
 std::optional<int> hunter_spawn_countdown(
