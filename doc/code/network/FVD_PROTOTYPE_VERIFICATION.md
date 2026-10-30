@@ -57,7 +57,7 @@ configured.
 | 2–8 player protocol / recovery (1.9) | `lobby_capacity`, `lobby_relay_client`, `fvd_multi_session`, `fvd_loopback`, `replication`, `world_delta`, `authority_succession` | Windows automation plus real two-player reconnect/host handover pass; Linux and 4/8 graphical stress remain |
 | HUD input / cancel (build-menu 1.6) | `tower_placement_mode`, `hud_mouse_capture`, construction tests | Windows pass; mouse/QML behavior requires game |
 | Tower kill credit (combat 1.9) | `fvd_hunter_combat`, `replication` | Windows pass; selected-tower kill label needs visual check |
-| Endgame (1.10) | No victory/defeat system implemented yet | Not verifiable |
+| Endgame (1.10) | v17 outcome snapshot/delta/recovery tests (pending compilation); no victory/defeat detection or UI yet | Partial implementation; real winner generation and graphical acceptance open |
 
 **Important boundaries:** `lobby_capacity` runs real relay-client workers
 but not graphical game processes. The 512-entity regression tests encoded
