@@ -67,6 +67,7 @@ std::vector<std::pair<coord::phys3, double>> FVD::vision_sources(
 	std::vector<std::pair<coord::phys3, double>> sources;
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		const auto &definition = entity->get_definition();
+		if (this->is_garrisoned(id)) continue;
 		const double radius = this->vision_range(state, definition);
 		if (radius <= 0.0) {
 			continue;
@@ -128,6 +129,7 @@ bool FVD::can_see(const std::shared_ptr<GameState> &state, FVDTeam team,
 	    or not found->second->has_component(component::component_t::POSITION)) {
 		return false;
 	}
+	if (this->is_garrisoned(entity_id)) return false;
 	const auto &entity = found->second;
 	if (entity->has_component(component::component_t::OWNERSHIP)) {
 		auto ownership = std::dynamic_pointer_cast<component::Ownership>(

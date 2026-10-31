@@ -297,7 +297,8 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
                        player_id_t owner, bool tower_shot,
                        const time::time_t &time) {
 	auto found = state->get_game_entities().find(target);
-	if (found == state->get_game_entities().end() or not alive(found->second, time)) {
+	if (this->is_garrisoned(target)
+	    or found == state->get_game_entities().end() or not alive(found->second, time)) {
 		return false;
 	}
 	auto entity = found->second;

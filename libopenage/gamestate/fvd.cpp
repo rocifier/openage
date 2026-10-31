@@ -98,6 +98,28 @@ public:
 	}
 };
 
+/** Complete an accepted garrison at its authoritative movement arrival time. */
+class GarrisonArrivalHandler : public openage::event::OnceEventHandler {
+public:
+	GarrisonArrivalHandler() : OnceEventHandler{"game.fvd_garrison_arrival"} {}
+	void setup_event(const std::shared_ptr<openage::event::Event> &,
+	                 const std::shared_ptr<openage::event::State> &) override {}
+	void invoke(openage::event::EventLoop &,
+	            const std::shared_ptr<openage::event::EventEntity> &,
+	            const std::shared_ptr<openage::event::State> &state,
+	            const time::time_t &time, const param_map &params) override {
+		auto game = std::dynamic_pointer_cast<GameState>(state);
+		game->get_fvd()->advance_garrison(game,
+		                                 params.get<entity_id_t>("builder"),
+		                                 params.get<entity_id_t>("tower"),
+		                                 params.get<uint64_t>("revision"), time);
+	}
+	time::time_t predict_invoke_time(
+		const std::shared_ptr<openage::event::EventEntity> &,
+		const std::shared_ptr<openage::event::State> &,
+		const time::time_t &at) override { return at; }
+};
+
 /** Remove a tower demolition after its configured lifetime. */
 class TowerDemolitionExpiryHandler : public openage::event::OnceEventHandler {
 public:
@@ -413,6 +435,7 @@ void FVD::initialise(const std::shared_ptr<GameState> &state,
 	loop->add_event_handler(std::make_shared<FVDHorseHitHandler>());
 	loop->add_event_handler(std::make_shared<FVDHunterTowerHitHandler>());
 	loop->add_event_handler(std::make_shared<BuildProgressHandler>());
+	loop->add_event_handler(std::make_shared<GarrisonArrivalHandler>());
 	loop->add_event_handler(std::make_shared<TowerDemolitionExpiryHandler>());
 	loop->add_event_handler(std::make_shared<RefreshPathsHandler>());
 
@@ -478,7 +501,7 @@ bool FVD::tile_occupied(const std::shared_ptr<GameState> &state,
                         const time::time_t &time,
                         std::optional<entity_id_t> ignore) const {
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (ignore.has_value() and id == *ignore) {
+		if ((ignore.has_value() and id == *ignore) or this->is_garrisoned(id)) {
 			continue;
 		}
 		if (entity->get_definition() == this->foundation
@@ -577,6 +600,7 @@ bool FVD::can_place_tower(const std::shared_ptr<GameState> &state,
 	}
 	auto entity = found->second;
 	if (entity->get_definition() != this->builder
+	    or this->is_garrisoned(builder_id)
 	    or not entity->has_component(component::component_t::OWNERSHIP)
 	    or not entity->has_component(component::component_t::MOVE)
 	    or not builder_alive(entity, time)) {
@@ -709,6 +733,8 @@ bool FVD::start_build(const std::shared_ptr<GameState> &state,
 		return false;
 	}
 
+	// A valid new construction command supersedes walking into a tower.
+	this->cancel_pending_garrison(builder_id);
 	// Old movement commands must not restart while the build order is active.
 	this->cancel_build(state, builder_id, time);
 	auto activity = std::dynamic_pointer_cast<component::Activity>(
@@ -1134,6 +1160,155 @@ void FVD::refresh_paths(const std::shared_ptr<GameState> &state,
 	}
 }
 
+bool FVD::is_garrisoned(entity_id_t builder_id) const {
+	return this->garrisoned_builders.contains(builder_id);
+}
+
+void FVD::cancel_pending_garrison(entity_id_t builder_id) {
+	this->pending_garrisons.erase(builder_id);
+}
+
+bool FVD::request_garrison(const std::shared_ptr<GameState> &state,
+                            player_id_t owner, const std::vector<entity_id_t> &ids,
+                            entity_id_t tower_id, const time::time_t &time) {
+	if (owner < 2 or owner > this->player_count or ids.size() != 1
+	    or this->is_garrisoned(ids.front())
+	    or this->pending_garrisons.contains(ids.front())) return false;
+	const auto builder_id = ids.front();
+	auto builder = state->get_game_entities().find(builder_id);
+	auto tower = state->get_game_entities().find(tower_id);
+	if (builder == state->get_game_entities().end()
+	    or tower == state->get_game_entities().end()
+	    or builder->second->get_definition() != this->builder
+	    or tower->second->get_definition() != this->tower
+	    or not builder_alive(builder->second, time)
+	    or not this->tower_footprints.contains(tower_id)
+	    or this->tower_footprints.at(tower_id).under_construction) return false;
+	for (const auto &entity : {builder->second, tower->second}) {
+		if (not entity->has_component(component::component_t::OWNERSHIP)) return false;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (not ownership or ownership->get_owners().get(time) != owner) return false;
+	}
+	for (const auto &[occupant, occupied_tower] : this->garrisoned_builders) {
+		if (occupied_tower == tower_id) return false;
+	}
+	for (const auto &[pending_builder, pending] : this->pending_garrisons) {
+		if (pending.tower_id == tower_id) return false;
+	}
+	auto tower_pos = std::dynamic_pointer_cast<component::Position>(
+		tower->second->get_component(component::component_t::POSITION));
+	auto stand = this->find_build_stand(
+		state, builder->second, tower_pos->get_positions().get(time).to_tile(), time);
+	if (not stand) return false;
+
+	// Reuse construction's cancellation semantics: keep visible, reusable foundations.
+	this->cancel_build(state, builder_id, time);
+	auto activity = std::dynamic_pointer_cast<component::Activity>(
+		builder->second->get_component(component::component_t::ACTIVITY));
+	auto queue = std::dynamic_pointer_cast<component::CommandQueue>(
+		builder->second->get_component(component::component_t::COMMANDQUEUE));
+	activity->cancel_events(time);
+	while (not queue->get_queue().empty(time)) queue->pop_command(time);
+	activity->init(time);
+	builder->second->get_manager()->run_activity_system(time);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		builder->second->get_component(component::component_t::POSITION));
+	const auto current = position->get_positions().get(time);
+	const auto travel = current == *stand ? time::TIME_ZERO
+	                                    : system::Move::move_default(builder->second, state, *stand, time);
+	const auto revision = this->next_garrison_revision++;
+	this->pending_garrisons.emplace(builder_id, PendingGarrison{tower_id, revision});
+	auto loop = this->event_loop.lock();
+	if (not loop) [[unlikely]] throw Error{ERR << "Garrison event loop unavailable"};
+	loop->create_event("game.fvd_garrison_arrival", builder->second->get_manager(), state,
+	                   time + travel,
+	                   {{"builder", builder_id}, {"tower", tower_id}, {"revision", revision}});
+	return true;
+}
+
+void FVD::advance_garrison(const std::shared_ptr<GameState> &state,
+                            entity_id_t builder_id, entity_id_t tower_id,
+                            uint64_t revision, const time::time_t &time) {
+	auto pending = this->pending_garrisons.find(builder_id);
+	if (pending == this->pending_garrisons.end()
+	    or pending->second.tower_id != tower_id
+	    or pending->second.revision != revision) return;
+	this->pending_garrisons.erase(pending);
+	auto builder = state->get_game_entities().find(builder_id);
+	auto tower = state->get_game_entities().find(tower_id);
+	if (builder == state->get_game_entities().end()
+	    or tower == state->get_game_entities().end()
+	    or not builder_alive(builder->second, time)
+	    or not this->tower_footprints.contains(tower_id)
+	    or this->tower_footprints.at(tower_id).under_construction) return;
+	for (const auto &[other, occupied_tower] : this->garrisoned_builders) {
+		if (occupied_tower == tower_id) return;
+	}
+	auto builder_pos = std::dynamic_pointer_cast<component::Position>(
+		builder->second->get_component(component::component_t::POSITION));
+	auto tower_pos = std::dynamic_pointer_cast<component::Position>(
+		tower->second->get_component(component::component_t::POSITION));
+	const auto at = builder_pos->get_positions().get(time).to_tile();
+	const auto site = tower_pos->get_positions().get(time).to_tile();
+	if (std::abs(at.ne - site.ne) > 1 or std::abs(at.se - site.se) > 1) return;
+	builder_pos->set_position(time, builder_pos->get_positions().get(time));
+	system::Idle::idle(builder->second, time);
+	this->garrisoned_builders.emplace(builder_id, tower_id);
+	this->vision_cached_at.reset();
+}
+
+bool FVD::ungarrison_builder(const std::shared_ptr<GameState> &state,
+                              player_id_t owner, const std::vector<entity_id_t> &ids,
+                              const time::time_t &time) {
+	if (owner < 2 or owner > this->player_count or ids.size() != 1) return false;
+	const auto tower_id = ids.front();
+	auto tower = state->get_game_entities().find(tower_id);
+	if (tower == state->get_game_entities().end()
+	    or tower->second->get_definition() != this->tower) return false;
+	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+		tower->second->get_component(component::component_t::OWNERSHIP));
+	if (not ownership or ownership->get_owners().get(time) != owner) return false;
+	auto occupant = std::find_if(
+		this->garrisoned_builders.begin(), this->garrisoned_builders.end(),
+		[tower_id](const auto &item) { return item.second == tower_id; });
+	if (occupant == this->garrisoned_builders.end()) return false;
+	auto builder = state->get_game_entities().find(occupant->first);
+	if (builder == state->get_game_entities().end()) return false;
+	auto tower_pos = std::dynamic_pointer_cast<component::Position>(
+		tower->second->get_component(component::component_t::POSITION));
+	const auto site = tower_pos->get_positions().get(time).to_tile();
+	const auto grid = state->get_map()->get_pathfinder()->get_grid(
+		state->get_map()->get_grid_id("fvd.data.terrain.Land"));
+	const auto sector_size = grid->get_sector_size();
+	// A deterministic scan expands beyond adjacent tiles if the wall is closed.
+	std::optional<coord::phys3> destination;
+	for (coord::tile_t radius = 1; radius < static_cast<coord::tile_t>(this->map_size) and not destination; ++radius) {
+		for (coord::tile_t ne = site.ne - radius; ne <= site.ne + radius and not destination; ++ne) {
+			for (coord::tile_t se = site.se - radius; se <= site.se + radius; ++se) {
+				if (ne < 0 or se < 0 or ne >= this->map_size or se >= this->map_size) continue;
+				if (std::max(std::abs(ne - site.ne), std::abs(se - site.se)) != radius) continue;
+				const coord::tile candidate{ne, se};
+				if (this->is_tile_reserved(candidate) or this->tile_occupied(state, candidate, time)) continue;
+				auto sector = grid->get_sector(candidate.ne / sector_size, candidate.se / sector_size);
+				auto local = candidate - sector->get_position().to_tile(sector_size);
+				if (sector->get_cost_field()->get_cost(local) >= path::COST_IMPASSABLE) continue;
+				destination = candidate.to_phys3_center();
+				break;
+			}
+		}
+	}
+	if (not destination) return false;
+	const auto builder_id = occupant->first;
+	this->garrisoned_builders.erase(occupant);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		builder->second->get_component(component::component_t::POSITION));
+	position->set_position(time, *destination);
+	system::Idle::idle(builder->second, time);
+	this->vision_cached_at.reset();
+	return true;
+}
+
 bool FVD::demolish_owned_tower(const std::shared_ptr<GameState> &state,
                                player_id_t owner, const std::vector<entity_id_t> &ids,
                                const time::time_t &time) {
@@ -1256,6 +1431,14 @@ bool FVD::destroy_tower(const std::shared_ptr<GameState> &state,
 		position = position_component->get_positions().get(time);
 		owner = ownership->get_owners().get(time);
 	}
+	// Builder survives tower demolition; never remove the tower while occupied.
+	if (auto occupied = std::find_if(
+	        this->garrisoned_builders.begin(), this->garrisoned_builders.end(),
+	        [tower_id](const auto &entry) { return entry.second == tower_id; });
+	    occupied != this->garrisoned_builders.end()
+	    and not this->ungarrison_builder(state, owner, {tower_id}, time)) return false;
+	std::erase_if(this->pending_garrisons,
+	              [tower_id](const auto &entry) { return entry.second.tower_id == tower_id; });
 	this->tower_next_shot.erase(tower_id);
 	this->unblock_tower(state, tower_id, time);
 	if (state->get_game_entities().contains(tower_id)) {
@@ -1344,7 +1527,7 @@ void FVD::relax_horse_crowd(const std::shared_ptr<GameState> &state,
 		if (definition != this->horse and definition != this->builder) {
 			continue;
 		}
-		if (not builder_alive(entity, time)) {
+		if (not builder_alive(entity, time) or this->is_garrisoned(id)) {
 			continue;
 		}
 		auto position = std::dynamic_pointer_cast<component::Position>(
@@ -1768,7 +1951,7 @@ std::optional<std::vector<entity_id_t>> FVD::resolve_command_units(
 		if (ownership->get_owners().get(time) != owner) {
 			return std::nullopt;
 		}
-		if (not builder_alive(entity, time)) {
+		if (not builder_alive(entity, time) or this->is_garrisoned(id)) {
 			if (owner == 1) {
 				continue;
 			}
