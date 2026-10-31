@@ -79,18 +79,18 @@ online HUD polish and disconnect/reconnect policy are still in progress.
 In a Windows development build, run `.\RelWithDebInfo\run.exe game --modpacks fvd` from the build directory with the runtime dependency paths configured.
 ### Experimental Builder garrison (protocol v18)
 
-With a Builder selected, press **G**, then left-click one of your own finished
+With a Builder selected, press **T**, then left-click one of your own finished
 towers. The authoritative game walks the Builder to an adjacent tile and hides
 them inside; garrisoned Builders are not visible to the Hunter and cannot be
 damaged, collide, or place new towers. One Builder may occupy each tower.
-Select that tower and press **U** to eject the Builder onto the first suitable
+Select that tower and press **G** to eject the Builder onto the first suitable
 free tile. Destroying an occupied tower also ejects its Builder unharmed.
 
 This is an initial implementation and **has not yet passed compilation or live
 gameplay acceptance**. Select a completed tower and right-click to place a private red ungarrison
 point. When the Builder leaves with U, they walk to the nearest reachable
 point (or remain beside the tower if no point was set). If the point is on
-an adjacent empty finished tower owned by the same Builder player, pressing U
+an adjacent empty finished tower owned by the same Builder player, pressing G
 hops directly between towers without appearing outside. Selecting an occupied
 tower shows a private "Builder garrisoned" HUD label. More complete visual
 testing remains outstanding. Test with `run test openage::gamestate::tests::fvd_garrison -a --have-assets`

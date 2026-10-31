@@ -1622,7 +1622,7 @@ void Presenter::render() {
 					if (it != construction_world->entities.end()
 					    and it->owner_id == controlled) {
 						selection_label = it->garrisoned_builder
-							? QString{"Tower — Builder garrisoned (U to exit)"}
+							? QString{"Tower — Builder garrisoned (G to exit)"}
 							: QString{"Tower — right-click to set ungarrison point"};
 						this->fvd_hud_state->insert("selection", selection_label);
 					}

@@ -639,7 +639,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		                               const std::shared_ptr<Controller> ctl) {
 			ctl->begin_garrison_mode();
 		}};
-		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_G,
+		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_T,
 		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
 		          binding_action{forward_action_t::CLEAR, start_garrison});
 
@@ -665,7 +665,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 				simulation->get_game()->get_state(),
 				time_loop->get_clock()->get_time(), params);
 		}};
-		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_U,
+		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_G,
 		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
 		          binding_action{forward_action_t::CLEAR, ungarrison_selected});
 

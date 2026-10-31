@@ -134,7 +134,7 @@ public:
 	/** Enter FVD tower placement mode when a Builder has been selected. */
 	bool begin_tower_placement();
 
-	/** G arms the next left-click to select a tower as the Builder's shelter. */
+	/** T arms the next left-click to select a tower as the Builder's shelter. */
 	bool begin_garrison_mode();
 	bool is_garrison_mode_active() const;
 	void cancel_garrison_mode();
