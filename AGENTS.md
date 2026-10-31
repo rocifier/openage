@@ -88,6 +88,7 @@ Non-obvious traps; add new ones here, verified and in one line
 - Every `.h` has a `.cpp` that includes it first, even if otherwise empty; header guard `#pragma once`
 - Register new `.cpp` files and directories in the local `CMakeLists.txt` (`add_sources(libopenage ...)`, `add_subdirectory`)
 - Integer types per [inttypes.md](doc/code_style/inttypes.md)
+- Always pass an explicit fallback to `param_map::get<T>`; its default argument constructs `T`, which fails for types with deleted default constructors such as absolute coordinates. Validate required parameters with `check_type<T>` before lookup
 - RAII and smart pointers, no owning raw `new`/`delete`
 - Log with `log::log(INFO << ...)`, throw `Error{MSG(err) << ...}` ([exceptions.md](doc/code/exceptions.md)); no `std::cout`/`printf`, no bare `std::` exceptions
 
