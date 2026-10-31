@@ -969,6 +969,62 @@ void fvd_garrison_hop() {
 	TESTEQUALS(fvd->get_ungarrison_point(first).has_value(), false);
 }
 
+/** Every face and corner is a valid finished-tower entrance, without walking
+ * to a fixed isometric bottom-right entrance. */
+void fvd_garrison_all_sides() {
+	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
+	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	tests::use_centre_test_layout(state);
+	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
+	entity_id_t builder = 0;
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		if (entity->get_definition() != "fvd.data.entities.Builder") continue;
+		auto owner = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (owner->get_owners().get(at(0)) == player_id_t{2}) builder = id;
+	}
+	TESTEQUALS(builder != 0, true);
+	TESTEQUALS(fvd->request_build(state, 2, {builder}, {61, 66, 0}, at(0)), true);
+	loop->reach_time(at(0.5), state);
+	entity_id_t tower = 0;
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		auto own = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (own->get_owners().get(at(0.5)) == player_id_t{2}) tower = id;
+	}
+	TESTEQUALS(tower != 0, true);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		state->get_game_entity(builder)->get_component(component::component_t::POSITION));
+	const std::array<coord::tile, 8> sides{{
+		{60, 66}, {62, 66}, {61, 65}, {61, 67},
+		{60, 65}, {60, 67}, {62, 65}, {62, 67},
+	}};
+	for (size_t i = 0; i < sides.size(); ++i) {
+		const auto start = at(1.0 + 0.25 * i);
+		const auto arrived = at(1.05 + 0.25 * i);
+		loop->reach_time(start, state);
+		position->set_position(start, sides[i].to_phys3_center());
+		TESTEQUALS(fvd->request_garrison(state, 2, {builder}, tower, start), true);
+		loop->reach_time(arrived, state);
+		TESTEQUALS(fvd->get_garrisoned_builder(tower),
+		           std::optional<entity_id_t>{builder});
+		TESTEQUALS(fvd->ungarrison_builder(state, 2, {tower}, arrived), true);
+		TESTEQUALS(fvd->is_garrisoned(builder), false);
+	}
+}
+
 void fvd_construction() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
 	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
