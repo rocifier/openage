@@ -950,13 +950,18 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 					auto host_world = replicated ? nullptr
 					                             : simulation->get_fvd_presentation_state();
 					const network::WorldState *world = replicated ? &*replicated : host_world.get();
-					if (not world) return;
 					auto matches_tower = [owner](const network::EntityState &entity) {
 						return entity.owner_id == owner
 						    and entity.definition == "fvd.data.entities.Tower";
 					};
 					std::optional<gamestate::entity_id_t> tower_id;
-					if (picked) {
+					if (picked and not world) {
+						// A local presentation snapshot may not be ready on
+						// the first rendered frame. The host still validates
+						// the target's type and owner before accepting it.
+						tower_id = *picked;
+					}
+					else if (picked and world) {
 						auto it = std::find_if(world->entities.begin(), world->entities.end(),
 						                       [picked, &matches_tower](const auto &entity) {
 							                       return entity.entity_id == *picked
@@ -964,7 +969,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 						                       });
 						if (it != world->entities.end()) tower_id = it->entity_id;
 					}
-					if (not tower_id) {
+					if (not tower_id and world) {
 						auto it = std::find_if(world->entities.begin(), world->entities.end(),
 						                       [clicked_tile, &matches_tower](const auto &entity) {
 							                       return matches_tower(entity)
@@ -990,6 +995,10 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 						{"type", gamestate::component::command::command_t::GARRISON},
 						{"owner", owner}, {"entity_ids", selection.ids},
 						{"target_entity", *tower_id},
+						{"result_cb", std::function<void(bool)>{[](bool accepted) {
+							if (not accepted)
+								log::log(WARN << "FVD garrison rejected: tower must be finished, empty and reachable");
+						}}},
 					};
 					simulation->get_event_loop()->submit_event(
 						"game.send_command", simulation->get_commander(),
