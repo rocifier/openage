@@ -363,7 +363,7 @@ void messages() {
 	// unknown reasons, impossible winner/reason pairs and future end times.
 	auto winner_state = state;
 	winner_state.match_outcome = {MatchWinner::BUILDERS,
-	                              MatchEndReason::TOWER_LIMIT,
+	                              MatchEndReason::TIME_LIMIT,
 	                              state.simulation_time};
 	auto winner_bytes = encode_world_state(winner_state);
 	auto winner_roundtrip = decode_world_state(winner_bytes);
@@ -372,6 +372,9 @@ void messages() {
 	invalid_winner.match_outcome->winner = MatchWinner::HUNTER;
 	TESTTHROWS(encode_world_state(invalid_winner));
 	invalid_winner = winner_state;
+	// The obsolete tower-count victory code must not be accepted.
+	invalid_winner.match_outcome->reason = static_cast<MatchEndReason>(3);
+	TESTTHROWS(encode_world_state(invalid_winner));
 	invalid_winner.match_outcome->reason = static_cast<MatchEndReason>(99);
 	TESTTHROWS(encode_world_state(invalid_winner));
 	invalid_winner = winner_state;
