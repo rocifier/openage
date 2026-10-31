@@ -287,7 +287,6 @@ enum class MatchWinner : uint16_t {
 enum class MatchEndReason : uint16_t {
 	ALL_BUILDERS_DEAD = 1,
 	TIME_LIMIT = 2,
-	TOWER_LIMIT = 3,
 };
 
 struct MatchOutcome {
