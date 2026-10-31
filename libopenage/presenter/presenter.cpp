@@ -1324,7 +1324,7 @@ void Presenter::init_input() {
 				// property map; the valueChanged signal is emitted for those
 				// edits, not for our C++ status/room-ID updates.
 				QSettings saved{QSettings::IniFormat, QSettings::UserScope,
-				                "openage", "fvd"};
+				                QStringLiteral("openage"), QStringLiteral("fvd")};
 				for (const auto &[key, default_value] : {
 					std::pair{"address", "127.0.0.1"},
 					std::pair{"port", "32456"},
@@ -1360,7 +1360,7 @@ void Presenter::init_input() {
 					    and key != QStringLiteral("roomId")
 					    and key != QStringLiteral("name")) return;
 					QSettings settings{QSettings::IniFormat, QSettings::UserScope,
-					                   "openage", "fvd"};
+					                   QStringLiteral("openage"), QStringLiteral("fvd")};
 					settings.setValue(QStringLiteral("lobby/") + key,
 					                  value.toString().left(256));
 				});
