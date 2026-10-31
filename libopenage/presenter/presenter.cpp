@@ -1927,6 +1927,7 @@ void Presenter::render() {
 							                        construction_world->entities.end(),
 							                        [&](const network::EntityState &entry) {
 								                        return entry.definition != "fvd.data.entities.TowerDemolition"
+								                            and entry.definition != "fvd.data.entities.HunterRallyPoint"
 								                            and entry.position.to_tile() == tile;
 							                        }))) {
 								valid = false;
