@@ -846,6 +846,22 @@ void fvd_garrison() {
 	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {builder}, {60, 66, 0}, t(0.25)), false);
 	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {tower}, {60, 66, 0}, t(0.25)), true);
 	TESTEQUALS(fvd->get_ungarrison_point(tower), std::make_optional(coord::phys3{60, 66, 0}));
+	// Ground endpoints stay at ground level, but completed-tower endpoints
+	// render their arrows above the tower so they cannot be depth-occluded.
+	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {tower}, {61, 66, 0}, t(0.25)), true);
+	TESTEQUALS(fvd->get_ungarrison_point(tower), std::make_optional(coord::phys3{61, 66, 0}));
+	auto marker_above_tower = std::find_if(
+		state->get_game_entities().begin(), state->get_game_entities().end(),
+		[](const auto &item) {
+			return item.second->get_definition() == "fvd.data.entities.HunterRallyPoint";
+		});
+	TESTEQUALS(marker_above_tower != state->get_game_entities().end(), true);
+	auto marker_position = std::dynamic_pointer_cast<component::Position>(
+		marker_above_tower->second->get_component(component::component_t::POSITION));
+	TESTEQUALS(marker_position->get_positions().get(t(0.25)).up > coord::phys_t::from_int(0), true);
+	TESTEQUALS(marker_position->get_positions().get(t(0.25)).to_tile(), (coord::tile{61, 66}));
+	// Restore an ordinary endpoint before checking its recipient filtering.
+	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {tower}, {60, 66, 0}, t(0.25)), true);
 	network::MatchConnectionState guests{8};
 	auto private_owner = network::capture_fvd_state(state, guests, t(0.25), 0, 1, 2);
 	auto private_hunter = network::capture_fvd_state(state, guests, t(0.25), 0, 1, 1);

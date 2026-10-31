@@ -1283,7 +1283,7 @@ void Presenter::init_input() {
 			// The global input context must forward placement keys to
 			// the FVD-specific game binding context.
 			for (auto key : {Qt::Key_B, Qt::Key_A, Qt::Key_P, Qt::Key_Z, Qt::Key_X, Qt::Key_C,
-			                 Qt::Key_Delete, Qt::Key_Escape, Qt::Key_F9}) {
+			                 Qt::Key_T, Qt::Key_G, Qt::Key_Delete, Qt::Key_Escape, Qt::Key_F9}) {
 				input_ctx->bind(
 					input::Event{input::event_class::KEYBOARD, key,
 					             Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},

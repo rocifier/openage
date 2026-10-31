@@ -1203,9 +1203,16 @@ bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
 			state->remove_game_entity(previous->second.marker_id, time);
 		this->ungarrison_points.erase(previous);
 	}
-	// The existing Hunter rally marker is purely visual; owned by this Builder.
+	// The red rally marker is a world sprite. When its destination is a tower
+	// tile, a ground-level sprite is depth-occluded by the tower, making the
+	// endpoint look unset. Render it above the tower without changing the
+	// actual (ground-level) ungarrison destination or hop target.
+	auto marker_position = point;
+	if (this->completed_tower_at(state, point.to_tile())) {
+		marker_position.up = coord::phys_t::from_double(3.0);
+	}
 	auto marker = factory->spawn_game_entity(loop, state, owner,
-	                                        this->hunter_rally_marker, point, time);
+	                                        this->hunter_rally_marker, marker_position, time);
 	system::Idle::idle(marker, time);
 	this->ungarrison_points.emplace(tower_id, UngarrisonPoint{point, marker->get_id()});
 	return true;
