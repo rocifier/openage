@@ -24,6 +24,7 @@ constexpr uint16_t ENTITY_HAS_HEALTH = 1 << 0;
 constexpr uint16_t ENTITY_HAS_TOWER_KILLS = 1 << 1;
 constexpr uint16_t ENTITY_HAS_HUNTER_STANCE = 1 << 2;
 constexpr uint16_t ENTITY_REMEMBERED = 1 << 3;
+constexpr uint16_t ENTITY_HAS_GARRISONED_BUILDER = 1 << 4;
 constexpr const char *TOWER_DEFINITION = "fvd.data.entities.Tower";
 constexpr const char *FOUNDATION_DEFINITION = "fvd.data.entities.Foundation";
 constexpr const char *HUNTER_TOWER_DEFINITION = "fvd.data.entities.HunterTower";
@@ -143,7 +144,8 @@ bool valid_remembered(const EntityState &entity, gamestate::player_id_t local_pl
 	return (entity.definition == TOWER_DEFINITION or entity.definition == FOUNDATION_DEFINITION
 	        or entity.definition == HUNTER_TOWER_DEFINITION)
 	   and entity.owner_id != local_player and not entity.health and not entity.tower_kills
-	   and not entity.hunter_stance and entity.motion_keys.empty() and entity.facing_keys.empty();
+	   and not entity.hunter_stance and not entity.garrisoned_builder
+	   and entity.motion_keys.empty() and entity.facing_keys.empty();
 }
 
 /** Fog sent on the wire belongs to one side and has well-formed bitsets. */
@@ -682,6 +684,12 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		         or not is_known_hunter_stance(static_cast<uint16_t>(*entity.hunter_stance)))) {
 			throw Error{MSG(err) << "FVD Hunter stances may only be sent to their owner"};
 		}
+		if (entity.garrisoned_builder
+		    and (entity.owner_id != state.local_player_id
+		         or entity.definition != TOWER_DEFINITION
+		         or *entity.garrisoned_builder == 0)) {
+			throw Error{MSG(err) << "Garrisoned Builder identity belongs only to the tower owner"};
+		}
 		if (entity.remembered and not valid_remembered(entity, state.local_player_id)) {
 			throw Error{MSG(err) << "FVD remembered entity must be a plain enemy building"};
 		}
@@ -692,12 +700,14 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		append_u16(output, (entity.health ? ENTITY_HAS_HEALTH : 0)
 		                   | (entity.tower_kills ? ENTITY_HAS_TOWER_KILLS : 0)
 		                   | (entity.hunter_stance ? ENTITY_HAS_HUNTER_STANCE : 0)
-		                   | (entity.remembered ? ENTITY_REMEMBERED : 0));
+		                   | (entity.remembered ? ENTITY_REMEMBERED : 0)
+		                   | (entity.garrisoned_builder ? ENTITY_HAS_GARRISONED_BUILDER : 0));
 		append_u16(output, static_cast<uint16_t>(
 			entity.hunter_stance.value_or(gamestate::HunterStance::OBSERVE)));
 		append_i64(output, entity.health.value_or(0));
 		append_i64(output, entity.maximum_health.value_or(0));
 		append_u64(output, entity.tower_kills.value_or(0));
+		if (entity.garrisoned_builder) append_u64(output, *entity.garrisoned_builder);
 		// Replicate the simulation's actual scheduled position segments,
 		// rather than asking guests to infer motion from sampled locations.
 		if (entity.motion_keys.size() > MAX_ENTITY_MOTION_KEYS) {
@@ -903,7 +913,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		auto flags = reader.u16();
 		const auto hunter_stance = reader.u16();
 		if ((flags & ~(ENTITY_HAS_HEALTH | ENTITY_HAS_TOWER_KILLS | ENTITY_HAS_HUNTER_STANCE
-		               | ENTITY_REMEMBERED)) != 0
+		               | ENTITY_REMEMBERED | ENTITY_HAS_GARRISONED_BUILDER)) != 0
 		    or ((flags & ENTITY_HAS_HUNTER_STANCE) == 0 and hunter_stance != 0)) {
 			throw Error{MSG(err) << "Unsupported FVD entity state flags"};
 		}
@@ -911,6 +921,14 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		auto maximum_health = reader.i64();
 		auto tower_kills = reader.u64();
 		EntityState entity{entity_id, owner_id, std::move(definition), position};
+		if ((flags & ENTITY_HAS_GARRISONED_BUILDER) != 0) {
+			const auto builder_id = reader.u64();
+			if (builder_id == 0 or owner_id != state.local_player_id
+			    or entity.definition != TOWER_DEFINITION) {
+				throw Error{MSG(err) << "Invalid or foreign garrison identity"};
+			}
+			entity.garrisoned_builder = builder_id;
+		}
 		if ((flags & ENTITY_HAS_HUNTER_STANCE) != 0) {
 			if (owner_id != state.local_player_id or entity.definition != HORSE_DEFINITION
 			    or not is_known_hunter_stance(hunter_stance)) {
@@ -985,6 +1003,12 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 			throw Error{MSG(err) << "FVD animation cannot begin in the future"};
 		}
 		entity.remembered = (flags & ENTITY_REMEMBERED) != 0;
+		if (entity.garrisoned_builder
+		    and (entity.owner_id != state.local_player_id
+		         or entity.definition != TOWER_DEFINITION
+		         or *entity.garrisoned_builder == 0)) {
+			throw Error{MSG(err) << "Garrisoned Builder identity belongs only to the tower owner"};
+		}
 		if (entity.remembered and not valid_remembered(entity, state.local_player_id)) {
 			throw Error{MSG(err) << "FVD remembered entity must be a plain enemy building"};
 		}

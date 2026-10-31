@@ -172,6 +172,8 @@ struct EntityState {
 	 * changed or been destroyed since; it carries no health or motion.
 	 */
 	bool remembered{false};
+	/** The tower's sheltered Builder, only on that Builder's own client. */
+	std::optional<gamestate::entity_id_t> garrisoned_builder{};
 };
 
 /** FVD role assigned to one playable player. */

@@ -759,6 +759,26 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		auto mouse_pos = args.mouse.to_phys3(camera);
 		auto selection = controller->get_selection_details();
 		auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
+		// A Builder tower's right-click changes only its own ungarrison point.
+		if (owner >= 2 and selection.kind == SelectionKind::TOWER
+		    and selection.ids.size() == 1) {
+			if (guest_world and guest_world().has_value()) {
+				if (send_guest_command) {
+					send_guest_command(network::CommandIntent{
+						0, network::CommandKind::SET_UNGARRISON_POINT, selection.ids, mouse_pos});
+				}
+				return;
+			}
+			event::EventHandler::param_map::map_t params{
+				{"type", gamestate::component::command::command_t::SET_UNGARRISON_POINT},
+				{"target", mouse_pos}, {"owner", owner}, {"entity_ids", selection.ids},
+			};
+			simulation->get_event_loop()->submit_event(
+				"game.send_command", simulation->get_commander(),
+				simulation->get_game()->get_state(),
+				time_loop->get_clock()->get_time(), params);
+			return;
+		}
 		// Right-clicking with the Hunter tower selected moves its rally point.
 		if (owner == 1 and selection.kind == SelectionKind::HUNTER_TOWER
 		    and selection.ids.size() == 1) {

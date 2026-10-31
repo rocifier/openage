@@ -813,9 +813,9 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 
 	network::WorldState view = world;
 	std::erase_if(view.entities, [&](const network::EntityState &entity) {
-		// Only the Hunter sees its rally point marker.
+		// The Hunter rally and Builder ungarrison markers are private to their owners.
 		if (entity.definition == "fvd.data.entities.HunterRallyPoint") {
-			return role != network::PlayerRole::HUNTER;
+			return entity.owner_id != controlled;
 		}
 		return not own_side(entity.owner_id) and not visible(entity.position)
 		       and not remembered.contains(entity.entity_id);
@@ -830,6 +830,10 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 		if (effect.render_entity) shown.insert(effect.render_entity->get_id());
 	}
 	this->world_renderer->set_shown(std::move(shown));
+	// Builders share fog, not private garrison identities.
+	for (auto &entity : view.entities) {
+		if (entity.owner_id != controlled) entity.garrisoned_builder.reset();
+	}
 	// A guest only knows a remembered building's last place, not its state.
 	for (auto &entity : view.entities) {
 		if (not own_side(entity.owner_id) and not visible(entity.position)) {
@@ -1607,6 +1611,22 @@ void Presenter::render() {
 				                                              : local_view ? &*local_view : nullptr;
 				const auto result = construction_world
 					? construction_world->match_outcome : std::nullopt;
+				// Garrison identity is present only for the owning tower's player.
+				if (tower and selected.ids.size() == 1 and construction_world) {
+					auto id = selected.ids.front();
+					auto it = std::find_if(construction_world->entities.begin(),
+					                       construction_world->entities.end(),
+					                       [id](const network::EntityState &entry) {
+						                       return entry.entity_id == id;
+					                       });
+					if (it != construction_world->entities.end()
+					    and it->owner_id == controlled) {
+						selection_label = it->garrisoned_builder
+							? QString{"Tower — Builder garrisoned (U to exit)"}
+							: QString{"Tower — right-click to set ungarrison point"};
+						this->fvd_hud_state->insert("selection", selection_label);
+					}
+				}
 				const bool game_over = result.has_value();
 				QString result_title{};
 				QString result_reason{};

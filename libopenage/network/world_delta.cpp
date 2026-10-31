@@ -112,6 +112,7 @@ void difference_entities(const WorldState &before, const WorldState &after,
 		    or previous.maximum_health != entry.maximum_health
 		    or previous.tower_kills != entry.tower_kills
 		    or previous.hunter_stance != entry.hunter_stance
+		    or previous.garrisoned_builder != entry.garrisoned_builder
 		    or previous.remembered != entry.remembered
 		    or previous.animation_action != entry.animation_action
 		    or previous.animation_started_at != entry.animation_started_at

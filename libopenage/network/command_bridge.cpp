@@ -201,6 +201,8 @@ WorldState capture_fvd_presentation_state(
 			entity_state.health = hp->first;
 			entity_state.maximum_health = hp->second;
 		}
+		if (entity->get_definition() == "fvd.data.entities.Tower")
+			entity_state.garrisoned_builder = fvd->get_garrisoned_builder(entity_id);
 		if (entity->get_definition() == "fvd.data.entities.Horse") {
 			entity_state.hunter_stance = fvd->get_hunter_stance(entity_id);
 		}
@@ -274,7 +276,7 @@ WorldState capture_fvd_state(
 	const auto &rally_marker = fvd->get_hunter_rally_marker_definition();
 	std::erase_if(result.entities, [&](const EntityState &entity) {
 		if (entity.definition == rally_marker) {
-			return team != gamestate::FVDTeam::HUNTER;
+			return entity.owner_id != recipient;
 		}
 		return not own_side(entity.owner_id) and not visible(entity.position);
 	});
@@ -316,6 +318,7 @@ WorldState capture_fvd_state(
 		// Only the Hunter learns how its horses will react.
 		if (entity_state.owner_id != recipient) {
 			entity_state.hunter_stance.reset();
+			entity_state.garrisoned_builder.reset();
 		}
 		auto entity = state->get_game_entity(entity_state.entity_id);
 		auto position = std::dynamic_pointer_cast<gamestate::component::Position>(
