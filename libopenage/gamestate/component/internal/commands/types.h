@@ -21,6 +21,8 @@ enum class command_t {
 	PATROL,
 	DEMOLISH_TOWER,
 	SET_RALLY_POINT,
+	GARRISON,
+	UNGARRISON,
 };
 
 } // namespace openage::gamestate::component::command

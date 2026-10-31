@@ -47,6 +47,10 @@ gamestate::component::command::command_t simulation_command(CommandKind kind) {
 		return gamestate::component::command::command_t::DEMOLISH_TOWER;
 	case CommandKind::SET_RALLY_POINT:
 		return gamestate::component::command::command_t::SET_RALLY_POINT;
+	case CommandKind::GARRISON:
+		return gamestate::component::command::command_t::GARRISON;
+	case CommandKind::UNGARRISON:
+		return gamestate::component::command::command_t::UNGARRISON;
 	default:
 		throw Error{MSG(err) << "Unknown authenticated FVD command kind "
 		                     << static_cast<uint16_t>(kind)};

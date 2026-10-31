@@ -165,6 +165,30 @@ void messages() {
 	invalid_demolition[15] = 0;
 	TESTTHROWS(decode_command_intent(invalid_demolition));
 
+	// Garrison uses the existing targeted command envelope and never trusts
+	// the caller's claimed ownership. The host validates both IDs later.
+	CommandIntent garrison{13, CommandKind::GARRISON, {201}};
+	garrison.target_entity = 202;
+	auto decoded_garrison = decode_command_intent(encode_command_intent(garrison));
+	TESTEQUALS(decoded_garrison.kind == CommandKind::GARRISON, true);
+	TESTEQUALS(decoded_garrison.entity_ids, std::vector<gamestate::entity_id_t>{201});
+	TESTEQUALS(decoded_garrison.target_entity, std::optional<gamestate::entity_id_t>{202});
+	garrison.target_entity.reset();
+	TESTTHROWS(encode_command_intent(garrison));
+	garrison.target_entity = 202;
+	garrison.entity_ids = {201, 203};
+	TESTTHROWS(encode_command_intent(garrison));
+
+	CommandIntent ungarrison{14, CommandKind::UNGARRISON, {202}};
+	auto decoded_ungarrison = decode_command_intent(encode_command_intent(ungarrison));
+	TESTEQUALS(decoded_ungarrison.kind == CommandKind::UNGARRISON, true);
+	TESTEQUALS(decoded_ungarrison.entity_ids.front(), gamestate::entity_id_t{202});
+	ungarrison.target_entity = 201;
+	TESTTHROWS(encode_command_intent(ungarrison));
+	ungarrison.target_entity.reset();
+	ungarrison.entity_ids.clear();
+	TESTTHROWS(encode_command_intent(ungarrison));
+
 	auto invalid_kind = encoded_intent;
 	invalid_kind[8] = 0;
 	invalid_kind[9] = 6;

@@ -21,7 +21,7 @@ constexpr uint32_t FRAME_MAGIC = 0x4656444e;
 // tower demolition). v17 adds authoritative match outcomes to full and delta
 // world state. Refuse older clients at the handshake rather than mid-match.
 // Minor versions continue to gate compatible relay features.
-constexpr uint16_t PROTOCOL_MAJOR = 17;
+constexpr uint16_t PROTOCOL_MAJOR = 18;
 constexpr uint16_t PROTOCOL_MINOR = 4;
 
 /** Oldest protocol minor version compatible with this implementation. */
