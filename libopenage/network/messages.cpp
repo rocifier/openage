@@ -39,8 +39,7 @@ bool valid_match_outcome(const MatchOutcome &outcome, time::time_t simulation_ti
 	return (outcome.winner == MatchWinner::HUNTER
 	        and outcome.reason == MatchEndReason::ALL_BUILDERS_DEAD)
 	    or (outcome.winner == MatchWinner::BUILDERS
-	        and (outcome.reason == MatchEndReason::TIME_LIMIT
-	             or outcome.reason == MatchEndReason::TOWER_LIMIT));
+	        and outcome.reason == MatchEndReason::TIME_LIMIT);
 }
 class PayloadReader {
 public:
