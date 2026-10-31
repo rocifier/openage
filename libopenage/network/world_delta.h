@@ -18,6 +18,8 @@ namespace openage::network {
 struct WorldDelta {
 	WorldState changed{};
 	bool local_kills_changed{false};
+	/** Terminal match outcome began in this delta. Never clears or reverses. */
+	bool match_outcome_changed{false};
 	bool first_hunter_spawn_time_changed{false};
 	std::vector<gamestate::player_id_t> removed_players{};
 	std::vector<gamestate::entity_id_t> removed_entities{};

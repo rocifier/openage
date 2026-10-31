@@ -68,6 +68,12 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 	auto result_cb = params.get("result_cb", std::function<void(bool)>{});
 	auto fvd = gstate->get_fvd();
 	if (fvd) {
+		// Match end is final. Reject even commands already queued locally
+		// before the winner was declared; no host-side world mutation.
+		if (fvd->get_match_outcome()) {
+			if (result_cb) result_cb(false);
+			return;
+		}
 		if (not params.check_type<player_id_t>("owner")) {
 			throw Error{ERR << "FVD commands require an authenticated owner"};
 		}

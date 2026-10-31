@@ -126,6 +126,38 @@ void replication() {
 	TESTEQUALS(tracker.get_presentation_state()->snapshot_generation, initial_generation + 2);
 	TESTEQUALS(tracker.get_local_kills().value(), uint64_t{7});
 
+	// A recipient must see the identical authoritative terminal result
+	// through both a delta and a later full recovery snapshot. It never
+	// derives a different winner from its fog-filtered local entity list.
+	auto finished_world = no_change;
+	finished_world.world_revision = 11;
+	finished_world.simulation_time = time::time_t::from_int(2700);
+	finished_world.match_outcome = {MatchWinner::BUILDERS,
+	                                MatchEndReason::TIME_LIMIT,
+	                                finished_world.simulation_time};
+	auto result_delta = decode_world_delta(encode_world_delta(
+		make_world_delta(no_change, finished_world)));
+	TESTEQUALS(tracker.accept_delta(result_delta) == DeltaDisposition::APPLY, true);
+	TESTEQUALS(tracker.get_world_state()->match_outcome,
+	           finished_world.match_outcome);
+	auto finished_snapshot = finished_world;
+	finished_snapshot.world_revision = 12;
+	finished_snapshot.simulation_time = time::time_t::from_int(2701);
+	tracker.accept_snapshot(decode_world_state(encode_world_state(finished_snapshot)));
+	TESTEQUALS(tracker.get_world_state()->match_outcome,
+	           finished_world.match_outcome);
+	// Even a newer authenticated recovery snapshot cannot erase or change
+	// a terminal result accepted earlier in the same match.
+	auto erased_result = finished_snapshot;
+	erased_result.world_revision = 13;
+	erased_result.match_outcome.reset();
+	TESTTHROWS(tracker.accept_snapshot(erased_result));
+	erased_result.match_outcome = MatchOutcome{MatchWinner::HUNTER,
+	                                           MatchEndReason::ALL_BUILDERS_DEAD,
+	                                           finished_world.simulation_time};
+	TESTTHROWS(tracker.accept_snapshot(erased_result));
+	TESTEQUALS(tracker.get_revision(), uint64_t{12});
+
 	auto bad_snapshot = recovered;
 	bad_snapshot.base_revision = 1;
 	TESTTHROWS(tracker.accept_snapshot(bad_snapshot));

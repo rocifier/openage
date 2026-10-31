@@ -32,6 +32,15 @@ constexpr uint16_t ATTACK_HAS_TARGET = 1 << 0;
 constexpr uint16_t ATTACK_REACHED_DESTINATION = 1 << 1;
 constexpr uint16_t ATTACK_FOCUS_TARGET = 1 << 2;
 constexpr uint16_t WORLD_HAS_FIRST_HUNTER_SPAWN = 1 << 0;
+constexpr uint16_t WORLD_HAS_MATCH_OUTCOME = 1 << 1;
+
+bool valid_match_outcome(const MatchOutcome &outcome, time::time_t simulation_time) {
+	if (outcome.ended_at > simulation_time) return false;
+	return (outcome.winner == MatchWinner::HUNTER
+	        and outcome.reason == MatchEndReason::ALL_BUILDERS_DEAD)
+	    or (outcome.winner == MatchWinner::BUILDERS
+	        and outcome.reason == MatchEndReason::TIME_LIMIT);
+}
 class PayloadReader {
 public:
 	explicit PayloadReader(const std::vector<uint8_t> &payload) :
@@ -581,6 +590,10 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 	    and *state.first_hunter_spawn_time < state.simulation_time) {
 		throw Error{MSG(err) << "FVD first Hunter spawn deadline is in the past"};
 	}
+	if (state.match_outcome
+	    and not valid_match_outcome(*state.match_outcome, state.simulation_time)) {
+		throw Error{MSG(err) << "Invalid authoritative FVD match outcome"};
+	}
 	if (state.players.size() > MAX_STATE_PLAYERS
 	    or state.entities.size() > MAX_STATE_ENTITIES
 	    or state.reservations.size() > MAX_STATE_RESERVATIONS
@@ -597,11 +610,18 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 	append_u32(output, state.map_size);
 	append_u64(output, state.local_player_id);
 	append_u64(output, state.local_kill_count);
-	append_u16(output, state.first_hunter_spawn_time
-	                       ? WORLD_HAS_FIRST_HUNTER_SPAWN : 0);
+	append_u16(output, (state.first_hunter_spawn_time
+	                        ? WORLD_HAS_FIRST_HUNTER_SPAWN : 0)
+	                   | (state.match_outcome ? WORLD_HAS_MATCH_OUTCOME : 0));
 	append_u16(output, 0);
 	append_i64(output, state.first_hunter_spawn_time.value_or(time::TIME_ZERO)
 	                       .get_raw_value());
+	append_u16(output, state.match_outcome
+	                       ? static_cast<uint16_t>(state.match_outcome->winner) : 0);
+	append_u16(output, state.match_outcome
+	                       ? static_cast<uint16_t>(state.match_outcome->reason) : 0);
+	append_i64(output, state.match_outcome
+	                       ? state.match_outcome->ended_at.get_raw_value() : 0);
 	append_u32(output, static_cast<uint32_t>(state.players.size()));
 	append_u32(output, static_cast<uint32_t>(state.entities.size()));
 	append_u32(output, static_cast<uint32_t>(state.reservations.size()));
@@ -788,7 +808,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		throw Error{MSG(err) << "FVD state requires a local player"};
 	}
 	const auto world_flags = reader.u16();
-	if ((world_flags & ~WORLD_HAS_FIRST_HUNTER_SPAWN) != 0
+	if ((world_flags & ~(WORLD_HAS_FIRST_HUNTER_SPAWN | WORLD_HAS_MATCH_OUTCOME)) != 0
 	    or reader.u16() != 0) {
 		throw Error{MSG(err) << "Unsupported FVD world state flags"};
 	}
@@ -802,6 +822,20 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 	}
 	else if (first_hunter_spawn_time != time::TIME_ZERO) {
 		throw Error{MSG(err) << "FVD Hunter spawn deadline is present without its flag"};
+	}
+	const auto winner = reader.u16();
+	const auto reason = reader.u16();
+	const auto ended_at = time::time_t::from_raw_value(reader.i64());
+	if (world_flags & WORLD_HAS_MATCH_OUTCOME) {
+		MatchOutcome outcome{static_cast<MatchWinner>(winner),
+		                     static_cast<MatchEndReason>(reason), ended_at};
+		if (not valid_match_outcome(outcome, state.simulation_time)) {
+			throw Error{MSG(err) << "FVD match outcome winner, reason or time is invalid"};
+		}
+		state.match_outcome = outcome;
+	}
+	else if (winner != 0 or reason != 0 or ended_at != time::TIME_ZERO) {
+		throw Error{MSG(err) << "FVD match outcome fields present without their flag"};
 	}
 	auto player_count = reader.u32();
 	auto entity_count = reader.u32();

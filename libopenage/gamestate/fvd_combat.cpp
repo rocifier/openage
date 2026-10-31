@@ -349,6 +349,7 @@ void FVD::arrow_hit(const std::shared_ptr<GameState> &state,
                     entity_id_t target, player_id_t owner,
                     entity_id_t firing_tower, int64_t damage,
                     const time::time_t &time) {
+	if (this->match_outcome) return;
 	// An already deceased target cannot award a second kill. Retired tower
 	// records survive so the last arrow still belongs to its firing tower.
 	if (firing_tower != 0) {
@@ -371,6 +372,7 @@ void FVD::arrow_hit(const std::shared_ptr<GameState> &state,
 void FVD::horse_hit(const std::shared_ptr<GameState> &state,
                     entity_id_t horse_id, entity_id_t target,
                     int64_t damage, const time::time_t &time) {
+	if (this->match_outcome) return;
 	auto order_it = this->attack_orders.find(horse_id);
 	if (order_it == this->attack_orders.end()) {
 		return;
@@ -476,6 +478,7 @@ bool FVD::issue_focus_attack(const std::shared_ptr<GameState> &state,
 
 void FVD::hunter_tower_hit(const std::shared_ptr<GameState> &state, entity_id_t target,
                            int64_t damage, const time::time_t &time) {
+	if (this->match_outcome) return;
 	// Damage only lands while the shooter stands; kills earn no Builder credit.
 	if (not this->hunter_tower_id or not state->get_game_entities().contains(*this->hunter_tower_id)) {
 		return;
@@ -605,6 +608,7 @@ bool FVD::begin_stance_engagement(const std::shared_ptr<GameState> &state,
 
 void FVD::combat_tick(const std::shared_ptr<GameState> &state,
                       const time::time_t &time) {
+	if (this->match_outcome) return;
 	const auto horses = entities_by_definition(state, this->horse);
 	const auto builders = entities_by_definition(state, this->builder);
 	const auto towers = entities_by_definition(state, this->tower);

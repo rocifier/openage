@@ -157,6 +157,26 @@
   notices and worker teardown, and Linux verification.
 - [ ] 1.10 Add match end-state and victory feedback to the same replicated
   state/event pipeline when win/loss rules are implemented.
+  - [x] 1.10a Add versioned, strictly validated **authoritative terminal
+    outcome** to public recipient snapshots and world deltas (v17), with
+    Hunter win / Builders win (45-minute timer only) and authoritative
+    simulation end timestamp. Deltas must not clear or change an outcome;
+    recovery snapshots preserve it. Add message, delta and replication
+    regressions. **Source/tests committed; Windows/Linux compilation
+    pending.**
+  - [x] 1.10b Host simulation now evaluates all-Builder deaths,
+    the 45-minute simulation-clock limit after authoritative event
+    processing. Tower counts do not affect victory. Dead Builders lose towers,
+    sites and foundations; disconnected Builders count as eliminated but
+    keep their structures. Commands, scheduled combat/damage and spawns
+    stop after the irreversible result. All recipient captures carry it.
+    Rule and post-result command rejection tests added.
+    **Source committed; Windows/Linux build and gameplay verification pending.**
+  - [ ] 1.10c Host/guest QML now presents recipient-authoritative
+    VICTORY/DEFEAT and outcome reason, including when it arrives via
+    recovery. Complete the synchronized 45-minute countdown HUD and
+    visually verify 2/4/8-player matches, killed-Builder collapse and
+    shutdown on Windows/Linux. Keep the larger endgame task open.
 
 ## Remaining gaps from the current audit
 

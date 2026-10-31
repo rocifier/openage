@@ -935,6 +935,7 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
                         uint64_t route_revision,
                         bool finish,
                         const time::time_t &time) {
+	if (this->match_outcome) return;
 	auto it = this->build_orders.find(builder);
 	if (it == this->build_orders.end()
 	    or it->second.order->get_id() != order_id
@@ -1059,6 +1060,7 @@ void FVD::start_next_queued_build(const std::shared_ptr<GameState> &state,
 
 void FVD::refresh_paths(const std::shared_ptr<GameState> &state,
                         const time::time_t &time) {
+	if (this->match_outcome) return;
 	std::vector<entity_id_t> destroyed;
 	for (const auto &[tower_id, footprint] : this->tower_footprints) {
 		if (footprint.under_construction) {
@@ -1546,9 +1548,89 @@ void FVD::start_hunter_wave(const std::shared_ptr<GameState> &state,
 	}
 	this->hunter_tower_active_from = spawn_time;
 	this->hunter_wave_started = true;
+	this->match_started_at = match_start;
 	this->next_hunter_spawn_event = loop->create_event(
 		"game.fvd_spawn_horse", this->horse_spawn_target, state, spawn_time);
 	loop->create_event("game.fvd_combat_tick", this->horse_spawn_target, state, match_start);
+}
+
+std::optional<network::MatchOutcome> decide_fvd_match_outcome(
+	bool any_builder_alive, const time::time_t &now,
+	const std::optional<time::time_t> &deadline) {
+	if (not any_builder_alive) {
+		return network::MatchOutcome{network::MatchWinner::HUNTER,
+		                             network::MatchEndReason::ALL_BUILDERS_DEAD, now};
+	}
+	if (deadline and now >= *deadline) {
+		return network::MatchOutcome{network::MatchWinner::BUILDERS,
+		                             network::MatchEndReason::TIME_LIMIT, now};
+	}
+	return std::nullopt;
+}
+
+std::optional<network::MatchOutcome> FVD::get_match_outcome() const {
+	return this->match_outcome;
+}
+
+std::optional<time::time_t> FVD::get_match_end_deadline() const {
+	if (not this->match_started_at) return std::nullopt;
+	return *this->match_started_at + time::time_t::from_int(45 * 60);
+}
+
+void FVD::evaluate_match_outcome(
+	const std::shared_ptr<GameState> &state,
+	const time::time_t &now,
+	const std::vector<player_id_t> &disconnected) {
+	if (not this->match_started_at or this->match_outcome) return;
+	// Count only actually admitted Builders. Unused slots have no initial
+	// Builder entity after the lobby's pre-bootstrap pruning.
+	std::vector<bool> alive(this->player_count + 1, false);
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		(void) id;
+		const auto &definition = entity->get_definition();
+		if (definition != this->builder) continue;
+		if (not builder_alive(entity, now)) continue;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (not ownership) continue;
+		const auto owner = ownership->get_owners().get(now);
+		if (owner < 2 or owner > this->player_count) continue;
+		if (definition == this->builder
+		    and std::find(disconnected.begin(), disconnected.end(), owner)
+		        == disconnected.end()) {
+			alive[owner] = true;
+		}
+	}
+	// A genuinely killed Builder loses all towers, sites and foundations.
+	// Mere disconnection counts toward elimination but deliberately leaves
+	// that Builder's structures in the world, as the rules specify.
+	for (player_id_t owner = 2; owner <= this->player_count; ++owner) {
+		if (alive[owner]
+		    or std::find(disconnected.begin(), disconnected.end(), owner) != disconnected.end()
+		    or not this->collapsed_builders.insert(owner).second) continue;
+		std::vector<entity_id_t> pending_builders{};
+		for (const auto &[builder_id, build] : this->build_orders) {
+			if (build.order->get_owner() == owner) pending_builders.push_back(builder_id);
+		}
+		for (auto id : pending_builders) this->cancel_build(state, id, now, false);
+		std::vector<entity_id_t> towers{};
+		std::vector<entity_id_t> foundations{};
+		for (const auto &[id, entity] : state->get_game_entities()) {
+			const auto &definition = entity->get_definition();
+			if (definition != this->tower and definition != this->foundation) continue;
+			auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+				entity->get_component(component::component_t::OWNERSHIP));
+			if (not ownership or ownership->get_owners().get(now) != owner) continue;
+			if (definition == this->tower) towers.push_back(id);
+			else foundations.push_back(id);
+		}
+		for (auto id : towers) this->destroy_tower(state, id, now);
+		for (auto id : foundations) this->delete_owned_foundation(state, owner, id, now);
+	}
+	const bool any_builder_alive = std::any_of(
+		alive.begin() + 2, alive.end(), [](bool value) { return value; });
+	this->match_outcome = decide_fvd_match_outcome(
+		any_builder_alive, now, this->get_match_end_deadline());
 }
 
 std::optional<int> hunter_spawn_countdown(
@@ -1576,6 +1658,7 @@ std::optional<time::time_t> FVD::get_first_hunter_spawn_time() const {
 
 void FVD::request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state,
                                          const time::time_t &time) {
+	if (this->match_outcome) return;
 	auto loop = this->event_loop.lock();
 	if (not loop or not this->horse_spawn_target) {
 		throw Error{ERR << "Cannot request a Hunter horse without FVD services"};
@@ -1588,6 +1671,7 @@ void FVD::request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state
 void FVD::spawn_hunter_horse(const std::shared_ptr<GameState> &state,
 	                            const time::time_t &time,
 	                            bool skip_initial_delay) {
+	if (this->match_outcome) return;
 	if (not this->hunter_wave_started) {
 		return;
 	}

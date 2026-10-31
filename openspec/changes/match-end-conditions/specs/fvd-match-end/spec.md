@@ -30,15 +30,6 @@ moves to a new host and resume when it is running again.
 - **WHEN** the match moves to a new host at 30:00 and resumes 20 seconds later
 - **THEN** the timer still shows 15:00 remaining when play resumes
 
-### Requirement: Builders win by tower count
-
-The match SHALL end with "Builders win" as soon as the Builders together have
-7000 finished towers.
-
-#### Scenario: 7000th tower
-- **WHEN** a tower completes and the Builders' finished towers total 7000
-- **THEN** every player sees the Builders win screen
-
 ### Requirement: A dead Builder's towers collapse
 
 When a Builder is killed, all towers, towers under construction and

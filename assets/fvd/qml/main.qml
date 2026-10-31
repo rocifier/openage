@@ -67,6 +67,50 @@ Item {
 		font.bold: true
 	}
 
+	// Terminal result comes exclusively from the replicated Hunter state.
+	// UI never infers a winner from local fog, sprites or player disconnects.
+	Rectangle {
+		id: matchResultOverlay
+		anchors.fill: parent
+		z: 50
+		visible: root.hud !== null && root.hud.matchEnded === true
+		color: "#d9091616"
+
+		Rectangle {
+			anchors.centerIn: parent
+			width: 420
+			height: 210
+			radius: 10
+			color: "#f0213431"
+			border.width: 2
+			border.color: "#e2b778"
+
+			Column {
+				anchors.centerIn: parent
+				spacing: 17
+				Text {
+					anchors.horizontalCenter: parent.horizontalCenter
+					text: root.hud !== null ? root.hud.matchResultTitle : ""
+					color: "#fff2d2"
+					font.pixelSize: 36
+					font.bold: true
+				}
+				Text {
+					anchors.horizontalCenter: parent.horizontalCenter
+					text: root.hud !== null ? root.hud.matchResultReason : ""
+					color: "#e1e8e1"
+					font.pixelSize: 17
+				}
+				Text {
+					anchors.horizontalCenter: parent.horizontalCenter
+					text: "F10 — Leave match"
+					color: "#b4c6c0"
+					font.pixelSize: 13
+				}
+			}
+		}
+	}
+
 	// Pure presentation of host-authored foundations, towers and reserved
 	// footprint cells. Never blocks world input or predicts a build outcome.
 	Canvas {

@@ -1315,6 +1315,9 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("combatEffects", QVariantList{});
 			this->fvd_hud_state->insert("attackOrderMarkers", QVariantList{});
 			this->fvd_hud_state->insert("hunterCountdown", 0);
+			this->fvd_hud_state->insert("matchEnded", false);
+			this->fvd_hud_state->insert("matchResultTitle", QString{});
+			this->fvd_hud_state->insert("matchResultReason", QString{});
 			this->gui->set_context_property("fvdHud", this->fvd_hud_state.get());
 			if (this->fvd_lobby_enabled) {
 				this->fvd_lobby_state = create_property_map();
@@ -1530,6 +1533,28 @@ void Presenter::render() {
 				}
 				const network::WorldState *construction_world = replica_for_hud ? &*replica_for_hud
 				                                              : local_view ? &*local_view : nullptr;
+				const auto result = construction_world
+					? construction_world->match_outcome : std::nullopt;
+				const bool game_over = result.has_value();
+				QString result_title{};
+				QString result_reason{};
+				if (game_over) {
+					const bool hunter_won = result->winner == network::MatchWinner::HUNTER;
+					const bool local_hunter = controlled == 1;
+					result_title = hunter_won == local_hunter
+						? QString{"VICTORY"} : QString{"DEFEAT"};
+					switch (result->reason) {
+					case network::MatchEndReason::ALL_BUILDERS_DEAD:
+						result_reason = QString{"All Builders have been eliminated"};
+						break;
+					case network::MatchEndReason::TIME_LIMIT:
+						result_reason = QString{"Builders survived for 45 minutes"};
+						break;
+					}
+				}
+				this->fvd_hud_state->insert("matchEnded", game_over);
+				this->fvd_hud_state->insert("matchResultTitle", result_title);
+				this->fvd_hud_state->insert("matchResultReason", result_reason);
 				if (not this->fvd_replication and local_view) {
 					this->record_confirmed_combat_effects(
 						*local_view,

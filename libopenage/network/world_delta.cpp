@@ -242,6 +242,7 @@ constexpr uint32_t MAX_REMOVALS[] = {
 constexpr size_t DELTA_HEADER_BYTES = 28;
 constexpr uint16_t LOCAL_KILLS_CHANGED = 1;
 constexpr uint16_t FIRST_HUNTER_SPAWN_TIME_CHANGED = 1 << 1;
+constexpr uint16_t MATCH_OUTCOME_CHANGED = 1 << 2;
 
 void check_count(size_t count, uint32_t limit) {
 	if (count > limit) {
@@ -326,6 +327,13 @@ WorldDelta make_world_delta(const WorldState &previous, const WorldState &curren
 	if (delta.first_hunter_spawn_time_changed) {
 		delta.changed.first_hunter_spawn_time = current.first_hunter_spawn_time;
 	}
+	if (previous.match_outcome and previous.match_outcome != current.match_outcome) {
+		throw Error{MSG(err) << "An authoritative FVD match result is terminal"};
+	}
+	delta.match_outcome_changed = previous.match_outcome != current.match_outcome;
+	if (delta.match_outcome_changed) {
+		delta.changed.match_outcome = current.match_outcome;
+	}
 	difference(previous.players, current.players,
 	           delta.changed.players, delta.removed_players, player_key);
 	difference_entities(previous, current,
@@ -366,7 +374,9 @@ WorldState apply_world_delta(const WorldState &previous, const WorldDelta &delta
 	if (changed.base_revision != previous.world_revision
 	    or (not delta.local_kills_changed and changed.local_kill_count != 0)
 	    or (not delta.first_hunter_spawn_time_changed
-	        and changed.first_hunter_spawn_time)) {
+	        and changed.first_hunter_spawn_time)
+	    or (delta.match_outcome_changed != changed.match_outcome.has_value())
+	    or (previous.match_outcome and delta.match_outcome_changed)) {
 		throw Error{MSG(err) << "FVD delta is not contiguous or its score flags are invalid"};
 	}
 	WorldState next = previous; // Apply to a copy; malformed patches never mutate the baseline.
@@ -378,6 +388,17 @@ WorldState apply_world_delta(const WorldState &previous, const WorldDelta &delta
 	}
 	if (delta.first_hunter_spawn_time_changed) {
 		next.first_hunter_spawn_time = changed.first_hunter_spawn_time;
+	}
+	if (delta.match_outcome_changed) {
+		const auto &result = *changed.match_outcome;
+		if (result.ended_at > next.simulation_time
+		    or not ((result.winner == MatchWinner::HUNTER
+		             and result.reason == MatchEndReason::ALL_BUILDERS_DEAD)
+		            or (result.winner == MatchWinner::BUILDERS
+		                and result.reason == MatchEndReason::TIME_LIMIT))) {
+			throw Error{MSG(err) << "Invalid FVD match result in delta"};
+		}
+		next.match_outcome = result;
 	}
 	if (next.first_hunter_spawn_time
 	    and *next.first_hunter_spawn_time <= next.simulation_time) {
@@ -451,7 +472,8 @@ std::vector<uint8_t> encode_world_delta(const WorldDelta &delta) {
 	    or delta.changed.world_revision <= delta.changed.base_revision
 	    or (not delta.local_kills_changed and delta.changed.local_kill_count != 0)
 	    or (not delta.first_hunter_spawn_time_changed
-	        and delta.changed.first_hunter_spawn_time)) {
+	        and delta.changed.first_hunter_spawn_time)
+	    or (delta.match_outcome_changed != delta.changed.match_outcome.has_value())) {
 		throw Error{MSG(err) << "Invalid FVD world delta header"};
 	}
 	auto body = encode_world_state(delta.changed, true);
@@ -469,7 +491,8 @@ std::vector<uint8_t> encode_world_delta(const WorldDelta &delta) {
 	append_u16(bytes,
 	           (delta.local_kills_changed ? LOCAL_KILLS_CHANGED : 0)
 	               | (delta.first_hunter_spawn_time_changed
-	                      ? FIRST_HUNTER_SPAWN_TIME_CHANGED : 0));
+	                      ? FIRST_HUNTER_SPAWN_TIME_CHANGED : 0)
+	               | (delta.match_outcome_changed ? MATCH_OUTCOME_CHANGED : 0));
 	append_u16(bytes, 0);
 	append_u32(bytes, static_cast<uint32_t>(body.size()));
 	for (auto count : counts) {
@@ -493,7 +516,8 @@ std::vector<uint8_t> encode_world_delta(const WorldDelta &delta) {
 WorldDelta decode_world_delta(const std::vector<uint8_t> &bytes) {
 	check_room(bytes, 0, DELTA_HEADER_BYTES);
 	const auto flags = read_u16(bytes.data());
-	if ((flags & ~(LOCAL_KILLS_CHANGED | FIRST_HUNTER_SPAWN_TIME_CHANGED)) != 0
+	if ((flags & ~(LOCAL_KILLS_CHANGED | FIRST_HUNTER_SPAWN_TIME_CHANGED
+	               | MATCH_OUTCOME_CHANGED)) != 0
 	    or read_u16(bytes.data() + 2) != 0) {
 		throw Error{MSG(err) << "Unsupported FVD world delta flags"};
 	}
@@ -516,11 +540,13 @@ WorldDelta decode_world_delta(const std::vector<uint8_t> &bytes) {
 	delta.local_kills_changed = (flags & LOCAL_KILLS_CHANGED) != 0;
 	delta.first_hunter_spawn_time_changed =
 		(flags & FIRST_HUNTER_SPAWN_TIME_CHANGED) != 0;
+	delta.match_outcome_changed = (flags & MATCH_OUTCOME_CHANGED) != 0;
 	delta.changed = decode_world_state(body, true);
 	if (delta.changed.world_revision <= delta.changed.base_revision
 	    or (not delta.local_kills_changed and delta.changed.local_kill_count != 0)
 	    or (not delta.first_hunter_spawn_time_changed
-	        and delta.changed.first_hunter_spawn_time)) {
+	        and delta.changed.first_hunter_spawn_time)
+	    or (delta.match_outcome_changed != delta.changed.match_outcome.has_value())) {
 		throw Error{MSG(err) << "Invalid FVD world delta revision or score"};
 	}
 	size_t offset = DELTA_HEADER_BYTES + body_size;
