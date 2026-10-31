@@ -841,6 +841,33 @@ void fvd_garrison() {
 	TESTEQUALS(fvd->can_command_units(state, 2, {builder}, t(0.25)), false);
 	TESTEQUALS(fvd->can_see(state, FVDTeam::HUNTER, builder, t(0.25)), false);
 	TESTEQUALS(fvd->can_place_tower(state, 2, {builder}, {70, 70, 0}, t(0.25)), false);
+	TESTEQUALS(fvd->get_garrisoned_builder(tower), std::optional<entity_id_t>{builder});
+	TESTEQUALS(fvd->set_ungarrison_point(state, 3, {tower}, {60, 66, 0}, t(0.25)), false);
+	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {builder}, {60, 66, 0}, t(0.25)), false);
+	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {tower}, {60, 66, 0}, t(0.25)), true);
+	TESTEQUALS(fvd->get_ungarrison_point(tower), std::make_optional(coord::phys3{60, 66, 0}));
+	network::MatchConnectionState guests{8};
+	auto private_owner = network::capture_fvd_state(state, guests, t(0.25), 0, 1, 2);
+	auto private_hunter = network::capture_fvd_state(state, guests, t(0.25), 0, 1, 1);
+	auto private_other = network::capture_fvd_state(state, guests, t(0.25), 0, 1, 3);
+	auto occupant_in = [tower](const network::WorldState &world) {
+		auto it = std::find_if(world.entities.begin(), world.entities.end(),
+		                       [tower](const auto &entity) { return entity.entity_id == tower; });
+		return it == world.entities.end() ? std::optional<entity_id_t>{}
+		                                  : it->garrisoned_builder;
+	};
+	TESTEQUALS(occupant_in(private_owner), std::optional<entity_id_t>{builder});
+	TESTEQUALS(occupant_in(private_hunter).has_value(), false);
+	TESTEQUALS(occupant_in(private_other).has_value(), false);
+	auto markers = [](const network::WorldState &world) {
+		return std::count_if(world.entities.begin(), world.entities.end(),
+		             [](const auto &entity) {
+			             return entity.definition == "fvd.data.entities.HunterRallyPoint";
+		             });
+	};
+	TESTEQUALS(markers(private_owner), 1);
+	TESTEQUALS(markers(private_hunter), 0);
+	TESTEQUALS(markers(private_other), 0);
 	const auto snapshot = network::capture_fvd_presentation_state(state, t(0.25));
 	TESTEQUALS(std::none_of(snapshot.entities.begin(), snapshot.entities.end(),
 	                        [builder](const auto &item) { return item.entity_id == builder; }), true);

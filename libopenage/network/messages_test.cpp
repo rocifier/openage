@@ -265,6 +265,7 @@ void messages() {
 		{201, 2, "fvd.data.entities.Tower", {12.0, 20.0, 0}, 100, 100, 2},
 		{202, 1, "fvd.data.entities.Tower", {13.0, 20.0, 0}, 100, 100},
 	};
+	state.entities[2].garrisoned_builder = gamestate::entity_id_t{300};
 	state.entities.front().motion_keys = {
 		{time::time_t::from_double(3.75), {11.0, 20.5, 0}},
 		{time::time_t::from_double(4.25), {12.0, 21.0, 0}},
@@ -276,6 +277,16 @@ void messages() {
 		{time::time_t::from_double(3.75), coord::phys_angle_t::from_int(270)},
 		{time::time_t::from_double(4.25), coord::phys_angle_t::from_int(180)},
 	};
+	CommandIntent point{15, CommandKind::SET_UNGARRISON_POINT, {201}, {60, 66, 0}};
+	TESTEQUALS(decode_command_intent(encode_command_intent(point)).kind,
+	           CommandKind::SET_UNGARRISON_POINT);
+	point.entity_ids = {201, 202};
+	TESTTHROWS(encode_command_intent(point));
+	point.entity_ids = {201};
+	point.target_entity = gamestate::entity_id_t{202};
+	TESTTHROWS(encode_command_intent(point));
+	point.target_entity.reset();
+
 	state.reservations = {{{10, 20}, 300}};
 	state.constructions = {{
 		7, 2, 300, {10, 20}, ConstructionPhase::PLANNED,
@@ -306,6 +317,8 @@ void messages() {
 		TESTEQUALS(decoded_state.entities[i].entity_id, state.entities[i].entity_id);
 		TESTEQUALS(decoded_state.entities[i].owner_id, state.entities[i].owner_id);
 		TESTEQUALS(decoded_state.entities[i].definition, state.entities[i].definition);
+		TESTEQUALS(decoded_state.entities[i].garrisoned_builder,
+		           state.entities[i].garrisoned_builder);
 		TESTEQUALS(decoded_state.entities[i].position, state.entities[i].position);
 		TESTEQUALS(decoded_state.entities[i].angle, state.entities[i].angle);
 		TESTEQUALS(decoded_state.entities[i].animation_action,

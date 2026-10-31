@@ -87,9 +87,13 @@ Select that tower and press **U** to eject the Builder onto the first suitable
 free tile. Destroying an occupied tower also ejects its Builder unharmed.
 
 This is an initial implementation and **has not yet passed compilation or live
-gameplay acceptance**. There is no garrison HUD indicator, optional ungarrison
-point, or adjacent-tower hopping yet. The owner must select the occupied tower
-to use U. Test with `run test openage::gamestate::tests::fvd_garrison -a --have-assets`
+gameplay acceptance**. Select a completed tower and right-click to place a private red ungarrison
+point. When the Builder leaves with U, they walk to the nearest reachable
+point (or remain beside the tower if no point was set). If the point is on
+an adjacent empty finished tower owned by the same Builder player, pressing U
+hops directly between towers without appearing outside. Selecting an occupied
+tower shows a private "Builder garrisoned" HUD label. More complete visual
+testing remains outstanding. Test with `run test openage::gamestate::tests::fvd_garrison -a --have-assets`
 and `run test openage::network::tests::messages` before distribution.
 
 Selected Builders display their current health above the unit.

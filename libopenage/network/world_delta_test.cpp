@@ -24,6 +24,7 @@ void world_delta() {
 		{12, 3, "fvd.data.entities.Tower", {70, 70, 0}, 100, 100},
 		{13, 2, "fvd.data.entities.Builder", {66, 66, 0}, 25, 25},
 	};
+	initial.entities[1].garrisoned_builder = gamestate::entity_id_t{13};
 	initial.reservations = {{{66, 67}, 13}};
 	initial.constructions = {{
 		7, 2, 13, {66, 67}, ConstructionPhase::PLANNED,
@@ -131,6 +132,19 @@ void world_delta() {
 	TESTEQUALS(rebuilt.entities.size(), size_t{4});
 	TESTEQUALS(rebuilt.arrows.size(), size_t{1});
 	TESTEQUALS(rebuilt.local_kill_count, uint64_t{4});
+	TESTEQUALS(rebuilt.entities[1].garrisoned_builder,
+	           std::optional<gamestate::entity_id_t>{13});
+	// A Builder moving between towers must update the owner's delta, even
+	// while every tower sprite and position remains unchanged.
+	auto no_occupant = rebuilt;
+	no_occupant.world_revision = 12;
+	no_occupant.simulation_time = time::time_t::from_double(20.15);
+	no_occupant.entities[1].garrisoned_builder.reset();
+	auto occupancy_delta = make_world_delta(rebuilt, no_occupant);
+	TESTEQUALS(occupancy_delta.changed.entities.size(), size_t{1});
+	auto occupancy_guest = apply_world_delta(
+		rebuilt, decode_world_delta(encode_world_delta(occupancy_delta)));
+	TESTEQUALS(occupancy_guest.entities[1].garrisoned_builder.has_value(), false);
 
 	// Replace one entity, insert another, delete the old horse; persistent
 	// objects gain tombstones but arrows expire from their impact time.
