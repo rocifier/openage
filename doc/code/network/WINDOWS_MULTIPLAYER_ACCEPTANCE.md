@@ -23,6 +23,25 @@ and must be re-entered each launch.
 
 The normal defaults are retained on a fresh installation.
 
+## Starting camera placement (manual smoke test)
+
+The Hunter starts centred on the permanent centre tower. When the lobby
+assigns a Builder, the client's camera instead centres once on **that
+player's own Builder's authoritative spawn position** from the initial
+recipient world snapshot. It does not follow the unit after match start.
+The server's spawn locations, fog, ownership and camera boundaries are
+unchanged.
+
+1. Start a two-player match, once with the lobby creator drawing Builder
+   and again with the creator drawing Hunter. Confirm the Builder can see
+   their own starting unit immediately and Hunter still sees the centre.
+2. Repeat in a four-player room: each Builder should start at their own
+   different point on the spawn ring, not at the Hunter tower.
+3. Pan a Builder camera after starting; later world updates and recovery
+   snapshots must **not** snap the camera back to the spawn.
+4. Press F10, start a new match (including a role swap if drawn), and
+   confirm the initial view resets for the new assigned role.
+
 ## Automated preflight (one Windows development build)
 
 Build the FVD branch, then run:
