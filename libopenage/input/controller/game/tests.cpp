@@ -144,13 +144,15 @@ void tower_placement_mode() {
 	TESTEQUALS(controller.set_selected_if_current(
 		pending_tower, {33}, SelectionKind::TOWER), true);
 	TESTEQUALS(controller.is_garrison_mode_active(), false);
+	TESTEQUALS(controller.get_selected().front(), gamestate::entity_id_t{33});
+	TESTEQUALS(controller.get_selection_details().kind == SelectionKind::TOWER, true);
 	bool deferred_ran = false;
 	auto stale_generation = controller.begin_selection_update();
 	controller.defer_until_selection_applied([&]() { deferred_ran = true; }) or TESTFAIL;
 	auto current_generation = controller.begin_selection_update();
 	TESTEQUALS(controller.set_selected_if_current(
 		stale_generation, {101}, SelectionKind::HORSE), false);
-	TESTEQUALS(controller.get_selected().front(), gamestate::entity_id_t{42});
+	TESTEQUALS(controller.get_selected().front(), gamestate::entity_id_t{33});
 	TESTEQUALS(deferred_ran, false);
 	controller.defer_until_selection_applied([&]() {
 		deferred_ran = controller.get_selected().size() == 2;
