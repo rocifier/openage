@@ -1208,7 +1208,7 @@ bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
 		auto target_pos = std::dynamic_pointer_cast<component::Position>(
 			candidate->second->get_component(component::component_t::POSITION));
 		destination = target_pos->get_positions().get(time);
-		destination.up = 0;
+		destination.up = coord::phys_t::from_int(0);
 	}
 	auto loop = this->event_loop.lock();
 	auto factory = this->entity_factory.lock();
@@ -1361,10 +1361,22 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 	const auto explicit_tower = use_point and configured != this->ungarrison_points.end()
 	                          ? configured->second.target_tower : std::nullopt;
 	// Only an explicitly targeted tower can trigger a transfer. An ordinary
-	// ground point never silently becomes a garrison command.
+	// ground point never silently becomes a garrison command. If the intended
+	// tower was destroyed or became occupied, keep the Builder sheltered.
 	if (explicit_tower) {
+		auto destination_tower = state->get_game_entities().find(*explicit_tower);
+		if (destination_tower == state->get_game_entities().end()
+		    or destination_tower->second->get_definition() != this->tower
+		    or not this->tower_footprints.contains(*explicit_tower)
+		    or this->tower_footprints.at(*explicit_tower).under_construction
+		    or this->get_garrisoned_builder(*explicit_tower)) return false;
+		auto dest_owner = std::dynamic_pointer_cast<component::Ownership>(
+			destination_tower->second->get_component(component::component_t::OWNERSHIP));
+		if (not dest_owner or dest_owner->get_owners().get(time) != owner) return false;
 		auto hop_tower = explicit_tower;
 		if (hop_tower and *hop_tower != tower_id
+		    and this->tower_footprints.contains(*hop_tower)
+		    and not this->tower_footprints.at(*hop_tower).under_construction
 		    and not this->get_garrisoned_builder(*hop_tower)) {
 			auto candidate = state->get_game_entities().find(*hop_tower);
 			if (candidate != state->get_game_entities().end()) {
