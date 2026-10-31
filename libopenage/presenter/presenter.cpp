@@ -12,6 +12,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 #include <QQmlPropertyMap>
+#include <QSettings>
 #include <QVariant>
 #include <cmath>
 #include <iostream>
@@ -1322,14 +1323,28 @@ void Presenter::init_input() {
 			this->gui->set_context_property("fvdHud", this->fvd_hud_state.get());
 			if (this->fvd_lobby_enabled) {
 				this->fvd_lobby_state = create_property_map();
-				for (const auto &[key, value] : {
+				// Store lobby preferences per OS user, independently of the
+				// working directory or installed asset location. QML edits the
+				// property map; the valueChanged signal is emitted for those
+				// edits, not for our C++ status/room-ID updates.
+				QSettings saved{QSettings::IniFormat, QSettings::UserScope,
+				                QStringLiteral("openage"), QStringLiteral("fvd")};
+				for (const auto &[key, default_value] : {
 					std::pair{"address", "127.0.0.1"},
 					std::pair{"port", "32456"},
 					std::pair{"roomName", "FVD Game"},
-				std::pair{"maxPlayers", "2"},
+					std::pair{"maxPlayers", "2"},
 					std::pair{"roomId", ""},
 					std::pair{"name", "Player"},
-					std::pair{"token", ""},
+				}) {
+					this->fvd_lobby_state->insert(
+						key, saved.value(QStringLiteral("lobby/") + QString::fromUtf8(key),
+						                 QString::fromUtf8(default_value)).toString());
+				}
+				// This optional access credential must not be persisted as
+				// unencrypted preferences (QSettings is not a password vault).
+				this->fvd_lobby_state->insert("token", QString{});
+				for (const auto &[key, value] : {
 					std::pair{"phase", "menu"},
 					std::pair{"status", "Host a game or refresh the relay room list."},
 					std::pair{"participants", ""},
@@ -1337,6 +1352,22 @@ void Presenter::init_input() {
 				}) {
 					this->fvd_lobby_state->insert(key, QString::fromUtf8(value));
 				}
+				QObject::connect(this->fvd_lobby_state.get(), &QQmlPropertyMap::valueChanged,
+				                 this->fvd_lobby_state.get(),
+				                 [](const QString &key, const QVariant &value) {
+					// Only user-editable, non-sensitive fields are retained.
+					// In particular, never store a private relay access token.
+					if (key != QStringLiteral("address")
+					    and key != QStringLiteral("port")
+					    and key != QStringLiteral("roomName")
+					    and key != QStringLiteral("maxPlayers")
+					    and key != QStringLiteral("roomId")
+					    and key != QStringLiteral("name")) return;
+					QSettings settings{QSettings::IniFormat, QSettings::UserScope,
+					                   QStringLiteral("openage"), QStringLiteral("fvd")};
+					settings.setValue(QStringLiteral("lobby/") + key,
+					                  value.toString().left(256));
+				});
 				this->fvd_lobby_state->insert("canStart", false);
 				this->fvd_lobby_state->insert("roles", QString{});
 				this->fvd_lobby_state->insert("localRole", QString{});

@@ -83,7 +83,7 @@ Item {
                     TextInput {
                         anchors.fill: parent; anchors.margins: 9
                         color: "white"; selectionColor: "#5c997f"
-                        font.pixelSize: 14; text: "Player"
+                        font.pixelSize: 14; text: menu.lobby ? menu.lobby.name : "Player"
                         onTextEdited: if (menu.lobby) menu.lobby.name = text
                     }
                 }
@@ -96,7 +96,7 @@ Item {
                         border.color: "#688478"; border.width: 1
                         TextInput {
                             anchors.fill: parent; anchors.margins: 9
-                            text: "127.0.0.1"; color: "white"; font.pixelSize: 14
+                            text: menu.lobby ? menu.lobby.address : "127.0.0.1"; color: "white"; font.pixelSize: 14
                             onTextEdited: if (menu.lobby) menu.lobby.address = text
                         }
                     }
@@ -105,7 +105,7 @@ Item {
                         color: "#17221e"; radius: 4; border.color: "#688478"; border.width: 1
                         TextInput {
                             anchors.fill: parent; anchors.margins: 9
-                            text: "32456"; color: "white"; font.pixelSize: 14
+                            text: menu.lobby ? menu.lobby.port : "32456"; color: "white"; font.pixelSize: 14
                             inputMethodHints: Qt.ImhDigitsOnly
                             onTextEdited: if (menu.lobby) menu.lobby.port = text
                         }
@@ -118,7 +118,7 @@ Item {
                     color: "#17221e"; radius: 4; border.color: "#688478"; border.width: 1
                     TextInput {
                         anchors.fill: parent; anchors.margins: 9
-                        text: "FVD Game"; color: "white"; font.pixelSize: 14
+                        text: menu.lobby ? menu.lobby.roomName : "FVD Game"; color: "white"; font.pixelSize: 14
                         onTextEdited: if (menu.lobby) menu.lobby.roomName = text
                     }
                 }
@@ -129,7 +129,7 @@ Item {
                     color: "#17221e"; radius: 4; border.color: "#688478"; border.width: 1
                     TextInput {
                         anchors.fill: parent; anchors.margins: 9
-                        text: "2"; color: "white"; font.pixelSize: 14
+                        text: menu.lobby ? menu.lobby.maxPlayers : "2"; color: "white"; font.pixelSize: 14
                         inputMethodHints: Qt.ImhDigitsOnly
                         onTextEdited: if (menu.lobby) menu.lobby.maxPlayers = text
                     }
@@ -154,7 +154,7 @@ Item {
                     color: "#17221e"; radius: 4; border.color: "#688478"; border.width: 1
                     TextInput {
                         anchors.fill: parent; anchors.margins: 9
-                        text: ""; color: "white"; font.pixelSize: 13
+                        text: menu.lobby ? menu.lobby.token : ""; color: "white"; font.pixelSize: 13
                         echoMode: TextInput.Password
                         onTextEdited: if (menu.lobby) menu.lobby.token = text
                     }
