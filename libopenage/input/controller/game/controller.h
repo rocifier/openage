@@ -174,8 +174,10 @@ public:
 	 * Set the start position of a drag selection.
 	 *
 	 * @param start Start position of the drag selection.
+	 * @param world_start World tile under the cursor when the drag began.
 	 */
-	void set_drag_select_start(const coord::input &start);
+	void set_drag_select_start(const coord::input &start,
+	                           const coord::tile &world_start);
 
 	/**
 	 * Get the start position of a drag selection.
@@ -186,6 +188,9 @@ public:
 
 	/** Current left-button drag origin, or none when no drag is underway. */
 	std::optional<coord::input> get_drag_select_start_optional() const;
+
+	/** World-tile origin captured when the current left-button drag began. */
+	std::optional<coord::tile> get_drag_world_start_optional() const;
 
 	/**
 	 * Reset the drag select start position.
@@ -231,11 +236,15 @@ private:
 	std::function<void(gamestate::HunterStance)> hunter_stance_action{};
 
 	/**
-	 * Start position of a drag selection.
+	 * Screen and world positions captured at the start of a drag selection.
 	 *
 	 * TODO: Move this into an input event.
 	 */
-	std::optional<coord::input> drag_select_start;
+	struct DragStart {
+		coord::input screen;
+		coord::tile world;
+	};
+	std::optional<DragStart> drag_start;
 
 	/**
 	 * Mutex for threaded access.

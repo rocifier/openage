@@ -31,6 +31,12 @@ void horse_selection_priority() {
 
 void tower_placement_mode() {
 	Controller controller{{1, 2, 3}, 2};
+	controller.set_drag_select_start({320, 180}, {10, 20});
+	TESTEQUALS(controller.get_drag_select_start(), (coord::input{320, 180}));
+	TESTEQUALS(controller.get_drag_world_start_optional().value(), (coord::tile{10, 20}));
+	controller.reset_drag_select();
+	TESTEQUALS(controller.get_drag_select_start_optional().has_value(), false);
+	TESTEQUALS(controller.get_drag_world_start_optional().has_value(), false);
 
 	TESTEQUALS(controller.begin_tower_placement(), false);
 	TESTEQUALS(controller.is_tower_placement_active(), false);

@@ -1587,7 +1587,9 @@ void Presenter::render() {
 			this->fvd_hud_state->insert("attacking", this->game_controller->is_attack_move_active());
 			this->fvd_hud_state->insert("patrolling", this->game_controller->is_patrol_active());
 			const auto drag_start = this->game_controller->get_drag_select_start_optional();
-			const bool preview_line = controlled >= 2 and builder and drag_start.has_value()
+			const auto drag_world_start = this->game_controller->get_drag_world_start_optional();
+			const bool preview_line = controlled >= 2 and builder
+				and drag_start.has_value() and drag_world_start.has_value()
 				// Shift-drag can begin without pressing B first.
 				and (QGuiApplication::keyboardModifiers() & Qt::ShiftModifier);
 			auto fvd = this->simulation->get_game()->get_state()->get_fvd();
@@ -1880,7 +1882,7 @@ void Presenter::render() {
 					auto mouse = this->placement_cursor->to_phys3(this->camera);
 					auto sites = preview_line
 						? input::game::tower_line_sites(
-							drag_start->to_phys3(this->camera).to_tile(), mouse.to_tile())
+							*drag_world_start, mouse.to_tile())
 						: std::vector<coord::tile>{mouse.to_tile()};
 					valid = construction_world != nullptr
 					    and std::any_of(construction_world->entities.begin(),

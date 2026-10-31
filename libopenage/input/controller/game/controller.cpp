@@ -267,34 +267,42 @@ bool Controller::process(const event_arguments &ev_args, const std::shared_ptr<B
 	return true;
 }
 
-void Controller::set_drag_select_start(const coord::input &start) {
+void Controller::set_drag_select_start(const coord::input &start,
+                                       const coord::tile &world_start) {
 	std::unique_lock lock{this->mutex};
 
 	log::log(DBG << "Drag select start at " << start);
-	this->drag_select_start = start;
+	this->drag_start = DragStart{start, world_start};
 }
 
 
 std::optional<coord::input> Controller::get_drag_select_start_optional() const {
 	std::unique_lock lock{this->mutex};
-	return this->drag_select_start;
+	if (not this->drag_start) return std::nullopt;
+	return this->drag_start->screen;
+}
+
+std::optional<coord::tile> Controller::get_drag_world_start_optional() const {
+	std::unique_lock lock{this->mutex};
+	if (not this->drag_start) return std::nullopt;
+	return this->drag_start->world;
 }
 
 const coord::input Controller::get_drag_select_start() const {
 	std::unique_lock lock{this->mutex};
 
-	if (not this->drag_select_start.has_value()) {
+	if (not this->drag_start.has_value()) {
 		throw Error{ERR << "Drag select start not set."};
 	}
 
-	return this->drag_select_start.value();
+	return this->drag_start->screen;
 }
 
 void Controller::reset_drag_select() {
 	std::unique_lock lock{this->mutex};
 
 	log::log(DBG << "Drag select start reset");
-	this->drag_select_start = std::nullopt;
+	this->drag_start = std::nullopt;
 }
 
 std::vector<coord::tile> tower_line_sites(const coord::tile &start,
@@ -802,9 +810,10 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 
 	ctx->bind(ev_mouse_rmb, move_entity_action);
 
-	binding_func_t init_drag_selection{[](const event_arguments &args,
+	binding_func_t init_drag_selection{[camera](const event_arguments &args,
 	                                       const std::shared_ptr<Controller> controller) {
-		controller->set_drag_select_start(args.mouse);
+		controller->set_drag_select_start(
+			args.mouse, args.mouse.to_phys3(camera).to_tile());
 	}};
 
 	binding_action init_drag_selection_action{forward_action_t::CLEAR, init_drag_selection};
@@ -825,14 +834,16 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 	        const std::shared_ptr<Controller> controller) {
 			const bool shift = (args.e.mod_code & Qt::ShiftModifier) != 0;
 			const auto start = controller->get_drag_select_start_optional();
+			const auto world_start = controller->get_drag_world_start_optional();
 			const auto selection = controller->get_selection_details();
 			if (shift and selection.kind == SelectionKind::BUILDER
 			    and controller->begin_tower_placement()) {
 				const auto drag_delta = start ? args.mouse - *start : coord::input_delta{0, 0};
 				const auto threshold = QGuiApplication::styleHints()->startDragDistance();
-				if (start and (std::abs(drag_delta.x) >= threshold
+				if (start and world_start
+				    and (std::abs(drag_delta.x) >= threshold
 			               or std::abs(drag_delta.y) >= threshold)) {
-					const auto sites = tower_line_sites(start->to_phys3(camera).to_tile(),
+					const auto sites = tower_line_sites(*world_start,
 					                                    args.mouse.to_phys3(camera).to_tile());
 					// A single authoritative event preserves the line order even
 					// when equal-time events execute newest-first.
