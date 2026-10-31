@@ -6,5 +6,5 @@
 - [ ] 1.4 Optional per-tower ungarrison point with the rally point's red arrow (reuse rally point code); SET_UNGARRISON_POINT.
 - [ ] 1.5 U shortcut and UNGARRISON command: deterministic free-tile ejection implemented for the selected occupied tower; points and adjacent-tower hopping remain.
 - [ ] 1.6 Replication: owner-only garrison state; Hunter sees nothing.
-- [ ] 1.7 Tests: garrison, invalid and occupied towers, untargetable inside, no building inside, ungarrison point, hop, eject on destruction.
+- [ ] 1.7 Tests: garrison, invalid and occupied towers, untargetable inside, no building inside, ungarrison point, hop, eject on destruction. Added focused asset-backed garrison/ungarrison ownership, concealment and damage immunity regression; extended scenarios, compile and execution still pending.
 - [ ] 1.8 Playtest solo and multiplayer.
