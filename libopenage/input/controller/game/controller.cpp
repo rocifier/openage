@@ -765,24 +765,74 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		auto mouse_pos = args.mouse.to_phys3(camera);
 		auto selection = controller->get_selection_details();
 		auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
-		// A Builder tower's right-click changes only its own ungarrison point.
+		// Treat right-clicking another owned tower as an ENTITY target, not
+		// the ground underneath its sprite. Preserve the tower ID across the
+		// network so a raised red arrow cannot affect movement or hopping.
 		if (owner >= 2 and selection.kind == SelectionKind::TOWER
 		    and selection.ids.size() == 1) {
-			if (guest_world and guest_world().has_value()) {
-				if (send_guest_command) {
-					send_guest_command(network::CommandIntent{
-						0, network::CommandKind::SET_UNGARRISON_POINT, selection.ids, mouse_pos});
+			pick_entity(args.mouse, [simulation, time_loop, send_guest_command,
+			                         guest_world, selection, mouse_pos, owner](
+			    std::optional<gamestate::entity_id_t> picked) {
+				auto replica = guest_world ? guest_world()
+				                           : std::optional<network::WorldState>{};
+				auto local = replica ? nullptr : simulation->get_fvd_presentation_state();
+				const network::WorldState *world = replica ? &*replica : local.get();
+				std::optional<gamestate::entity_id_t> target_tower{};
+				coord::phys3 destination = mouse_pos;
+				if (world) {
+					auto matches = [&](const network::EntityState &entity) {
+						return entity.entity_id != selection.ids.front()
+						    and entity.owner_id == owner
+						    and entity.definition == "fvd.data.entities.Tower";
+					};
+					auto found = std::find_if(
+						world->entities.begin(), world->entities.end(),
+						[&](const auto &entity) {
+							return matches(entity)
+							    and (picked and entity.entity_id == *picked);
+						});
+					// Pick misses the sprite occasionally: also check the
+					// ground projection against the replicated tower tiles.
+					if (found == world->entities.end()) {
+						found = std::find_if(
+							world->entities.begin(), world->entities.end(),
+							[&](const auto &entity) {
+								return matches(entity)
+								    and entity.position.to_tile() == mouse_pos.to_tile();
+							});
+					}
+					if (found != world->entities.end()) {
+						target_tower = found->entity_id;
+						destination = found->position;
+						destination.up = coord::phys_t::from_int(0);
+					}
 				}
-				return;
-			}
-			event::EventHandler::param_map::map_t params{
-				{"type", gamestate::component::command::command_t::SET_UNGARRISON_POINT},
-				{"target", mouse_pos}, {"owner", owner}, {"entity_ids", selection.ids},
-			};
-			simulation->get_event_loop()->submit_event(
-				"game.send_command", simulation->get_commander(),
-				simulation->get_game()->get_state(),
-				time_loop->get_clock()->get_time(), params);
+				// The host can validate the picked entity directly even
+				// before its asynchronous presentation snapshot is ready.
+				else if (picked and *picked != selection.ids.front()) {
+					target_tower = *picked;
+				}
+				if (replica) {
+					if (send_guest_command) {
+						network::CommandIntent intent{
+							0, network::CommandKind::SET_UNGARRISON_POINT,
+							selection.ids, destination};
+						intent.target_entity = target_tower;
+						send_guest_command(std::move(intent));
+					}
+					return;
+				}
+				event::EventHandler::param_map::map_t params{
+					{"type", gamestate::component::command::command_t::SET_UNGARRISON_POINT},
+					{"target", destination}, {"owner", owner},
+					{"entity_ids", selection.ids},
+				};
+				if (target_tower) params.emplace("target_entity", *target_tower);
+				simulation->get_event_loop()->submit_event(
+					"game.send_command", simulation->get_commander(),
+					simulation->get_game()->get_state(),
+					time_loop->get_clock()->get_time(), params);
+			});
 			return;
 		}
 		// Right-clicking with the Hunter tower selected moves its rally point.
