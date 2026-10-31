@@ -505,7 +505,8 @@ bool FVD::tile_occupied(const std::shared_ptr<GameState> &state,
 			continue;
 		}
 		if (entity->get_definition() == this->foundation
-		    or entity->get_definition() == this->tower_demolition) {
+		    or entity->get_definition() == this->tower_demolition
+		    or entity->get_definition() == this->hunter_rally_marker) {
 			continue;
 		}
 		auto position = std::dynamic_pointer_cast<component::Position>(
@@ -1375,6 +1376,9 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 			}
 		}
 	}
+	// After destruction the centre footprint becomes free. It is a safe
+	// last-resort exit when a fully enclosed wall has no exterior tile.
+	if (not destination and not use_point) destination = site.to_phys3_center();
 	if (not destination) return false;
 	this->garrisoned_builders.erase(*occupant_id);
 	auto position = std::dynamic_pointer_cast<component::Position>(
