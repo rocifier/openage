@@ -1213,20 +1213,20 @@ void fvd_builder_delete_foundation() {
 void fvd_match_outcome_rules() {
 	auto at = [](int seconds) { return time::time_t::from_int(seconds); };
 	const auto deadline = at(45 * 60);
-	TESTEQUALS(decide_fvd_match_outcome(true, 6999, at(2699), deadline).has_value(), false);
-	TESTEQUALS(decide_fvd_match_outcome(true, 7000, at(2699), deadline)->winner,
+	// Builders can only win when the 45-minute timer expires.
+	TESTEQUALS(decide_fvd_match_outcome(true, at(2699), deadline).has_value(), false);
+	TESTEQUALS(decide_fvd_match_outcome(true, at(2700), deadline)->winner,
 	           network::MatchWinner::BUILDERS);
-	TESTEQUALS(decide_fvd_match_outcome(true, 7000, at(2699), deadline)->reason,
-	           network::MatchEndReason::TOWER_LIMIT);
-	TESTEQUALS(decide_fvd_match_outcome(true, 0, at(2700), deadline)->reason,
+	TESTEQUALS(decide_fvd_match_outcome(true, at(2700), deadline)->reason,
 	           network::MatchEndReason::TIME_LIMIT);
-	TESTEQUALS(decide_fvd_match_outcome(true, 0, at(2699), deadline).has_value(), false);
-	TESTEQUALS(decide_fvd_match_outcome(false, 7000, at(2700), deadline)->winner,
+	TESTEQUALS(decide_fvd_match_outcome(true, at(2701), deadline)->reason,
+	           network::MatchEndReason::TIME_LIMIT);
+	TESTEQUALS(decide_fvd_match_outcome(true, at(2700), std::nullopt).has_value(), false);
+	// Eliminating every Builder wins for the Hunter, even at the timer deadline.
+	TESTEQUALS(decide_fvd_match_outcome(false, at(2700), deadline)->winner,
 	           network::MatchWinner::HUNTER);
-	TESTEQUALS(decide_fvd_match_outcome(false, 0, at(10), deadline)->reason,
+	TESTEQUALS(decide_fvd_match_outcome(false, at(10), deadline)->reason,
 	           network::MatchEndReason::ALL_BUILDERS_DEAD);
-	TESTEQUALS(decide_fvd_match_outcome(true, 7000, at(2700), std::nullopt)->reason,
-	           network::MatchEndReason::TOWER_LIMIT);
 
 	// Exercise the actual authoritative FVD state and recipient capture,
 	// not merely the rule helper. Disconnections count as dead without
