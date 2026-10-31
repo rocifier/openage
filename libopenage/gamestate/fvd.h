@@ -36,7 +36,7 @@ namespace openage::gamestate {
 
 /** Pure match rule: Hunter elimination has priority over Builder thresholds. */
 std::optional<network::MatchOutcome> decide_fvd_match_outcome(
-	bool any_builder_alive, size_t completed_towers, const time::time_t &now,
+	bool any_builder_alive, const time::time_t &now,
 	const std::optional<time::time_t> &deadline);
 
 /** Seconds until a pending first Hunter spawn, rounded up for HUD display. */
