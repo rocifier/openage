@@ -1550,9 +1550,6 @@ void Presenter::render() {
 					case network::MatchEndReason::TIME_LIMIT:
 						result_reason = QString{"Builders survived for 45 minutes"};
 						break;
-					case network::MatchEndReason::TOWER_LIMIT:
-						result_reason = QString{"Builders completed 7,000 towers"};
-						break;
 					}
 				}
 				this->fvd_hud_state->insert("matchEnded", game_over);
