@@ -25,6 +25,20 @@ void world_delta() {
 		{13, 2, "fvd.data.entities.Builder", {66, 66, 0}, 25, 25},
 	};
 	initial.entities[1].garrisoned_builder = gamestate::entity_id_t{13};
+	// Selection-only marker linkage is replicated even when no sprite moves.
+	auto marker_before = initial;
+	marker_before.entities.push_back({
+		14, 2, "fvd.data.entities.HunterRallyPoint", {68, 69, 3}});
+	auto marker_after = marker_before;
+	marker_after.world_revision = 11;
+	marker_after.simulation_time = time::time_t::from_double(20.25);
+	marker_after.entities.back().ungarrison_source_tower = gamestate::entity_id_t{11};
+	auto marker_delta = make_world_delta(marker_before, marker_after);
+	TESTEQUALS(marker_delta.changed.entities.size(), size_t{1});
+	auto marker_rebuilt = apply_world_delta(
+		marker_before, decode_world_delta(encode_world_delta(marker_delta)));
+	TESTEQUALS(marker_rebuilt.entities.back().ungarrison_source_tower,
+	           std::optional<gamestate::entity_id_t>{11});
 	initial.reservations = {{{66, 67}, 13}};
 	initial.constructions = {{
 		7, 2, 13, {66, 67}, ConstructionPhase::PLANNED,
