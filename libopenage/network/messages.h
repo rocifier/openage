@@ -67,6 +67,8 @@ enum class CommandKind : uint16_t {
 	GARRISON = 10,
 	/** Eject a Builder from one selected occupied tower. */
 	UNGARRISON = 11,
+	/** Set the ejection destination or an adjacent tower-hop target. */
+	SET_UNGARRISON_POINT = 12,
 };
 
 /** Host decision for one client command. */

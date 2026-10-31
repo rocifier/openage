@@ -115,7 +115,7 @@ private:
 
 bool is_known_command_kind(uint16_t value) {
 	return value >= static_cast<uint16_t>(CommandKind::MOVE)
-	    && value <= static_cast<uint16_t>(CommandKind::UNGARRISON);
+	    && value <= static_cast<uint16_t>(CommandKind::SET_UNGARRISON_POINT);
 }
 
 bool is_known_hunter_stance(uint16_t value) {
@@ -455,6 +455,10 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 	    and (intent.entity_ids.size() != 1 or intent.target_entity)) {
 		throw Error{MSG(err) << "Ungarrison requires exactly one tower without a target entity"};
 	}
+	if (intent.kind == CommandKind::SET_UNGARRISON_POINT
+	    and (intent.entity_ids.size() != 1 or intent.target_entity)) {
+		throw Error{MSG(err) << "Ungarrison point requires exactly one tower and a position"};
+	}
 	if (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1) {
 		throw Error{MSG(err) << "FVD rally point requires exactly the Hunter tower"};
 	}
@@ -547,6 +551,8 @@ CommandIntent decode_command_intent(const std::vector<uint8_t> &payload) {
 	    or (intent.kind == CommandKind::SET_STANCE) != intent.stance.has_value()
 	    or (intent.kind == CommandKind::DEMOLISH_TOWER and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1)
+	    or (intent.kind == CommandKind::SET_UNGARRISON_POINT
+	        and (intent.entity_ids.size() != 1 or intent.target_entity))
 	    or (intent.kind == CommandKind::GARRISON and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::UNGARRISON
 	        and (intent.entity_ids.size() != 1 or intent.target_entity))) {

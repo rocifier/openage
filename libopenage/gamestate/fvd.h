@@ -227,8 +227,22 @@ public:
 	bool ungarrison_builder(const std::shared_ptr<GameState> &state,
 	                        player_id_t owner, const std::vector<entity_id_t> &ids,
 	                        const time::time_t &time);
+	/** Set an optional ejection destination for the given owned finished tower. */
+	bool set_ungarrison_point(const std::shared_ptr<GameState> &state,
+	                          player_id_t owner, const std::vector<entity_id_t> &ids,
+	                          const coord::phys3 &point, const time::time_t &time);
+	/** Return the sheltered Builder ID, if any (only expose to its owner). */
+	std::optional<entity_id_t> get_garrisoned_builder(entity_id_t tower) const;
+	/** Return the configured point, if any. */
+	std::optional<coord::phys3> get_ungarrison_point(entity_id_t tower) const;
+
 	/** Concealed Builders remain alive but cannot fight, collide, or be drawn. */
 	bool is_garrisoned(entity_id_t builder_id) const;
+	/** Internal ejection path: destroyed towers never apply the rally point. */
+	bool eject_builder(const std::shared_ptr<GameState> &state,
+	                   entity_id_t tower_id, player_id_t owner,
+	                   const time::time_t &time, bool use_point);
+
 	/** Override a pending garrison arrival when another order is issued. */
 	void cancel_pending_garrison(entity_id_t builder_id);
 
@@ -730,6 +744,11 @@ private:
 		uint64_t revision;
 	};
 	/** Only the authoritative simulation stores the concealed Builder entity. */
+	struct UngarrisonPoint {
+		coord::phys3 destination;
+		entity_id_t marker_id;
+	};
+	std::unordered_map<entity_id_t, UngarrisonPoint> ungarrison_points;
 	std::unordered_map<entity_id_t, entity_id_t> garrisoned_builders;
 	std::unordered_map<entity_id_t, PendingGarrison> pending_garrisons;
 	uint64_t next_garrison_revision = 1;

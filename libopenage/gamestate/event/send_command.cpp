@@ -192,6 +192,13 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			if (result_cb) result_cb(accepted);
 			return;
 		}
+		if (command_type == component::command::command_t::SET_UNGARRISON_POINT) {
+			const bool accepted = params.check_type<coord::phys3>("target")
+			                   and fvd->set_ungarrison_point(gstate, owner, ids,
+			                               params.get<coord::phys3>("target"), time);
+			if (result_cb) result_cb(accepted);
+			return;
+		}
 		if (command_type == component::command::command_t::UNGARRISON) {
 			const bool accepted = fvd->ungarrison_builder(gstate, owner, ids, time);
 			if (result_cb) result_cb(accepted);

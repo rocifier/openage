@@ -23,6 +23,7 @@ enum class command_t {
 	SET_RALLY_POINT,
 	GARRISON,
 	UNGARRISON,
+	SET_UNGARRISON_POINT,
 };
 
 } // namespace openage::gamestate::component::command
