@@ -857,6 +857,15 @@ void fvd_garrison() {
 	TESTEQUALS(fvd->can_command_units(state, 2, {builder}, t(0.25)), true);
 	TESTEQUALS(fvd->ungarrison_builder(state, 2, {tower}, t(0.25)), false);
 	TESTEQUALS(state->get_game_entities().contains(builder), true);
+
+	// Destroying an occupied tower must eject its healthy Builder, not kill it.
+	TESTEQUALS(fvd->request_garrison(state, 2, {builder}, tower, t(0.3)), true);
+	loop->reach_time(t(0.35), state);
+	TESTEQUALS(fvd->is_garrisoned(builder), true);
+	TESTEQUALS(fvd->destroy_tower(state, tower, t(0.35)), true);
+	TESTEQUALS(fvd->is_garrisoned(builder), false);
+	TESTEQUALS(state->get_game_entities().contains(builder), true);
+	TESTEQUALS(live->get_attribute(t(0.35), "fvd.data.entities.Health")->get(t(0.35)), hp);
 }
 
 void fvd_construction() {
