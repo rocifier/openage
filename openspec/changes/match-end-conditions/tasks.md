@@ -1,6 +1,6 @@
 # Tasks
 
-- [x] 1.1 Host-side outcome detection: all Builders dead, 45-minute simulation-clock timer, 7000 completed towers. Source and boundary tests committed; build verification pending.
+- [x] 1.1 Host-side outcome detection: all Builders dead or the 45-minute simulation-clock timer expires with Builders alive. Source and boundary tests committed; build verification pending.
 - [x] 1.2 Collapse a killed Builder's towers, sites and foundations; disconnect-only players keep structures. Source committed; manual death cleanup verification pending.
 - [ ] 1.3 Replicate the outcome; stop accepting orders and autonomous combat. C++ implementation committed in PR #9; build/visual acceptance pending.
   - [x] 1.3a Terminal result wire format and snapshot/delta/recovery
