@@ -1574,7 +1574,8 @@ std::optional<network::MatchOutcome> FVD::get_match_outcome() const {
 
 std::optional<time::time_t> FVD::get_match_end_deadline() const {
 	if (not this->match_started_at) return std::nullopt;
-	return *this->match_started_at + time::time_t::from_int(45 * 60);
+	return *this->match_started_at
+	     + time::time_t::from_int(FVD_MATCH_DURATION_SECONDS);
 }
 
 void FVD::evaluate_match_outcome(
@@ -1631,6 +1632,18 @@ void FVD::evaluate_match_outcome(
 		alive.begin() + 2, alive.end(), [](bool value) { return value; });
 	this->match_outcome = decide_fvd_match_outcome(
 		any_builder_alive, now, this->get_match_end_deadline());
+}
+
+std::optional<int> match_end_countdown(
+	const std::optional<time::time_t> &deadline,
+	const time::time_t &now) {
+	if (not deadline) return std::nullopt;
+	if (now >= *deadline) return 0;
+
+	const auto remaining = *deadline - now;
+	const auto whole_seconds = remaining.to_int();
+	return static_cast<int>(whole_seconds
+	                        + (remaining > time::time_t::from_int(whole_seconds) ? 1 : 0));
 }
 
 std::optional<int> hunter_spawn_countdown(

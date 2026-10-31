@@ -174,9 +174,10 @@
     **Source committed; Windows/Linux build and gameplay verification pending.**
   - [ ] 1.10c Host/guest QML now presents recipient-authoritative
     VICTORY/DEFEAT and outcome reason, including when it arrives via
-    recovery. Complete the synchronized 45-minute countdown HUD and
-    visually verify 2/4/8-player matches, killed-Builder collapse and
-    shutdown on Windows/Linux. Keep the larger endgame task open.
+    recovery, and switches from the Hunter arrival banner to a synchronized
+    role-specific 45-minute countdown. Visually verify 2/4/8-player matches,
+    killed-Builder collapse and shutdown on Windows/Linux. Keep the larger
+    endgame task open.
 
 ## Remaining gaps from the current audit
 

@@ -1212,7 +1212,15 @@ void fvd_builder_delete_foundation() {
 
 void fvd_match_outcome_rules() {
 	auto at = [](int seconds) { return time::time_t::from_int(seconds); };
-	const auto deadline = at(45 * 60);
+	const auto deadline = at(FVD_MATCH_DURATION_SECONDS);
+	const auto smallest_time_step = time::time_t::from_raw_value(1);
+	TESTEQUALS(match_end_countdown(std::nullopt, at(0)).has_value(), false);
+	TESTEQUALS(match_end_countdown(deadline, at(0)).value(), 45 * 60);
+	TESTEQUALS(match_end_countdown(deadline, at(2699)).value(), 1);
+	TESTEQUALS(match_end_countdown(deadline, deadline - smallest_time_step).value(), 1);
+	TESTEQUALS(match_end_countdown(deadline, at(2700)).value(), 0);
+	TESTEQUALS(match_end_countdown(deadline, deadline + smallest_time_step).value(), 0);
+	TESTEQUALS(match_end_countdown(deadline, at(2701)).value(), 0);
 	// Builders can only win when the 45-minute timer expires.
 	TESTEQUALS(decide_fvd_match_outcome(true, at(2699), deadline).has_value(), false);
 	TESTEQUALS(decide_fvd_match_outcome(true, at(2700), deadline)->winner,

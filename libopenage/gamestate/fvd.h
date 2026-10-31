@@ -34,10 +34,18 @@ class EventEntity;
 
 namespace openage::gamestate {
 
+/** Match time available to Builders before their time-limit victory. */
+constexpr int FVD_MATCH_DURATION_SECONDS = 45 * 60;
+
 /** Pure match rule: Hunter elimination has priority over Builder thresholds. */
 std::optional<network::MatchOutcome> decide_fvd_match_outcome(
 	bool any_builder_alive, const time::time_t &now,
 	const std::optional<time::time_t> &deadline);
+
+/** Seconds until the match deadline, rounded up and clamped at zero. */
+std::optional<int> match_end_countdown(
+	const std::optional<time::time_t> &deadline,
+	const time::time_t &now);
 
 /** Seconds until a pending first Hunter spawn, rounded up for HUD display. */
 std::optional<int> hunter_spawn_countdown(

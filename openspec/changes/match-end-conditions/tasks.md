@@ -8,7 +8,9 @@
     Source is committed; build/test evidence remains pending.
   - [ ] 1.3b Produce the result from the authoritative simulation, stop
     orders, and verify recipient presentation after reconnect.
-- [ ] 1.4 Timer in the HUD; Hunter wins / Builders win end screens.
+- [x] 1.4 Timer in the HUD; Hunter wins / Builders win end screens. The HUD
+  switches from the Hunter arrival banner to the role-specific synchronized
+  match timer; in-game visual acceptance remains pending.
 - [x] 1.5 Decide disconnect and host migration: timer pauses; disconnected counts as dead; towers stay.
 - [ ] 1.6 Pause the timer during authority succession; count disconnected Builders as dead.
 - [ ] 1.7 Tests for each condition and for the collapse; multiplayer playtest.

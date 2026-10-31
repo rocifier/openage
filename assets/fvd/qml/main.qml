@@ -25,9 +25,17 @@ Item {
 	readonly property bool targeting: attacking || patrolling
 	readonly property string stance: hud === null ? "" : hud.stance
 	readonly property int hunterCountdown: hud === null ? 0 : hud.hunterCountdown
+	readonly property int matchTimeRemaining: hud === null || hud.matchTimeRemaining === undefined
+	                                          ? -1 : hud.matchTimeRemaining
 	readonly property var arrowStreaks: hud === null ? [] : hud.arrowStreaks
 	readonly property var combatEffects: hud === null ? [] : hud.combatEffects
 	readonly property var attackOrderMarkers: hud === null ? [] : hud.attackOrderMarkers
+
+	function formatMatchTime(totalSeconds) {
+		var minutes = Math.floor(totalSeconds / 60)
+		var seconds = totalSeconds % 60
+		return ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2)
+	}
 
 	Text {
 		anchors.top: parent.top
@@ -383,8 +391,35 @@ Item {
 	}
 
 	Rectangle {
-		anchors.top: countdownBanner.bottom
-		anchors.topMargin: root.hunterCountdown > 0 ? 6 : 0
+		id: matchTimerBanner
+		anchors.top: parent.top
+		anchors.horizontalCenter: parent.horizontalCenter
+		visible: root.matchTimeRemaining >= 0
+		         && root.hunterCountdown <= 0
+		         && !(root.hud !== null && root.hud.matchEnded === true)
+		width: matchTimerLabel.implicitWidth + 28
+		height: visible ? 32 : 0
+		color: "#dc182824"
+		border.width: 1
+		border.color: root.hunter ? "#a66e62" : "#668e78"
+		radius: 6
+
+		Text {
+			id: matchTimerLabel
+			anchors.centerIn: parent
+			text: (root.hunter ? "Kill all builders: " : "Survive: ")
+			      + root.formatMatchTime(Math.max(0, root.matchTimeRemaining))
+			      + " minutes"
+			color: "#f2f5f2"
+			font.pixelSize: 14
+			font.bold: true
+		}
+	}
+
+	Rectangle {
+		anchors.top: root.hunterCountdown > 0
+		             ? countdownBanner.bottom : matchTimerBanner.bottom
+		anchors.topMargin: root.hunterCountdown > 0 || matchTimerBanner.visible ? 6 : 0
 		anchors.horizontalCenter: parent.horizontalCenter
 		width: help.width + 32
 		height: help.height + 20

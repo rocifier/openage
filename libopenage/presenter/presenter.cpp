@@ -1315,6 +1315,7 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("combatEffects", QVariantList{});
 			this->fvd_hud_state->insert("attackOrderMarkers", QVariantList{});
 			this->fvd_hud_state->insert("hunterCountdown", 0);
+			this->fvd_hud_state->insert("matchTimeRemaining", -1);
 			this->fvd_hud_state->insert("matchEnded", false);
 			this->fvd_hud_state->insert("matchResultTitle", QString{});
 			this->fvd_hud_state->insert("matchResultReason", QString{});
@@ -1953,6 +1954,21 @@ void Presenter::render() {
 					: fvd->get_hunter_spawn_countdown(now);
 				this->fvd_hud_state->insert("hunterCountdown",
 					countdown.value_or(0));
+				std::optional<time::time_t> match_deadline{};
+				if (construction_world) {
+					// Network matches start at simulation time zero. Authority
+					// handoff pauses and preserves that shared clock.
+					match_deadline = this->fvd_replication
+						? std::make_optional(time::time_t::from_int(
+						      gamestate::FVD_MATCH_DURATION_SECONDS))
+						: fvd->get_match_end_deadline();
+				}
+				const auto match_time = guest_time.value_or(now);
+				const auto match_countdown = gamestate::match_end_countdown(
+					match_deadline, match_time);
+				this->fvd_hud_state->insert(
+					"matchTimeRemaining",
+					game_over ? -1 : match_countdown.value_or(-1));
 				QString kills_label{};
 				std::optional<uint64_t> visible_kills{};
 				if (builder and selected.ids.size() == 1 and controlled >= 2) {

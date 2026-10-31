@@ -171,7 +171,7 @@ void replication() {
 	TESTEQUALS(tracker.get_tower_kills(101).has_value(), false);
 	TESTEQUALS(tracker.get_world_state().has_value(), false);
 	TESTEQUALS(tracker.get_presentation_state().has_value(), false);
-	TESTEQUALS(tracker.get_revision(), uint64_t{10});
+	TESTEQUALS(tracker.get_revision(), uint64_t{12});
 	TESTTHROWS(tracker.accept_snapshot(recovered));
 	TESTTHROWS(tracker.accept_delta(heartbeat));
 	TESTTHROWS(tracker.make_snapshot_request());
