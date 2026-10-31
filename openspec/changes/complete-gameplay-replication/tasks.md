@@ -35,14 +35,16 @@
     timestamp through host snapshots and guest deltas, including sprite
     selection and consistent loop phase after recovery. Demo asset set uses
     existing 16-angle Orc idle/walk spritesheets as a temporary Builder.
-    **Windows automation and two-player attack/building presentation pass;
-    death presentation is implemented and awaits live acceptance; Linux remains.**
+    **Windows automation and two-player attack/building/death presentation pass
+    (user-reported, 2026-10-31); Linux and 4/8-player load remain.**
   - [ ] 1.4c Validate frame-by-frame parity, proper direction mapping and
     animation/resource budget on real hardware.
     **User acceptance, 2026-10-29:** attack and building animations pass in
     a real two-player match. Directional death animation playback is now
-    implemented and keeps this item open until live acceptance.
-    Four/eight-player animation load remains alpha-scale follow-up.
+    accepted in a two-player match on 2026-10-31 (user-reported).
+    Four/eight-player animation load, frame-budget measurement and
+    Windows/Linux parity remain alpha-scale follow-up.
+    - [x] Two-player directional death playback accepted by user, 2026-10-31.
     Additional automated regression: consecutive ATTACK volleys with an
     unchanged action ID must carry their new start timestamp through a
     delta and preserve it after recovery. **Windows test pass.**
@@ -63,6 +65,10 @@
   snapshot rather than replaying expired cosmetic shots. Do not mark
   1.5 complete until the stress tests and cross-client visual
   verification pass.
+  - [x] User-reported two-player projectile-delivery stress check passes,
+    2026-10-31. Exact projectile count, traffic shaping and test logs were
+    not supplied; do not infer that every >2,048-launch backpressure,
+    disconnect/recovery or 4/8-player variant has been exercised.
   - [x] Schedule a Hunter projectile at attack start with the same
     authoritative 0.45s impact instant as the existing 75%-cycle hit.
     Reuse the unique, time-indexed arrow launch stream (owner 1 = Hunter)
@@ -81,7 +87,7 @@
     removal/death bursts on host and guests. Match-local presentation now
     captures HP for parity, and the diff has unit coverage. No client-side
     projectile prediction modifies health.
-    **Attack presentation passes; death animation playback awaits live acceptance.**
+    **Two-player attack and death presentation pass (user-reported, 2026-10-31).**
   - [ ] Test TCP backpressure and stalled recipients, including batches
     larger than 2048 launches, skipped intermediate captures, packet
     latency/jitter, abrupt disconnects and resynchronization from a full
@@ -116,8 +122,10 @@
     Foundations, active orders and Builder-owned reserved tiles. Show owner
     labels and queued/planned/building/complete phases, correct guest queue
     totals, and test cancellation/retasking and loopback phases.
-    **Windows tests and building animation presentation pass; broader overlay
-    acceptance remains.**
+    **Windows tests and building animation presentation pass.**
+  - [x] Construction overlays accepted in a two-player host/guest match
+    (user-reported, 2026-10-31); wider conflict/camera/retask coverage
+    is not inferred.
   - [ ] Visually verify all 2/4/8-player screens and real camera movement,
     conflicting reservations, cancellation and retasking on Windows/Linux.
 - [x] 1.7 Replicate the first Hunter spawn deadline through snapshots and
@@ -176,20 +184,25 @@
     VICTORY/DEFEAT and outcome reason, including when it arrives via
     recovery, and switches from the Hunter arrival banner to a synchronized
     role-specific 45-minute countdown. Visually verify 2/4/8-player matches,
-    killed-Builder collapse and shutdown on Windows/Linux. Keep the larger
-    endgame task open.
+    killed-Builder collapse and shutdown on Windows/Linux.
+    **Two-player victory-condition smoke testing passes (user-reported,
+    2026-10-31).** End-screen/recovery edge cases, killed-Builder collapse,
+    post-result shutdown, 4/8-player and Windows/Linux acceptance keep the
+    larger endgame task open.
 
 ## Remaining gaps from the current audit
 
 - Guest positions advance on authoritative future motion curves without a new
   per-entity record each capture. Two-player performance passes; Linux and
   4/8-player load remain unverified.
-- Entity facing plus attack and building animations passed real two-player
-  presentation testing. Death animation presentation is implemented and awaits
-  the same acceptance test.
+- Entity facing, attack/building and directional death animation playback
+  passed real two-player presentation acceptance (user-reported 2026-10-31).
+  Frame/resource budget at 4/8 players and Linux remain unverified.
 - Timed arrow launch events remain available briefly after impact, including
-  late guest visuals. Attack presentation passes; high-volume live congestion,
-  death animation acceptance and 4/8-player visual verification remain.
+  late guest visuals. Two-player projectile stress and construction overlay
+  presentation pass (user-reported 2026-10-31), but event-count/latency
+  telemetry and the full >2,048-launch backpressure/recovery matrix are not
+  documented. 4/8-player visual verification remains.
   Attack orders have authoritative target/destination overlays; construction
   states and private scores have wire records.
 - Network state still uses one recipient-oriented world capture at a time.
@@ -205,8 +218,9 @@ automated test and the remaining real-client manual checks.
 registered tests passed with assets (`run.exe test -a --have-assets`), and
 `checkmerge` passed. Real two-player acceptance reports excellent performance,
 working reconnect and host handover, and passing attack/building animations.
-Death animation playback is implemented but not yet accepted in a live match.
-Linux execution and four/eight-player graphical load testing remain alpha follow-up.
+Death animation playback was subsequently accepted in a live two-player match
+on 2026-10-31. Linux execution and four/eight-player graphical load testing
+remain alpha follow-up.
 
 **2026-10-30 follow-up:** Hardened the confirmation
 path for same-tick entity deaths (including zero-HP entities retained until
@@ -215,5 +229,12 @@ removal). Extended `world_delta` regression with fog visibility, three
 delta rejection after snapshot recovery. These source/test changes compile
 and pass the full Windows suite. They do not replace real TCP congestion,
 Windows/Linux and 4/8-client visual acceptance.
-Leave 1.4c, 1.5b, 1.6b, 1.8 and 1.10 unchecked; match end-state remains a
-separate implementation dependency.
+**2026-10-31 two-player acceptance (user-reported):** directional death
+animations PASS; projectile-delivery stress check PASS; construction overlays
+PASS; victory-condition gameplay check PASS. No 4/8-player graphical matches
+have been tested. Stress-test load parameters and telemetry were not supplied;
+neither a 4/8-player pass nor every TCP/recovery subcase is implied.
+
+Leave 1.4c, 1.5b, 1.6b, 1.8 and 1.10 unchecked for their wider acceptance
+requirements. Match end-state implementation is present on `FVD`, but
+multi-client, cross-platform and edge-case verification remain.

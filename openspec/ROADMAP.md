@@ -126,16 +126,22 @@ units, deaths and kill counts under concurrent build orders.
 
 **Accepted 2026-10-29:** real two-player performance was excellent, Hunter
 AttackMove and ownership enforcement passed, attack/building animations passed,
-and host handover/reconnect preserved the match. Death animations and the
-authoritative end-state/victory flow remain open.
+and host handover/reconnect preserved the match. **Additional two-player
+acceptance 2026-10-31:** death animation, projectile-delivery stress,
+construction overlays and victory-condition gameplay passed (user-reported).
+Four/eight-player graphical load, Windows/Linux parity and detailed
+backpressure/recovery/endgame edge-case verification remain open.
 
 ### 6. Proposed next features — 2026-10-28
 
-Proposals only; each lists open questions to settle before implementation.
+These change specs include both implemented alpha features and deferred
+proposals; consult each change's task checklist for current status.
 
 - [match-end-conditions](changes/match-end-conditions/proposal.md): Hunter wins
-  when all Builders die; Builders win at 45 minutes or 7000 towers; a dead
-  Builder's towers collapse; win screens.
+  when all admitted Builders die or disconnect; Builders win by surviving
+  45 minutes (no tower-count victory); killed Builders' towers collapse;
+  win screens. Implemented on `FVD` and two-player victory gameplay accepted,
+  with further edge-case and multi-client verification open.
 - [builder-delete-all-foundations](changes/builder-delete-all-foundations/proposal.md):
   one button clears a Builder's planned sites.
 - [kill-counter-units](changes/kill-counter-units/proposal.md): kill counters
