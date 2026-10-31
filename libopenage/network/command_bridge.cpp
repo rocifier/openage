@@ -47,6 +47,10 @@ gamestate::component::command::command_t simulation_command(CommandKind kind) {
 		return gamestate::component::command::command_t::DEMOLISH_TOWER;
 	case CommandKind::SET_RALLY_POINT:
 		return gamestate::component::command::command_t::SET_RALLY_POINT;
+	case CommandKind::GARRISON:
+		return gamestate::component::command::command_t::GARRISON;
+	case CommandKind::UNGARRISON:
+		return gamestate::component::command::command_t::UNGARRISON;
 	default:
 		throw Error{MSG(err) << "Unknown authenticated FVD command kind "
 		                     << static_cast<uint16_t>(kind)};
@@ -164,6 +168,7 @@ WorldState capture_fvd_presentation_state(
 	std::sort(entity_ids.begin(), entity_ids.end());
 	result.entities.reserve(entity_ids.size());
 	for (auto entity_id : entity_ids) {
+		if (fvd->is_garrisoned(entity_id)) continue;
 		auto entity = state->get_game_entity(entity_id);
 		if (not entity->has_component(gamestate::component::component_t::POSITION)
 		    or not entity->has_component(gamestate::component::component_t::OWNERSHIP)) {

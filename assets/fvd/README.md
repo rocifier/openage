@@ -77,6 +77,21 @@ foundation prioritization, and recovery snapshots are implemented; complete
 online HUD polish and disconnect/reconnect policy are still in progress.
 
 In a Windows development build, run `.\RelWithDebInfo\run.exe game --modpacks fvd` from the build directory with the runtime dependency paths configured.
+### Experimental Builder garrison (protocol v18)
+
+With a Builder selected, press **G**, then left-click one of your own finished
+towers. The authoritative game walks the Builder to an adjacent tile and hides
+them inside; garrisoned Builders are not visible to the Hunter and cannot be
+damaged, collide, or place new towers. One Builder may occupy each tower.
+Select that tower and press **U** to eject the Builder onto the first suitable
+free tile. Destroying an occupied tower also ejects its Builder unharmed.
+
+This is an initial implementation and **has not yet passed compilation or live
+gameplay acceptance**. There is no garrison HUD indicator, optional ungarrison
+point, or adjacent-tower hopping yet. The owner must select the occupied tower
+to use U. Test with `run test openage::gamestate::tests::fvd_garrison -a --have-assets`
+and `run test openage::network::tests::messages` before distribution.
+
 Selected Builders display their current health above the unit.
 The mode uses only these original graphics and the engine API; original game assets are not needed.
 

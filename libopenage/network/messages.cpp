@@ -115,7 +115,7 @@ private:
 
 bool is_known_command_kind(uint16_t value) {
 	return value >= static_cast<uint16_t>(CommandKind::MOVE)
-	    && value <= static_cast<uint16_t>(CommandKind::SET_RALLY_POINT);
+	    && value <= static_cast<uint16_t>(CommandKind::UNGARRISON);
 }
 
 bool is_known_hunter_stance(uint16_t value) {
@@ -432,7 +432,8 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 	}
 
 	if ((intent.kind == CommandKind::FOCUS_ATTACK
-	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION) != intent.target_entity.has_value()) {
+	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION
+	     or intent.kind == CommandKind::GARRISON) != intent.target_entity.has_value()) {
 		throw Error{MSG(err) << "FVD targeted command requires exactly one target entity"};
 	}
 	if (intent.queue and intent.kind != CommandKind::BUILD_TOWER) {
@@ -446,6 +447,13 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 	}
 	if (intent.kind == CommandKind::DEMOLISH_TOWER and intent.entity_ids.size() != 1) {
 		throw Error{MSG(err) << "FVD demolition requires exactly one tower entity"};
+	}
+	if (intent.kind == CommandKind::GARRISON and intent.entity_ids.size() != 1) {
+		throw Error{MSG(err) << "Garrison requires exactly one selected Builder"};
+	}
+	if (intent.kind == CommandKind::UNGARRISON
+	    and (intent.entity_ids.size() != 1 or intent.target_entity)) {
+		throw Error{MSG(err) << "Ungarrison requires exactly one tower without a target entity"};
 	}
 	if (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1) {
 		throw Error{MSG(err) << "FVD rally point requires exactly the Hunter tower"};
@@ -530,14 +538,18 @@ CommandIntent decode_command_intent(const std::vector<uint8_t> &payload) {
 		intent.stance = static_cast<gamestate::HunterStance>(stance);
 	}
 	if ((intent.kind == CommandKind::FOCUS_ATTACK
-	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION) != intent.target_entity.has_value()
+	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION
+	     or intent.kind == CommandKind::GARRISON) != intent.target_entity.has_value()
 	    or (intent.queue and intent.kind != CommandKind::BUILD_TOWER)
 	    or (not intent.build_line.empty()
 	        and (intent.kind != CommandKind::BUILD_TOWER or not intent.queue
 	             or intent.build_line.front() != intent.target))
 	    or (intent.kind == CommandKind::SET_STANCE) != intent.stance.has_value()
 	    or (intent.kind == CommandKind::DEMOLISH_TOWER and intent.entity_ids.size() != 1)
-	    or (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1)) {
+	    or (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1)
+	    or (intent.kind == CommandKind::GARRISON and intent.entity_ids.size() != 1)
+	    or (intent.kind == CommandKind::UNGARRISON
+	        and (intent.entity_ids.size() != 1 or intent.target_entity))) {
 		throw Error{MSG(err) << "Invalid FVD targeted/queued command payload"};
 	}
 	reader.finish();

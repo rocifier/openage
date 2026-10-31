@@ -184,6 +184,19 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			}
 			return;
 		}
+		if (command_type == component::command::command_t::GARRISON) {
+			const bool accepted = params.check_type<entity_id_t>("target_entity")
+			                   and fvd->request_garrison(
+			                       gstate, owner, ids,
+			                       params.get<entity_id_t>("target_entity"), time);
+			if (result_cb) result_cb(accepted);
+			return;
+		}
+		if (command_type == component::command::command_t::UNGARRISON) {
+			const bool accepted = fvd->ungarrison_builder(gstate, owner, ids, time);
+			if (result_cb) result_cb(accepted);
+			return;
+		}
 		if (command_type == component::command::command_t::SET_RALLY_POINT) {
 			const bool accepted = params.check_type<coord::phys3>("target")
 			                  and fvd->set_hunter_rally_point(
@@ -246,6 +259,7 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 				continue;
 			}
 			fvd->cancel_attack_move(id);
+			fvd->cancel_pending_garrison(id);
 			fvd->cancel_build(gstate, id, time);
 		}
 		auto command_queue = std::dynamic_pointer_cast<component::CommandQueue>(

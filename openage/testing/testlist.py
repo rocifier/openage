@@ -243,6 +243,15 @@ def tests_cpp():
     )
     yield (
         "openage::gamestate::tests::fvd_match_outcome_rules",
+        "FVD Hunter/Builder victory, 45-minute timeout and irreversible outcomes",
+        lambda env: env["has_assets"],
+    )
+    yield (
+        "openage::gamestate::tests::fvd_garrison",
+        "FVD Builder garrison validation, concealment, immunity and ejection",
+        lambda env: env["has_assets"],
+    )
+    yield (
         "openage::gamestate::tests::fvd_hunter_spawning",
         "FVD Hunter horse spawn cadence and idle behavior",
         lambda env: env["has_assets"],

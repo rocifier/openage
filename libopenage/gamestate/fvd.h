@@ -215,6 +215,23 @@ public:
 	                   bool finish,
 	                   const time::time_t &time);
 
+	/** Schedule a Builder to enter its own finished, unoccupied tower. */
+	bool request_garrison(const std::shared_ptr<GameState> &state,
+	                      player_id_t owner, const std::vector<entity_id_t> &ids,
+	                      entity_id_t tower_id, const time::time_t &time);
+	/** Commit an arrival only while the same garrison order remains valid. */
+	void advance_garrison(const std::shared_ptr<GameState> &state,
+	                      entity_id_t builder_id, entity_id_t tower_id,
+	                      uint64_t revision, const time::time_t &time);
+	/** Eject the occupant of an owned tower to a deterministic free tile. */
+	bool ungarrison_builder(const std::shared_ptr<GameState> &state,
+	                        player_id_t owner, const std::vector<entity_id_t> &ids,
+	                        const time::time_t &time);
+	/** Concealed Builders remain alive but cannot fight, collide, or be drawn. */
+	bool is_garrisoned(entity_id_t builder_id) const;
+	/** Override a pending garrison arrival when another order is issued. */
+	void cancel_pending_garrison(entity_id_t builder_id);
+
 	/** Recalculate current routes and release footprints of destroyed towers. */
 	void refresh_paths(const std::shared_ptr<GameState> &state,
 	                   const time::time_t &time);
@@ -708,6 +725,14 @@ private:
 	/** Keep retired tower records so shots in flight can still score. */
 	mutable std::mutex tower_kills_mutex;
 	std::unordered_map<entity_id_t, TowerKillCount> tower_kills{};
+	struct PendingGarrison {
+		entity_id_t tower_id;
+		uint64_t revision;
+	};
+	/** Only the authoritative simulation stores the concealed Builder entity. */
+	std::unordered_map<entity_id_t, entity_id_t> garrisoned_builders;
+	std::unordered_map<entity_id_t, PendingGarrison> pending_garrisons;
+	uint64_t next_garrison_revision = 1;
 	std::unordered_map<entity_id_t, PendingBuild> build_orders;
 	std::unordered_map<entity_id_t, std::deque<QueuedBuildSite>> queued_builds;
 	std::unordered_map<coord::tile, entity_id_t> reserved_tiles;

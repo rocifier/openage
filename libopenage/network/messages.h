@@ -63,6 +63,10 @@ enum class CommandKind : uint16_t {
 	DEMOLISH_TOWER = 8,
 	/** The Hunter tower (sole entity) sets where new horses ride to. */
 	SET_RALLY_POINT = 9,
+	/** Enter a completed owned tower with one selected Builder. */
+	GARRISON = 10,
+	/** Eject a Builder from one selected occupied tower. */
+	UNGARRISON = 11,
 };
 
 /** Host decision for one client command. */
