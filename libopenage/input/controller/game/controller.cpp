@@ -53,6 +53,7 @@ void Controller::set_control(size_t faction_id) {
 		this->selection_pending = false;
 		this->deferred_selection_action = {};
 		this->placing_tower = false;
+	this->garrison_mode = false;
 		this->hunter_targeting = HunterTargeting::NONE;
 	}
 }
@@ -68,6 +69,7 @@ void Controller::lock_to_online_player(size_t faction_id) {
 	this->selection_pending = false;
 	this->deferred_selection_action = {};
 	this->placing_tower = false;
+	this->garrison_mode = false;
 	this->hunter_targeting = HunterTargeting::NONE;
 }
 
@@ -85,6 +87,7 @@ void Controller::reset_online_player_slots(size_t player_count) {
 	this->selection_pending = false;
 	this->deferred_selection_action = {};
 	this->placing_tower = false;
+	this->garrison_mode = false;
 	this->hunter_targeting = HunterTargeting::NONE;
 }
 
@@ -116,6 +119,7 @@ void Controller::set_selected(
 	this->selection_pending = false;
 	this->deferred_selection_action = {};
 	this->placing_tower = false;
+	this->garrison_mode = false;
 	this->hunter_targeting = HunterTargeting::NONE;
 }
 
@@ -147,6 +151,7 @@ bool Controller::set_selected_if_current(
 		this->selected_render_entity = ids.size() == 1 ? render_entity : nullptr;
 		this->selection_pending = false;
 		this->placing_tower = false;
+	this->garrison_mode = false;
 		this->hunter_targeting = HunterTargeting::NONE;
 		deferred = std::move(this->deferred_selection_action);
 	}
@@ -171,6 +176,26 @@ SelectionDetails Controller::get_selection_details() const {
 	return {this->selected, this->selected_kind, this->selected_render_entity};
 }
 
+bool Controller::begin_garrison_mode() {
+	std::unique_lock lock{this->mutex};
+	if (this->active_faction_id < 2 or this->selected.size() != 1
+	    or this->selected_kind != SelectionKind::BUILDER) return false;
+	this->placing_tower = false;
+	this->hunter_targeting = HunterTargeting::NONE;
+	this->garrison_mode = true;
+	return true;
+}
+
+bool Controller::is_garrison_mode_active() const {
+	std::unique_lock lock{this->mutex};
+	return this->garrison_mode;
+}
+
+void Controller::cancel_garrison_mode() {
+	std::unique_lock lock{this->mutex};
+	this->garrison_mode = false;
+}
+
 bool Controller::begin_tower_placement() {
 	std::unique_lock lock{this->mutex};
 	if (this->active_faction_id < 2 or this->selected.size() != 1
@@ -178,6 +203,7 @@ bool Controller::begin_tower_placement() {
 		return false;
 	}
 	this->hunter_targeting = HunterTargeting::NONE;
+	this->garrison_mode = false;
 	this->placing_tower = true;
 	return true;
 }
@@ -185,6 +211,7 @@ bool Controller::begin_tower_placement() {
 void Controller::cancel_tower_placement() {
 	std::unique_lock lock{this->mutex};
 	this->placing_tower = false;
+	this->garrison_mode = false;
 }
 
 bool Controller::is_tower_placement_active() const {
@@ -206,6 +233,7 @@ bool Controller::begin_hunter_targeting(HunterTargeting mode) {
 		return false;
 	}
 	this->placing_tower = false;
+	this->garrison_mode = false;
 	this->hunter_targeting = mode;
 	return true;
 }
@@ -607,6 +635,40 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 				set_stance(active, stance);
 			}
 		});
+		binding_func_t start_garrison{[](const event_arguments &,
+		                               const std::shared_ptr<Controller> ctl) {
+			ctl->begin_garrison_mode();
+		}};
+		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_G,
+		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
+		          binding_action{forward_action_t::CLEAR, start_garrison});
+
+		binding_func_t ungarrison_selected{[simulation, time_loop, send_guest_command, guest_world](
+		                                        const event_arguments &,
+		                                        const std::shared_ptr<Controller> ctl) {
+			const auto selection = ctl->get_selection_details();
+			const auto owner = static_cast<gamestate::player_id_t>(ctl->get_controlled());
+			if (owner < 2 or selection.ids.size() != 1
+			    or selection.kind != SelectionKind::TOWER) return;
+			if (guest_world and guest_world().has_value()) {
+				if (send_guest_command) send_guest_command(network::CommandIntent{
+					0, network::CommandKind::UNGARRISON, selection.ids});
+				return;
+			}
+			event::EventHandler::param_map::map_t params{
+				{"type", gamestate::component::command::command_t::UNGARRISON},
+				{"owner", owner},
+				{"entity_ids", selection.ids},
+			};
+			simulation->get_event_loop()->submit_event(
+				"game.send_command", simulation->get_commander(),
+				simulation->get_game()->get_state(),
+				time_loop->get_clock()->get_time(), params);
+		}};
+		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_U,
+		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
+		          binding_action{forward_action_t::CLEAR, ungarrison_selected});
+
 		binding_func_t spawn_hunter{[simulation, time_loop, can_spawn_hunter](
 		                                const event_arguments &,
 		                                const std::shared_ptr<Controller>) {
@@ -628,6 +690,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		binding_func_t cancel_placement{[](const event_arguments &,
 		                                  const std::shared_ptr<Controller> controller) {
 			controller->cancel_tower_placement();
+			controller->cancel_garrison_mode();
 			controller->cancel_hunter_targeting();
 		}};
 		binding_func_t start_attack_move{[](const event_arguments &,
@@ -681,6 +744,10 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 	auto submit_order = [simulation, time_loop, camera, pick_entity, send_guest_command, guest_world](
 		                    const event_arguments &args,
 		                    const std::shared_ptr<Controller> controller) {
+		if (controller->is_garrison_mode_active()) {
+			controller->cancel_garrison_mode();
+			return;
+		}
 		if (controller->is_tower_placement_active()) {
 			controller->cancel_tower_placement();
 			return;
@@ -836,6 +903,37 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			const auto start = controller->get_drag_select_start_optional();
 			const auto world_start = controller->get_drag_world_start_optional();
 			const auto selection = controller->get_selection_details();
+			if (controller->is_garrison_mode_active()) {
+				controller->reset_drag_select();
+				controller->cancel_garrison_mode();
+				if (selection.kind != SelectionKind::BUILDER or selection.ids.size() != 1)
+					return;
+				auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
+				pick_entity(args.mouse, [simulation, time_loop, send_guest_command,
+				                          guest_world, selection, owner](
+					std::optional<gamestate::entity_id_t> tower_id) {
+					if (not tower_id) return;
+					if (guest_world and guest_world().has_value()) {
+						if (send_guest_command) {
+							network::CommandIntent intent{
+								0, network::CommandKind::GARRISON, selection.ids};
+							intent.target_entity = *tower_id;
+							send_guest_command(std::move(intent));
+						}
+						return;
+					}
+					event::EventHandler::param_map::map_t params{
+						{"type", gamestate::component::command::command_t::GARRISON},
+						{"owner", owner}, {"entity_ids", selection.ids},
+						{"target_entity", *tower_id},
+					};
+					simulation->get_event_loop()->submit_event(
+						"game.send_command", simulation->get_commander(),
+						simulation->get_game()->get_state(),
+						time_loop->get_clock()->get_time(), params);
+				});
+				return;
+			}
 			if (shift and selection.kind == SelectionKind::BUILDER
 			    and controller->begin_tower_placement()) {
 				const auto drag_delta = start ? args.mouse - *start : coord::input_delta{0, 0};

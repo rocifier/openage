@@ -134,6 +134,11 @@ public:
 	/** Enter FVD tower placement mode when a Builder has been selected. */
 	bool begin_tower_placement();
 
+	/** G arms the next left-click to select a tower as the Builder's shelter. */
+	bool begin_garrison_mode();
+	bool is_garrison_mode_active() const;
+	void cancel_garrison_mode();
+
 	/** Cancel a tower placement without issuing a world command. */
 	void cancel_tower_placement();
 
@@ -232,6 +237,7 @@ private:
 
 	/** Controller-local input mode, not authoritative simulation state. */
 	bool placing_tower = false;
+	bool garrison_mode = false;
 	HunterTargeting hunter_targeting = HunterTargeting::NONE;
 	std::function<void(gamestate::HunterStance)> hunter_stance_action{};
 
