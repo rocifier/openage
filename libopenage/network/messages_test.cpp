@@ -287,6 +287,7 @@ void messages() {
 	auto tower_point = decode_command_intent(encode_command_intent(point));
 	TESTEQUALS(tower_point.target_entity,
 	           std::optional<gamestate::entity_id_t>{202});
+	TESTEQUALS(tower_point.target, (coord::phys3{60, 66, 0}));
 	point.target_entity.reset();
 
 	state.reservations = {{{10, 20}, 300}};

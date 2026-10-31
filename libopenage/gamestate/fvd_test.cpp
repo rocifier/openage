@@ -953,7 +953,11 @@ void fvd_garrison_hop() {
 	TESTEQUALS(fvd->request_garrison(state, 2, {builder}, first, at(0.5)), true);
 	loop->reach_time(at(4), state);
 	TESTEQUALS(fvd->get_garrisoned_builder(first), std::optional<entity_id_t>{builder});
-	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {first}, {62, 66, 0}, at(4)), true);
+	// The explicit target identity, not a visual point on top of the sprite,
+	// drives the atomic transfer.
+	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {first}, {62, 66, 0}, at(4), second), true);
+	TESTEQUALS(fvd->get_ungarrison_point(first),
+	           std::make_optional(coord::phys3{62.5, 66.5, 0}));
 	TESTEQUALS(fvd->ungarrison_builder(state, 2, {first}, at(4)), true);
 	TESTEQUALS(fvd->is_garrisoned(builder), true);
 	TESTEQUALS(fvd->get_garrisoned_builder(first).has_value(), false);
