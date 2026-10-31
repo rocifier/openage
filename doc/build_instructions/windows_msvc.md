@@ -156,3 +156,6 @@ The installer (`openage-<version>-<arch>.exe`) will be generated in the same dir
 _Note:_ Append `-V` to the `cpack` command for verbose output (it takes time to package all dependencies).
 
 _Note:_ <arch> you can set with the environment variable `TARGET_PLATFORM` (e.g. amd64, x86).
+
+For Python versions that no longer publish Windows binaries, CMake selects the last binary-compatible embeddable release by default.
+Override it at configure time with `-DPYTHON_EMBED_VERSION=<version>` when needed.

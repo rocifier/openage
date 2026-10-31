@@ -3,8 +3,12 @@
 
 rem @AUTOGEN_WARNING@
 
-set INST_DIR=%CD%
-set PATH=%INST_DIR%\@CMAKE_INSTALL_BINDIR@;
-set XDG_DATA_HOME=%INST_DIR%\share
+set "INST_DIR=%~dp0"
+set "PATH=%INST_DIR%@CMAKE_INSTALL_BINDIR@;%PATH%"
+set "XDG_DATA_HOME=%INST_DIR%share"
 
-call "%INST_DIR%\@CMAKE_PY_INSTALL_PREFIX@\python.exe" -m openage
+pushd "%INST_DIR%"
+call "%INST_DIR%@CMAKE_PY_INSTALL_PREFIX@\python.exe" -m openage game --asset-dir "%INST_DIR%@ASSET_DIR@" %*
+set "EXIT_CODE=%ERRORLEVEL%"
+popd
+exit /b %EXIT_CODE%

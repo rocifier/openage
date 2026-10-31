@@ -19,7 +19,7 @@ set(POWERSHELL_COMMAND "$ENV{SYSTEMROOT}/System32/WindowsPowerShell/v1.0/powersh
 # Inspired by `applocal.ps1` from vcpkg which recursively descends into the
 # dependency tree of a binary and copies each to the target directory.
 function(resolve binary)
-	get_filename_component(bin_dir "${binary}" DIRECTORY)
+	set(bin_dir "${CMAKE_INSTALL_PREFIX}/bin")
 	execute_process(COMMAND "${dumpbin}" /DEPENDENTS "${binary}"
 		RESULT_VARIABLE dump_result
 		OUTPUT_VARIABLE dump_output
@@ -42,25 +42,60 @@ function(resolve binary)
 endfunction()
 
 
-# windeployqt
-if(use_windeployqt AND windeployqt)
-	foreach(file ${CMAKE_INSTALL_MANIFEST_FILES})
-		if((file MATCHES "\\.dll$") AND NOT ("${file}" STREQUAL "nyan.dll"))
-			resolve("${file}")
-			if(windeployqt)
+# Resolve dependencies for DLLs and Python extension modules.
+foreach(file ${CMAKE_INSTALL_MANIFEST_FILES})
+	if(file MATCHES "\\.(dll|pyd)$")
+		resolve("${file}")
+	endif()
+endforeach()
+
+# Deploy Qt plugins and QML imports.
+if(use_windeployqt)
+	if(windeployqt)
+		foreach(file ${CMAKE_INSTALL_MANIFEST_FILES})
+			if(file MATCHES "\\.(dll|pyd)$")
 				message(STATUS "Calling windeployqt with ${file}.")
 				execute_process(COMMAND "${CMAKE_COMMAND}" -E env "PATH=${vcpkg_dir}/bin;$ENV{PATH}"
 					"${windeployqt}"
-					--qmldir "${CMAKE_INSTALL_PREFIX}/${asset_dir}/qml"
+					--qmldir "${CMAKE_INSTALL_PREFIX}/${asset_dir}"
 					--dir "${CMAKE_INSTALL_PREFIX}/bin/qml"
 					--plugindir "${CMAKE_INSTALL_PREFIX}/bin/plugins"
 					--libdir "${CMAKE_INSTALL_PREFIX}/bin"
 					--list "target"
 					--verbose 2
 					"${file}"
+					RESULT_VARIABLE windeployqt_result
 				)
+				if(NOT windeployqt_result EQUAL 0)
+					message(FATAL_ERROR "windeployqt failed with exit code ${windeployqt_result}.")
+				endif()
 			endif()
+		endforeach()
+	else()
+		set(qmlimportscanner "${vcpkg_dir}/tools/Qt6/bin/qmlimportscanner.exe")
+		if(NOT EXISTS "${qmlimportscanner}")
+			message(FATAL_ERROR "Cannot locate windeployqt or the vcpkg qmlimportscanner fallback.")
 		endif()
+		message(STATUS "windeployqt is unavailable; deploying the vcpkg Qt runtime directly.")
+		execute_process(COMMAND
+			"${python}" "${buildsystem_dir}/scripts/deploy_qt.py"
+			"${qmlimportscanner}"
+			"${CMAKE_INSTALL_PREFIX}/${asset_dir}"
+			"${vcpkg_dir}/Qt6"
+			"${CMAKE_INSTALL_PREFIX}/bin"
+			RESULT_VARIABLE deploy_qt_result
+		)
+		if(NOT deploy_qt_result EQUAL 0)
+			message(FATAL_ERROR "Qt runtime deployment failed with exit code ${deploy_qt_result}.")
+		endif()
+	endif()
+
+	file(GLOB_RECURSE qt_runtime_binaries
+		"${CMAKE_INSTALL_PREFIX}/bin/plugins/*.dll"
+		"${CMAKE_INSTALL_PREFIX}/bin/qml/*.dll"
+	)
+	foreach(file ${qt_runtime_binaries})
+		resolve("${file}")
 	endforeach()
 endif()
 
@@ -88,7 +123,14 @@ file(COPY "${buildsystem_dir}/templates/qt.conf"
 
 # The fonts directory defaults to the same directory as the executable.
 # In this case, it is python.exe at `py_install_prefix`.
-file(COPY "${vcpkg_dir}/tools/fontconfig/fonts"
+set(fontconfig_dir "${vcpkg_dir}/etc/fonts")
+if(NOT EXISTS "${fontconfig_dir}")
+	set(fontconfig_dir "${vcpkg_dir}/tools/fontconfig/fonts")
+endif()
+if(NOT EXISTS "${fontconfig_dir}")
+	message(FATAL_ERROR "Cannot locate the vcpkg Fontconfig configuration directory.")
+endif()
+file(COPY "${fontconfig_dir}"
 	DESTINATION "${CMAKE_INSTALL_PREFIX}/${py_install_prefix}"
 )
 

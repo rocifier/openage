@@ -9,9 +9,9 @@
 Project configuration, written by the build system.
 """
 
-import sys
 import importlib
-import cython
+import sys
+
 import mako
 import numpy
 import PIL
@@ -32,7 +32,7 @@ COMPILERFLAGS = "${CMAKE_CXX_FLAGS}"
 CICFGVERSION = "${CI_CFG_VERSION}"
 PYTHONINTERPRETER = sys.version
 PYTHONCAPI = sys.api_version
-CYTHONVERSION = cython.__version__
+CYTHONVERSION = "${CYTHON_VERSION}"
 MAKOVERSION = mako.__version__
 NUMPYVERSION = numpy.__version__
 PILVERSION = PIL.__version__

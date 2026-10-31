@@ -13,6 +13,7 @@ DEFAULT_PYTHON_DLL_DIR = os.path.dirname(sys.executable)
 
 # openage.dll locations (relative to this file)
 DEFAULT_OPENAGE_DLL_DIRS = [
+    "../../../bin",
     "../../libopenage/Debug",
     "../../libopenage/Release",
     "../../libopenage/RelWithDebInfo",

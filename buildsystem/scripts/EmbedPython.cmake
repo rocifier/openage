@@ -10,11 +10,11 @@ if(sizeof_void_p EQUAL 8)
 else()
 	set(py_arch "win32")
 endif()
-set(python_embed_zip "python-${py_version}-embed-${py_arch}.zip")
+set(python_embed_zip "python-${py_embed_version}-embed-${py_arch}.zip")
 set(python_zip_download_path "${downloads_dir}/${python_embed_zip}")
 # TODO: disable downloading for CI builds. <Need CI first>
 download_cache(
-	"https://www.python.org/ftp/python/${py_version}/${python_embed_zip}"
+	"https://www.python.org/ftp/python/${py_embed_version}/${python_embed_zip}"
 	"${python_zip_download_path}"
 )
 
@@ -24,7 +24,11 @@ execute_process(COMMAND
 )
 
 execute_process(COMMAND
-	"${PYTHON}" "${buildsystem_dir}/scripts/copy_modules.py"
-	numpy PIL pyreadline3 readline
+	"${python}" "${buildsystem_dir}/scripts/copy_modules.py"
+	numpy PIL pyreadline3 readline mako pygments tomli_w lz4
 	"${CMAKE_INSTALL_PREFIX}/${py_install_prefix}"
+	RESULT_VARIABLE copy_modules_result
 )
+if(NOT copy_modules_result EQUAL 0)
+	message(FATAL_ERROR "Failed to copy Python runtime modules: ${copy_modules_result}")
+endif()

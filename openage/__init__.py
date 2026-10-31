@@ -9,6 +9,7 @@ See https://openage.dev and http://github.com/SFTtech/openage
 Requires Python 3.12.
 """
 
+from importlib.util import find_spec
 from sys import version_info as py_version
 
 from .log import setup_logging
@@ -17,15 +18,10 @@ if py_version < (3, 12):
     raise RuntimeError("openage requires python 3.12 or higher.")
 
 
-try:
+if find_spec(f"{__package__}.config") is not None:
     # TODO pylint: disable=wrong-import-position,import-self
     from . import config
 
-except ImportError:
-    VERSION = "< unknown version; ./configure incomplete >"
-    LONGVERSION = VERSION
-
-else:
     VERSION = config.VERSION
 
     LONGVERSION = (
@@ -43,6 +39,9 @@ else:
         f"Pillow        {config.PILVERSION}\n"
         f"Pygments      {config.PYGMENTSVERSION}"
     )
+else:
+    VERSION = "< unknown version; ./configure incomplete >"
+    LONGVERSION = VERSION
 
 
 setup_logging()

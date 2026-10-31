@@ -23,9 +23,23 @@ set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/packaging/CPackOptions.cmake"
 # Environment
 
 if(MSVC)
+	add_executable(openage_launcher WIN32 openage_launcher.cpp)
+	set_target_properties(openage_launcher PROPERTIES OUTPUT_NAME "openage")
+	target_link_libraries(openage_launcher PRIVATE user32)
+	install(TARGETS openage_launcher RUNTIME DESTINATION ".")
+
 	# HACKHACK: Update the following if vcpkg breaks compatibility for
 	# internal directories, scripts, or variables.
 	set(vcpkg_dir "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
+	set(_python_embed_version "${PYTHON_VERSION_STRING}")
+	# Python 3.12.10 was the final 3.12 release with Windows installers.
+	# Later security releases retain the same extension-module ABI.
+	if(PYTHON_VERSION_STRING VERSION_GREATER "3.12.10"
+	   AND PYTHON_VERSION_STRING VERSION_LESS "3.13")
+		set(_python_embed_version "3.12.10")
+	endif()
+	set(PYTHON_EMBED_VERSION "${_python_embed_version}" CACHE STRING
+		"Python embeddable distribution version used for Windows packages")
 	find_program(windeployqt windeployqt.exe)
 
 	configure_file(

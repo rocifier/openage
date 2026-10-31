@@ -9,14 +9,21 @@
 # Continuous Integration
 
 # Filename addition for architecture, set from environment variables
-set(CPACK_PACKAGE_ARCHITECTURE "$ENV{TARGET_PLATFORM}")
+if(DEFINED ENV{TARGET_PLATFORM} AND NOT "$ENV{TARGET_PLATFORM}" STREQUAL "")
+    set(CPACK_PACKAGE_ARCHITECTURE "$ENV{TARGET_PLATFORM}")
+else()
+    set(CPACK_PACKAGE_ARCHITECTURE "${CPACK_SYSTEM_NAME}")
+endif()
 
 # Filename addition for nightly-builds, set from environment variables
 if(DEFINED ENV{IS_NIGHTLY})
     set(PACKAGE_VERSION_STRING "${CPACK_VERSION_FULL_STRING}")
+    if(PACKAGE_VERSION_STRING STREQUAL "")
+        set(PACKAGE_VERSION_STRING "${CPACK_PACKAGE_VERSION}")
+    endif()
     set(PACKAGE_NIGHTLY "_NIGHTLY")
 else()
-    set(PACKAGE_VERSION_STRING "v${PROJECT_VERSION}")
+    set(PACKAGE_VERSION_STRING "v${CPACK_PACKAGE_VERSION}")
     message(DEBUG "${PACKAGE_VERSION_STRING}")
     set(PACKAGE_NIGHTLY "")
 endif()
