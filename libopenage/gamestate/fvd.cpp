@@ -1555,15 +1555,11 @@ void FVD::start_hunter_wave(const std::shared_ptr<GameState> &state,
 }
 
 std::optional<network::MatchOutcome> decide_fvd_match_outcome(
-	bool any_builder_alive, size_t completed_towers, const time::time_t &now,
+	bool any_builder_alive, const time::time_t &now,
 	const std::optional<time::time_t> &deadline) {
 	if (not any_builder_alive) {
 		return network::MatchOutcome{network::MatchWinner::HUNTER,
 		                             network::MatchEndReason::ALL_BUILDERS_DEAD, now};
-	}
-	if (completed_towers >= 7000) {
-		return network::MatchOutcome{network::MatchWinner::BUILDERS,
-		                             network::MatchEndReason::TOWER_LIMIT, now};
 	}
 	if (deadline and now >= *deadline) {
 		return network::MatchOutcome{network::MatchWinner::BUILDERS,
@@ -1589,11 +1585,10 @@ void FVD::evaluate_match_outcome(
 	// Count only actually admitted Builders. Unused slots have no initial
 	// Builder entity after the lobby's pre-bootstrap pruning.
 	std::vector<bool> alive(this->player_count + 1, false);
-	size_t completed_towers = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		(void) id;
 		const auto &definition = entity->get_definition();
-		if (definition != this->builder and definition != this->tower) continue;
+		if (definition != this->builder) continue;
 		if (not builder_alive(entity, now)) continue;
 		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 			entity->get_component(component::component_t::OWNERSHIP));
@@ -1632,20 +1627,10 @@ void FVD::evaluate_match_outcome(
 		for (auto id : towers) this->destroy_tower(state, id, now);
 		for (auto id : foundations) this->delete_owned_foundation(state, owner, id, now);
 	}
-	// Recount after collapsing dead owners. Only *completed* living Towers
-	// count toward the 7,000-tower Builder win condition.
-	completed_towers = 0;
-	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != this->tower
-		    or not builder_alive(entity, now)) continue;
-		const auto footprint = this->tower_footprints.find(id);
-		if (footprint != this->tower_footprints.end()
-		    and not footprint->second.under_construction) ++completed_towers;
-	}
 	const bool any_builder_alive = std::any_of(
 		alive.begin() + 2, alive.end(), [](bool value) { return value; });
 	this->match_outcome = decide_fvd_match_outcome(
-		any_builder_alive, completed_towers, now, this->get_match_end_deadline());
+		any_builder_alive, now, this->get_match_end_deadline());
 }
 
 std::optional<int> hunter_spawn_countdown(
