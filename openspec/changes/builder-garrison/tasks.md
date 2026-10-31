@@ -6,5 +6,5 @@
 - [ ] 1.4 Optional per-tower ungarrison point with the rally point's red arrow (reuse rally point code); SET_UNGARRISON_POINT. Authoritative state, private marker and right-click command implemented; compile and manual acceptance pending.
 - [ ] 1.5 U shortcut and UNGARRISON command: deterministic free-tile ejection, closest-reachable point movement and atomic adjacent-tower hopping implemented; compile and playtest pending.
 - [ ] 1.6 Replication: owner-only garrison state; Hunter sees nothing. Concealed Builder absent in world snapshots, with private per-tower occupant field, private markers and owner HUD label; compile/network recovery testing pending.
-- [ ] 1.7 Tests: garrison, invalid and occupied towers, untargetable inside, no building inside, ungarrison point, hop, eject on destruction. Added ownership, recipient privacy, marker, protocol roundtrip and delta tests; hop and broader stress tests plus actual execution remain.
+- [ ] 1.7 Tests: garrison, invalid and occupied towers, untargetable inside, no building inside, ungarrison point, hop, eject on destruction. Added asset-backed adjacent tower hop and marker cleanup regression alongside privacy, protocol and damage-immunity checks; execution, recovery and broader stress tests remain.
 - [ ] 1.8 Playtest solo and multiplayer.
