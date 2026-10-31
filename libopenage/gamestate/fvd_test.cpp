@@ -950,6 +950,13 @@ void fvd_garrison_hop() {
 		if (pos->get_positions().get(at(0.5)).to_tile() == coord::tile{62, 66}) second = id;
 	}
 	TESTEQUALS(first != 0 and second != 0, true);
+	// An explicit target must be a DIFFERENT finished tower belonging to
+	// the same player. A plain Builder ID and self-target cannot masquerade
+	// as a tower even if they carry valid screen coordinates.
+	TESTEQUALS(fvd->set_ungarrison_point(
+	    state, 2, {first}, {62, 66, 0}, at(0.5), builder), false);
+	TESTEQUALS(fvd->set_ungarrison_point(
+	    state, 2, {first}, {61, 66, 0}, at(0.5), first), false);
 	TESTEQUALS(fvd->request_garrison(state, 2, {builder}, first, at(0.5)), true);
 	loop->reach_time(at(4), state);
 	TESTEQUALS(fvd->get_garrisoned_builder(first), std::optional<entity_id_t>{builder});

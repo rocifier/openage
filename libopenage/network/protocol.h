@@ -20,9 +20,10 @@ constexpr uint32_t FRAME_MAGIC = 0x4656444e;
 // remembered buildings, which older clients cannot parse (v15 added Builder
 // tower demolition). v17 adds authoritative match outcomes to full and delta
 // world state; v18 adds Builder GARRISON and UNGARRISON commands.
+// v19 adds an explicit target entity to SET_UNGARRISON_POINT for tower hopping.
 // Refuse older clients at the handshake rather than mid-match.
 // Minor versions continue to gate compatible relay features.
-constexpr uint16_t PROTOCOL_MAJOR = 18;
+constexpr uint16_t PROTOCOL_MAJOR = 19;
 constexpr uint16_t PROTOCOL_MINOR = 4;
 
 /** Oldest protocol minor version compatible with this implementation. */

@@ -77,7 +77,7 @@ foundation prioritization, and recovery snapshots are implemented; complete
 online HUD polish and disconnect/reconnect policy are still in progress.
 
 In a Windows development build, run `.\RelWithDebInfo\run.exe game --modpacks fvd` from the build directory with the runtime dependency paths configured.
-### Experimental Builder garrison (protocol v18)
+### Experimental Builder garrison (protocol v19)
 
 With a Builder selected, press **T**, then left-click one of your own finished
 towers. The HUD displays a "click a friendly completed tower" prompt while T
