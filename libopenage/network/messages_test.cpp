@@ -284,7 +284,9 @@ void messages() {
 	TESTTHROWS(encode_command_intent(point));
 	point.entity_ids = {201};
 	point.target_entity = gamestate::entity_id_t{202};
-	TESTTHROWS(encode_command_intent(point));
+	auto tower_point = decode_command_intent(encode_command_intent(point));
+	TESTEQUALS(tower_point.target_entity,
+	           std::optional<gamestate::entity_id_t>{202});
 	point.target_entity.reset();
 
 	state.reservations = {{{10, 20}, 300}};

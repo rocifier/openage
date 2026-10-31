@@ -1180,10 +1180,11 @@ std::optional<coord::phys3> FVD::get_ungarrison_point(entity_id_t tower_id) cons
 
 bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
                                player_id_t owner, const std::vector<entity_id_t> &ids,
-                               const coord::phys3 &point, const time::time_t &time) {
+                               const coord::phys3 &point, const time::time_t &time,
+                               std::optional<entity_id_t> target_tower) {
 	if (this->match_outcome or owner < 2 or owner > this->player_count or ids.size() != 1
-	    or point.ne < 0 or point.se < 0 or point.up != 0
-	    or point.ne >= this->map_size or point.se >= this->map_size) return false;
+	    or (not target_tower and (point.ne < 0 or point.se < 0 or point.up != 0
+	                              or point.ne >= this->map_size or point.se >= this->map_size))) return false;
 	const auto tower_id = ids.front();
 	auto tower = state->get_game_entities().find(tower_id);
 	if (tower == state->get_game_entities().end()
@@ -1193,6 +1194,22 @@ bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 		tower->second->get_component(component::component_t::OWNERSHIP));
 	if (not ownership or ownership->get_owners().get(time) != owner) return false;
+	coord::phys3 destination = point;
+	if (target_tower) {
+		if (*target_tower == tower_id) return false;
+		auto candidate = state->get_game_entities().find(*target_tower);
+		if (candidate == state->get_game_entities().end()
+		    or candidate->second->get_definition() != this->tower
+		    or not this->tower_footprints.contains(*target_tower)
+		    or this->tower_footprints.at(*target_tower).under_construction) return false;
+		auto candidate_owner = std::dynamic_pointer_cast<component::Ownership>(
+			candidate->second->get_component(component::component_t::OWNERSHIP));
+		if (not candidate_owner or candidate_owner->get_owners().get(time) != owner) return false;
+		auto target_pos = std::dynamic_pointer_cast<component::Position>(
+			candidate->second->get_component(component::component_t::POSITION));
+		destination = target_pos->get_positions().get(time);
+		destination.up = 0;
+	}
 	auto loop = this->event_loop.lock();
 	auto factory = this->entity_factory.lock();
 	if (not loop or not factory) [[unlikely]]
@@ -1207,14 +1224,15 @@ bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
 	// tile, a ground-level sprite is depth-occluded by the tower, making the
 	// endpoint look unset. Render it above the tower without changing the
 	// actual (ground-level) ungarrison destination or hop target.
-	auto marker_position = point;
-	if (this->completed_tower_at(state, point.to_tile())) {
+	auto marker_position = destination;
+	if (target_tower or this->completed_tower_at(state, destination.to_tile())) {
 		marker_position.up = coord::phys_t::from_double(3.0);
 	}
 	auto marker = factory->spawn_game_entity(loop, state, owner,
 	                                        this->hunter_rally_marker, marker_position, time);
 	system::Idle::idle(marker, time);
-	this->ungarrison_points.emplace(tower_id, UngarrisonPoint{point, marker->get_id()});
+	this->ungarrison_points.emplace(
+		tower_id, UngarrisonPoint{destination, marker->get_id(), target_tower});
 	return true;
 }
 
@@ -1250,8 +1268,17 @@ bool FVD::request_garrison(const std::shared_ptr<GameState> &state,
 	}
 	auto tower_pos = std::dynamic_pointer_cast<component::Position>(
 		tower->second->get_component(component::component_t::POSITION));
-	auto stand = this->find_build_stand(
-		state, builder->second, tower_pos->get_positions().get(time).to_tile(), time);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		builder->second->get_component(component::component_t::POSITION));
+	const auto current = position->get_positions().get(time);
+	const auto origin = current.to_tile();
+	const auto site = tower_pos->get_positions().get(time).to_tile();
+	// Any adjacent face or corner is an entrance; don't route the Builder
+	// around the building to a particular side of its isometric sprite.
+	const bool touching = std::abs(origin.ne - site.ne) <= 1
+	                   and std::abs(origin.se - site.se) <= 1;
+	auto stand = touching ? std::make_optional(current)
+	                      : this->find_build_stand(state, builder->second, site, time);
 	if (not stand) return false;
 
 	// Reuse construction's cancellation semantics: keep visible, reusable foundations.
@@ -1264,9 +1291,6 @@ bool FVD::request_garrison(const std::shared_ptr<GameState> &state,
 	while (not queue->get_queue().empty(time)) queue->pop_command(time);
 	activity->init(time);
 	builder->second->get_manager()->run_activity_system(time);
-	auto position = std::dynamic_pointer_cast<component::Position>(
-		builder->second->get_component(component::component_t::POSITION));
-	const auto current = position->get_positions().get(time);
 	const auto travel = current == *stand ? time::TIME_ZERO
 	                                    : system::Move::move_default(builder->second, state, *stand, time);
 	const auto revision = this->next_garrison_revision++;
@@ -1333,10 +1357,13 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 	const auto site = tower_pos->get_positions().get(time).to_tile();
 	const auto point = use_point ? this->get_ungarrison_point(tower_id)
 	                             : std::optional<coord::phys3>{};
-	// Adjacent footprints, including corners, permit an instantaneous hop.
-	// The entire transition is atomic: no intermediate world-exposed Builder.
-	if (point) {
-		auto hop_tower = this->completed_tower_at(state, point->to_tile());
+	auto configured = this->ungarrison_points.find(tower_id);
+	const auto explicit_tower = use_point and configured != this->ungarrison_points.end()
+	                          ? configured->second.target_tower : std::nullopt;
+	// Only an explicitly targeted tower can trigger a transfer. An ordinary
+	// ground point never silently becomes a garrison command.
+	if (explicit_tower) {
+		auto hop_tower = explicit_tower;
 		if (hop_tower and *hop_tower != tower_id
 		    and not this->get_garrisoned_builder(*hop_tower)) {
 			auto candidate = state->get_game_entities().find(*hop_tower);
@@ -1393,6 +1420,14 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 	position->set_position(time, *destination);
 	system::Idle::idle(builder->second, time);
 	this->vision_cached_at.reset();
+	if (explicit_tower) {
+		// A distant tower transfers via its nearest reachable perimeter.
+		// The authoritative request handles the travel and arrival event.
+		// If the target is now blocked/destroyed, the Builder remains safely
+		// outside instead of walking toward an impassable tower centre.
+		this->request_garrison(state, owner, {*occupant_id}, *explicit_tower, time);
+		return true;
+	}
 	if (point) {
 		if (auto reachable = this->closest_reachable(state, destination->to_tile(), *point, time)) {
 			if (*reachable != *destination)

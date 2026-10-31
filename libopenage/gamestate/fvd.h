@@ -230,7 +230,8 @@ public:
 	/** Set an optional ejection destination for the given owned finished tower. */
 	bool set_ungarrison_point(const std::shared_ptr<GameState> &state,
 	                          player_id_t owner, const std::vector<entity_id_t> &ids,
-	                          const coord::phys3 &point, const time::time_t &time);
+	                          const coord::phys3 &point, const time::time_t &time,
+	                          std::optional<entity_id_t> target_tower = std::nullopt);
 	/** Return the sheltered Builder ID, if any (only expose to its owner). */
 	std::optional<entity_id_t> get_garrisoned_builder(entity_id_t tower) const;
 	/** Return the configured point, if any. */
@@ -747,6 +748,8 @@ private:
 	struct UngarrisonPoint {
 		coord::phys3 destination;
 		entity_id_t marker_id;
+		/** Explicit destination tower identity, not a marker height or a tile guess. */
+		std::optional<entity_id_t> target_tower{};
 	};
 	std::unordered_map<entity_id_t, UngarrisonPoint> ungarrison_points;
 	std::unordered_map<entity_id_t, entity_id_t> garrisoned_builders;

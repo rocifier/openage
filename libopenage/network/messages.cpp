@@ -435,7 +435,8 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 
 	if ((intent.kind == CommandKind::FOCUS_ATTACK
 	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION
-	     or intent.kind == CommandKind::GARRISON) != intent.target_entity.has_value()) {
+	     or intent.kind == CommandKind::GARRISON) != intent.target_entity.has_value()
+	    and intent.kind != CommandKind::SET_UNGARRISON_POINT) {
 		throw Error{MSG(err) << "FVD targeted command requires exactly one target entity"};
 	}
 	if (intent.queue and intent.kind != CommandKind::BUILD_TOWER) {
@@ -458,8 +459,8 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 		throw Error{MSG(err) << "Ungarrison requires exactly one tower without a target entity"};
 	}
 	if (intent.kind == CommandKind::SET_UNGARRISON_POINT
-	    and (intent.entity_ids.size() != 1 or intent.target_entity)) {
-		throw Error{MSG(err) << "Ungarrison point requires exactly one tower and a position"};
+	    and intent.entity_ids.size() != 1) {
+		throw Error{MSG(err) << "Ungarrison point requires exactly one source tower"};
 	}
 	if (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1) {
 		throw Error{MSG(err) << "FVD rally point requires exactly the Hunter tower"};
@@ -546,6 +547,7 @@ CommandIntent decode_command_intent(const std::vector<uint8_t> &payload) {
 	if ((intent.kind == CommandKind::FOCUS_ATTACK
 	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION
 	     or intent.kind == CommandKind::GARRISON) != intent.target_entity.has_value()
+	        and intent.kind != CommandKind::SET_UNGARRISON_POINT
 	    or (intent.queue and intent.kind != CommandKind::BUILD_TOWER)
 	    or (not intent.build_line.empty()
 	        and (intent.kind != CommandKind::BUILD_TOWER or not intent.queue
@@ -554,7 +556,7 @@ CommandIntent decode_command_intent(const std::vector<uint8_t> &payload) {
 	    or (intent.kind == CommandKind::DEMOLISH_TOWER and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::SET_RALLY_POINT and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::SET_UNGARRISON_POINT
-	        and (intent.entity_ids.size() != 1 or intent.target_entity))
+	        and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::GARRISON and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::UNGARRISON
 	        and (intent.entity_ids.size() != 1 or intent.target_entity))) {
