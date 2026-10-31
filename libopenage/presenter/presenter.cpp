@@ -1115,6 +1115,17 @@ void Presenter::init_input() {
 			// Do not dispatch lobby keystrokes to gameplay bindings either.
 			return;
 		}
+		// Route T directly at the Presenter boundary. This works even when
+		// a higher-priority input context consumes the global key binding.
+		// begin_garrison_mode() also defers while click-selection resolves.
+		if (ev.type() == QEvent::KeyRelease and ev.key() == Qt::Key_T
+		    and this->game_controller and this->simulation
+		    and this->simulation->get_game()->get_state()->get_fvd()) {
+			if (not this->game_controller->begin_garrison_mode()) {
+				log::log(WARN << "FVD garrison (T) requires one selected Builder");
+			}
+			return;
+		}
 		this->input_manager->process(ev);
 	});
 	this->window->add_mouse_button_callback([&](const QMouseEvent &ev) {
@@ -1534,7 +1545,9 @@ void Presenter::render() {
 				selection_label = QString{"%1 units selected"}.arg(static_cast<int>(selected.ids.size()));
 			}
 			else if (builder) {
-				selection_label = QString{"Builder"};
+				selection_label = this->game_controller->is_garrison_mode_active()
+					? QString{"Builder — click a friendly completed tower to garrison (Esc cancels)"}
+					: QString{"Builder"};
 			}
 			else if (tower) {
 				selection_label = QString{"Tower"};

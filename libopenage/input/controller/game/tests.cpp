@@ -40,6 +40,7 @@ void tower_placement_mode() {
 
 	TESTEQUALS(controller.begin_tower_placement(), false);
 	TESTEQUALS(controller.is_tower_placement_active(), false);
+	TESTEQUALS(controller.begin_garrison_mode(), false);
 
 	controller.set_selected({42}, SelectionKind::TOWER);
 	TESTEQUALS(controller.begin_tower_placement(), false);
@@ -47,6 +48,10 @@ void tower_placement_mode() {
 	TESTEQUALS(controller.is_tower_placement_active(), false);
 
 	controller.set_selected({42}, SelectionKind::BUILDER);
+	TESTEQUALS(controller.begin_garrison_mode(), true);
+	TESTEQUALS(controller.is_garrison_mode_active(), true);
+	controller.cancel_garrison_mode();
+	TESTEQUALS(controller.is_garrison_mode_active(), false);
 	TESTEQUALS(controller.begin_tower_placement(), true);
 	TESTEQUALS(controller.is_tower_placement_active(), true);
 	TESTEQUALS(controller.get_selected() == (std::vector<gamestate::entity_id_t>{42}), true);
@@ -124,7 +129,21 @@ void tower_placement_mode() {
 	TESTEQUALS(controller.begin_patrol(), false);
 	TESTEQUALS(controller.is_hunter_selection(), false);
 
+	// T after a click but before async type resolution should enter garrison
+	// only after the correct Builder selection is applied.
 	controller.set_selected({42}, SelectionKind::BUILDER);
+	auto pending_builder = controller.begin_selection_update();
+	TESTEQUALS(controller.begin_garrison_mode(), true);
+	TESTEQUALS(controller.is_garrison_mode_active(), false);
+	TESTEQUALS(controller.set_selected_if_current(
+		pending_builder, {42}, SelectionKind::BUILDER), true);
+	TESTEQUALS(controller.is_garrison_mode_active(), true);
+	controller.cancel_garrison_mode();
+	auto pending_tower = controller.begin_selection_update();
+	TESTEQUALS(controller.begin_garrison_mode(), true);
+	TESTEQUALS(controller.set_selected_if_current(
+		pending_tower, {33}, SelectionKind::TOWER), true);
+	TESTEQUALS(controller.is_garrison_mode_active(), false);
 	bool deferred_ran = false;
 	auto stale_generation = controller.begin_selection_update();
 	controller.defer_until_selection_applied([&]() { deferred_ran = true; }) or TESTFAIL;

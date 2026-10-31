@@ -178,6 +178,12 @@ SelectionDetails Controller::get_selection_details() const {
 
 bool Controller::begin_garrison_mode() {
 	std::unique_lock lock{this->mutex};
+	// A click selection resolves on a later simulation-thread callback. T
+	// pressed immediately after selecting the Builder must not be lost.
+	if (this->selection_pending) {
+		this->deferred_selection_action = [this]() { this->begin_garrison_mode(); };
+		return true;
+	}
 	if (this->active_faction_id < 2 or this->selected.size() != 1
 	    or this->selected_kind != SelectionKind::BUILDER) return false;
 	this->placing_tower = false;
@@ -925,15 +931,53 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			const auto selection = controller->get_selection_details();
 			if (controller->is_garrison_mode_active()) {
 				controller->reset_drag_select();
-				controller->cancel_garrison_mode();
-				if (selection.kind != SelectionKind::BUILDER or selection.ids.size() != 1)
+				if (selection.kind != SelectionKind::BUILDER or selection.ids.size() != 1) {
+					controller->cancel_garrison_mode();
 					return;
-				auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
+				}
+				const auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
+				const auto clicked_tile = args.mouse.to_phys3(camera).to_tile();
+				// A thin tower silhouette may not produce a sprite pick.
+				// Resolve the tile from the owner's authoritative presentation
+				// snapshot instead, without relying on paused guest simulation.
 				pick_entity(args.mouse, [simulation, time_loop, send_guest_command,
-				                          guest_world, selection, owner](
-					std::optional<gamestate::entity_id_t> tower_id) {
-					if (not tower_id) return;
-					if (guest_world and guest_world().has_value()) {
+				                          guest_world, controller, selection, owner, clicked_tile](
+					std::optional<gamestate::entity_id_t> picked) {
+					if (not controller->is_garrison_mode_active()
+					    or controller->get_selected() != selection.ids) return;
+					auto replicated = guest_world ? guest_world()
+					                               : std::optional<network::WorldState>{};
+					auto host_world = replicated ? nullptr
+					                             : simulation->get_fvd_presentation_state();
+					const network::WorldState *world = replicated ? &*replicated : host_world.get();
+					if (not world) return;
+					auto matches_tower = [owner](const network::EntityState &entity) {
+						return entity.owner_id == owner
+						    and entity.definition == "fvd.data.entities.Tower";
+					};
+					std::optional<gamestate::entity_id_t> tower_id;
+					if (picked) {
+						auto it = std::find_if(world->entities.begin(), world->entities.end(),
+						                       [picked, &matches_tower](const auto &entity) {
+							                       return entity.entity_id == *picked
+							                           and matches_tower(entity);
+						                       });
+						if (it != world->entities.end()) tower_id = it->entity_id;
+					}
+					if (not tower_id) {
+						auto it = std::find_if(world->entities.begin(), world->entities.end(),
+						                       [clicked_tile, &matches_tower](const auto &entity) {
+							                       return matches_tower(entity)
+							                           and entity.position.to_tile() == clicked_tile;
+						                       });
+						if (it != world->entities.end()) tower_id = it->entity_id;
+					}
+					if (not tower_id) {
+						log::log(INFO << "FVD garrison: click one of your own completed towers");
+						return; // Keep T mode armed for another click or Esc.
+					}
+					controller->cancel_garrison_mode();
+					if (replicated) {
 						if (send_guest_command) {
 							network::CommandIntent intent{
 								0, network::CommandKind::GARRISON, selection.ids};

@@ -80,7 +80,9 @@ In a Windows development build, run `.\RelWithDebInfo\run.exe game --modpacks fv
 ### Experimental Builder garrison (protocol v18)
 
 With a Builder selected, press **T**, then left-click one of your own finished
-towers. The authoritative game walks the Builder to an adjacent tile and hides
+towers. The HUD displays a "click a friendly completed tower" prompt while T
+mode is active; pressing Esc cancels. A missed sprite pick may be resolved by
+clicking the tile beneath the tower. The authoritative game walks the Builder to an adjacent tile and hides
 them inside; garrisoned Builders are not visible to the Hunter and cannot be
 damaged, collide, or place new towers. One Builder may occupy each tower.
 Select that tower and press **G** to eject the Builder onto the first suitable
