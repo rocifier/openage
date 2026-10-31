@@ -615,6 +615,44 @@ void Presenter::refresh_fvd_lobby_state() {
 		&& (this->fvd_lobby_hosting or (this->fvd_replication
 			&& this->fvd_replication->has_state()));
 	if (ready_to_play and not this->fvd_gameplay_active) {
+		// The initial graphics setup centres everyone on the Hunter's tower,
+		// but each Builder starts somewhere else on the spawn ring. Once the
+		// authenticated role and initial world are ready, centre only this
+		// client's view on its own authoritative Builder. Do this once per
+		// match, never continuously follow a moving unit.
+		if (this->camera and this->simulation) {
+			if (this->fvd_assigned_player == 1) {
+				// Also restore the Hunter's existing centre view after an F10
+				// reset, even if the previous match ended elsewhere on the map.
+				if (auto fvd = this->simulation->get_game()->get_state()->get_fvd()) {
+					this->camera->look_at_coord(fvd->get_centre().to_scene3());
+				}
+			}
+			else {
+				const auto world = this->fvd_replication
+					? this->fvd_replication->get_world_state()
+					: std::optional<network::WorldState>{};
+				const auto local_world = this->fvd_replication
+					? nullptr : this->simulation->get_fvd_presentation_state();
+				const network::WorldState *initial = world ? &*world : local_world.get();
+				if (initial) {
+					const auto builder = std::find_if(
+						initial->entities.begin(), initial->entities.end(),
+						[&](const network::EntityState &entity) {
+							return entity.owner_id == this->fvd_assigned_player
+							    and entity.definition == "fvd.data.entities.Builder"
+							    and not entity.remembered;
+						});
+					if (builder != initial->entities.end()) {
+						this->camera->look_at_coord(builder->position.to_scene3());
+					}
+					else {
+						log::log(WARN << "[FVD/camera] missing starting Builder for player="
+						              << this->fvd_assigned_player);
+					}
+				}
+			}
+		}
 		this->fvd_gameplay_active = true;
 		if (this->fvd_lobby_hosting and this->time_loop) {
 			// Only the authority advances game rules.
