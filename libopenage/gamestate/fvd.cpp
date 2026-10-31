@@ -618,10 +618,16 @@ bool FVD::can_place_tower(const std::shared_ptr<GameState> &state,
 		return false;
 	}
 	auto site = position.to_tile();
+	// A Builder may finish its previous job on a queued foundation and must
+	// be allowed to step off it before construction begins.
+	const auto ignored_builder = existing_foundation
+	                           ? std::make_optional(builder_id)
+	                           : std::nullopt;
 	for (const auto &tile : this->get_tower_footprint(site)) {
 		if (tile.ne < 0 or tile.se < 0
 		    or tile.ne >= this->map_size or tile.se >= this->map_size
-		    or this->is_tile_reserved(tile) or this->tile_occupied(state, tile, time)) {
+		    or this->is_tile_reserved(tile)
+		    or this->tile_occupied(state, tile, time, ignored_builder)) {
 			return false;
 		}
 		for (const auto &[id, entity] : state->get_game_entities()) {

@@ -2704,9 +2704,10 @@ void fvd_build_line_order() {
 	builder.has_value() or TESTFAIL;
 	event::SendCommandHandler command;
 	const std::vector<entity_id_t> selected{*builder};
-	auto submit_line = [&](const std::vector<coord::phys3> &line) {
+	auto submit_line = [&](const std::vector<coord::phys3> &line,
+	                       const time::time_t &time) {
 		bool accepted = false;
-		command.invoke(*loop, nullptr, state, time::TIME_ZERO,
+		command.invoke(*loop, nullptr, state, time,
 		               {{"type", component::command::command_t::BUILD_TOWER},
 		                {"owner", player_id_t{2}}, {"queue", true},
 		                {"entity_ids", selected}, {"target", line.front()},
@@ -2718,7 +2719,7 @@ void fvd_build_line_order() {
 	};
 	const std::vector<coord::phys3> sites{
 		{55.5, 71.5, 0}, {56.5, 71.5, 0}, {57.5, 71.5, 0}, {58.5, 71.5, 0}};
-	TESTEQUALS(submit_line(sites), true);
+	TESTEQUALS(submit_line(sites, time::TIME_ZERO), true);
 	TESTEQUALS(fvd->get_build_order(*builder)->get_target(), (coord::tile{55, 71}));
 	TESTEQUALS(fvd->get_queued_build_count(*builder), size_t{3});
 	const auto first_world = network::capture_fvd_presentation_state(state, time::TIME_ZERO);
@@ -2735,13 +2736,36 @@ void fvd_build_line_order() {
 		    : network::SitePresentationPhase::QUEUED);
 	}
 	// Invalid diagonal input must not mutate an existing build queue.
-	TESTEQUALS(submit_line({{52.5, 78.5, 0}, {53.5, 79.5, 0}}), false);
+	TESTEQUALS(submit_line({{52.5, 78.5, 0}, {53.5, 79.5, 0}}, time::TIME_ZERO), false);
 	TESTEQUALS(fvd->get_build_order(*builder)->get_target(), (coord::tile{55, 71}));
 	TESTEQUALS(fvd->get_queued_build_count(*builder), size_t{3});
-	TESTEQUALS(fvd->cancel_build(state, *builder, time::TIME_ZERO), true);
-	TESTEQUALS(submit_line({{61.5, 77.5, 0}, {60.5, 77.5, 0}, {59.5, 77.5, 0}}), true);
+
+	// Approaching this eastbound line from the east makes the first stand tile
+	// coincide with the second queued site. The Builder must step off that site
+	// and construct every foundation instead of dropping it as occupied.
+	const auto completed_at = time::time_t::from_int(20);
+	loop->reach_time(completed_at, state);
+	for (const auto &site : sites) {
+		const auto tile = site.to_tile();
+		auto tower = std::find_if(
+			state->get_game_entities().begin(), state->get_game_entities().end(),
+			[&](const auto &entry) {
+				if (entry.second->get_definition() != "fvd.data.entities.Tower") return false;
+				auto position = std::dynamic_pointer_cast<component::Position>(
+					entry.second->get_component(component::component_t::POSITION));
+				return position->get_positions().get(completed_at).to_tile() == tile;
+			});
+		TESTEQUALS(tower != state->get_game_entities().end(), true);
+	}
+	TESTEQUALS(fvd->get_build_order(*builder) == nullptr, true);
+	TESTEQUALS(fvd->get_queued_build_count(*builder), size_t{0});
+
+	TESTEQUALS(submit_line(
+	               {{61.5, 77.5, 0}, {60.5, 77.5, 0}, {59.5, 77.5, 0}}, completed_at),
+	           true);
 	TESTEQUALS(fvd->get_build_order(*builder)->get_target(), (coord::tile{61, 77}));
 	TESTEQUALS(fvd->get_queued_build_count(*builder), size_t{2});
+	TESTEQUALS(fvd->cancel_build(state, *builder, completed_at), true);
 }
 
 void fvd_retask_foundation() {
