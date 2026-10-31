@@ -159,14 +159,14 @@
   state/event pipeline when win/loss rules are implemented.
   - [x] 1.10a Add versioned, strictly validated **authoritative terminal
     outcome** to public recipient snapshots and world deltas (v17), with
-    Hunter win / Builders win (timer or tower threshold) and authoritative
+    Hunter win / Builders win (45-minute timer only) and authoritative
     simulation end timestamp. Deltas must not clear or change an outcome;
     recovery snapshots preserve it. Add message, delta and replication
     regressions. **Source/tests committed; Windows/Linux compilation
     pending.**
   - [x] 1.10b Host simulation now evaluates all-Builder deaths,
-    the 45-minute simulation-clock limit and 7,000 **completed** Builder
-    towers after authoritative event processing. Dead Builders lose towers,
+    the 45-minute simulation-clock limit after authoritative event
+    processing. Tower counts do not affect victory. Dead Builders lose towers,
     sites and foundations; disconnected Builders count as eliminated but
     keep their structures. Commands, scheduled combat/damage and spawns
     stop after the irreversible result. All recipient captures carry it.
