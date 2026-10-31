@@ -203,6 +203,8 @@ WorldState capture_fvd_presentation_state(
 		}
 		if (entity->get_definition() == "fvd.data.entities.Tower")
 			entity_state.garrisoned_builder = fvd->get_garrisoned_builder(entity_id);
+		if (entity->get_definition() == fvd->get_hunter_rally_marker_definition())
+			entity_state.ungarrison_source_tower = fvd->get_ungarrison_marker_source(entity_id);
 		if (entity->get_definition() == "fvd.data.entities.Horse") {
 			entity_state.hunter_stance = fvd->get_hunter_stance(entity_id);
 		}
@@ -319,6 +321,7 @@ WorldState capture_fvd_state(
 		if (entity_state.owner_id != recipient) {
 			entity_state.hunter_stance.reset();
 			entity_state.garrisoned_builder.reset();
+			entity_state.ungarrison_source_tower.reset();
 		}
 		auto entity = state->get_game_entity(entity_state.entity_id);
 		auto position = std::dynamic_pointer_cast<gamestate::component::Position>(

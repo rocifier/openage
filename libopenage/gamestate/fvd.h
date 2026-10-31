@@ -236,6 +236,8 @@ public:
 	std::optional<entity_id_t> get_garrisoned_builder(entity_id_t tower) const;
 	/** Return the configured point, if any. */
 	std::optional<coord::phys3> get_ungarrison_point(entity_id_t tower) const;
+	/** Associate a private ungarrison sprite with the source tower. */
+	std::optional<entity_id_t> get_ungarrison_marker_source(entity_id_t marker) const;
 
 	/** Concealed Builders remain alive but cannot fight, collide, or be drawn. */
 	bool is_garrisoned(entity_id_t builder_id) const;

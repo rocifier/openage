@@ -812,10 +812,19 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 		fog->remembered.begin(), fog->remembered.end()};
 
 	network::WorldState view = world;
+	const auto selected = this->game_controller
+		? this->game_controller->get_selection_details()
+		: input::game::SelectionDetails{};
+	const std::optional<gamestate::entity_id_t> selected_tower =
+		selected.kind == input::game::SelectionKind::TOWER and selected.ids.size() == 1
+		    ? std::make_optional(selected.ids.front()) : std::nullopt;
 	std::erase_if(view.entities, [&](const network::EntityState &entity) {
-		// The Hunter rally and Builder ungarrison markers are private to their owners.
+		// Hunter rally is always visible to its owner. A Builder ungarrison
+		// marker is only visible when its SOURCE tower is selected.
 		if (entity.definition == "fvd.data.entities.HunterRallyPoint") {
-			return entity.owner_id != controlled;
+			return entity.owner_id != controlled
+			    or (entity.ungarrison_source_tower
+			        and entity.ungarrison_source_tower != selected_tower);
 		}
 		return not own_side(entity.owner_id) and not visible(entity.position)
 		       and not remembered.contains(entity.entity_id);
@@ -1495,6 +1504,33 @@ void Presenter::render() {
 	this->refresh_fvd_lobby_state();
 	if (this->fvd_reset_pending) return;
 	this->refresh_fvd_guest_visuals();
+	// A guest's replicated proxies are updated only when a world revision
+	// arrives, but tower selection can change at any frame. Filter sprites
+	// here so an ungarrison arrow appears/disappears immediately without
+	// waiting for another host snapshot. Retain all other world effects.
+	if (this->fvd_lobby_enabled and not this->fvd_lobby_hosting
+	    and this->fvd_replication and this->fvd_guest_visuals_initialized) {
+		auto world = this->fvd_replication->get_world_state();
+		if (world) {
+			const auto selected = this->game_controller
+				? this->game_controller->get_selection_details()
+				: input::game::SelectionDetails{};
+			const std::optional<gamestate::entity_id_t> selected_tower =
+				selected.kind == input::game::SelectionKind::TOWER and selected.ids.size() == 1
+				    ? std::make_optional(selected.ids.front()) : std::nullopt;
+			std::unordered_set<uint32_t> shown;
+			for (const auto &entity : world->entities) {
+				if (not this->fvd_guest_entities.contains(entity.entity_id)) continue;
+				if (entity.ungarrison_source_tower
+				    and entity.ungarrison_source_tower != selected_tower) continue;
+				shown.insert(static_cast<uint32_t>(entity.entity_id));
+			}
+			for (const auto &effect : this->fvd_combat_visuals) {
+				if (effect.render_entity) shown.insert(effect.render_entity->get_id());
+			}
+			this->world_renderer->set_shown(std::move(shown));
+		}
+	}
 	const std::optional<time::time_t> guest_time = this->fvd_replication ? std::make_optional(this->fvd_guest_clock.get_time(std::chrono::steady_clock::now())) : std::nullopt;
 	// TODO: Pass current time to update() instead of fetching it in renderer
 	{

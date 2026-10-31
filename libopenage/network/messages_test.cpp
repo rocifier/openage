@@ -299,6 +299,21 @@ void messages() {
 	state.arrows = {{
 		9, 2, 100, {10.0, 20.0, 1.3}, {10.5, 20.25, 0.45},
 		time::time_t::from_double(3.25), time::time_t::from_double(3.45)}};
+	// A Builder ungarrison arrow is a private entity whose source tower ID
+	// must survive full snapshots; Hunter rally arrows have no source.
+	auto marked_state = state;
+	marked_state.entities.push_back({
+		205, 2, "fvd.data.entities.HunterRallyPoint", {61.5, 66.5, 3}});
+	marked_state.entities.back().ungarrison_source_tower = gamestate::entity_id_t{201};
+	auto marked_wire = decode_world_state(encode_world_state(marked_state));
+	TESTEQUALS(marked_wire.entities.back().ungarrison_source_tower,
+	           std::optional<gamestate::entity_id_t>{201});
+	marked_state.entities.back().owner_id = 1;
+	TESTTHROWS(encode_world_state(marked_state));
+	marked_state.entities.back().owner_id = 2;
+	marked_state.entities.back().ungarrison_source_tower = 0;
+	TESTTHROWS(encode_world_state(marked_state));
+
 	auto decoded_state = decode_world_state(encode_world_state(state));
 	TESTEQUALS(decoded_state.base_revision, state.base_revision);
 	TESTEQUALS(decoded_state.world_revision, state.world_revision);

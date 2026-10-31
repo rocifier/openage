@@ -77,7 +77,7 @@ foundation prioritization, and recovery snapshots are implemented; complete
 online HUD polish and disconnect/reconnect policy are still in progress.
 
 In a Windows development build, run `.\RelWithDebInfo\run.exe game --modpacks fvd` from the build directory with the runtime dependency paths configured.
-### Experimental Builder garrison (protocol v19)
+### Experimental Builder garrison (protocol v20)
 
 With a Builder selected, press **T**, then left-click one of your own finished
 towers. The HUD displays a "click a friendly completed tower" prompt while T
@@ -90,7 +90,10 @@ free tile. Destroying an occupied tower also ejects its Builder unharmed.
 
 This is an initial implementation and **has not yet passed compilation or live
 gameplay acceptance**. Select a completed tower and right-click to place a private red ungarrison
-point. When the Builder leaves with G, they walk to the nearest reachable
+point. The red ungarrison arrow appears **only while its source tower is
+selected**, including for multiplayer guests. With no point set, the Builder
+prefers the tile just below the tower and then searches counter-clockwise
+around its base when blocked. When the Builder leaves with G, they walk to the nearest reachable
 point (or remain beside the tower if no point was set). If the destination is an
 adjacent empty friendly tower, G transfers the Builder directly inside without
 exposing them. A more distant friendly tower is approached and garrisoned

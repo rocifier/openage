@@ -860,6 +860,8 @@ void fvd_garrison() {
 		marker_above_tower->second->get_component(component::component_t::POSITION));
 	TESTEQUALS(marker_position->get_positions().get(t(0.25)).up > coord::phys_t::from_int(0), true);
 	TESTEQUALS(marker_position->get_positions().get(t(0.25)).to_tile(), (coord::tile{61, 66}));
+	TESTEQUALS(fvd->get_ungarrison_marker_source(marker_above_tower->first),
+	           std::optional<entity_id_t>{tower});
 	// Restore an ordinary endpoint before checking its recipient filtering.
 	TESTEQUALS(fvd->set_ungarrison_point(state, 2, {tower}, {60, 66, 0}, t(0.25)), true);
 	network::MatchConnectionState guests{8};
@@ -1029,6 +1031,10 @@ void fvd_garrison_all_sides() {
 		           std::optional<entity_id_t>{builder});
 		TESTEQUALS(fvd->ungarrison_builder(state, 2, {tower}, arrived), true);
 		TESTEQUALS(fvd->is_garrisoned(builder), false);
+		// The exit always starts below (screen-space), independent of the
+		// side from which this Builder entered.
+		TESTEQUALS(position->get_positions().get(arrived).to_tile(),
+		           (coord::tile{60, 67}));
 	}
 }
 

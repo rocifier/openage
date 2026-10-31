@@ -174,6 +174,8 @@ struct EntityState {
 	bool remembered{false};
 	/** The tower's sheltered Builder, only on that Builder's own client. */
 	std::optional<gamestate::entity_id_t> garrisoned_builder{};
+	/** A private ungarrison marker's source tower (never exposed to other players). */
+	std::optional<gamestate::entity_id_t> ungarrison_source_tower{};
 };
 
 /** FVD role assigned to one playable player. */
