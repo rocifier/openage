@@ -9,7 +9,6 @@ here so it is on the roadmap.
 
 - **Hunter wins** when every Builder is dead.
 - **Builders win** when the 45-minute match timer runs out.
-- **Builders win** when they have 7000 towers between them.
 - When a Builder dies, all of that player's towers collapse.
 - "Hunter wins" and "Builders win" end screens for every player.
 - Typical matches have 7 Builders against 1 Hunter.
