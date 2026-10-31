@@ -5,6 +5,24 @@ regressions are necessary, but cannot establish that two PCs share the same
 rendered world and manual Hunter/Builder controls. Do not mark 1.8 complete
 until the observations below have been recorded.
 
+## Lobby input persistence (manual smoke test)
+
+FVD stores the editable **player name, relay address, relay port, game name,
+maximum player count, and room ID** as per-user Qt INI preferences
+(`openage/fvd.ini` in the platform's standard configuration directory).
+They are saved on user edits, not only when hosting or joining. The optional
+private-alpha access token is deliberately **never stored in plaintext**
+and must be re-entered each launch.
+
+1. Open FVD, edit all six non-sensitive fields, and exit without hosting.
+2. Relaunch and confirm the entered values appear **in the text boxes**, not
+   merely in the underlying connection settings.
+3. Host or join once and verify that the visible values are the ones submitted.
+4. Restart again: the values should persist. The access-token box must be
+   blank, and a separate OS user should retain independent preferences.
+
+The normal defaults are retained on a fresh installation.
+
 ## Automated preflight (one Windows development build)
 
 Build the FVD branch, then run:
