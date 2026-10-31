@@ -395,8 +395,7 @@ WorldState apply_world_delta(const WorldState &previous, const WorldDelta &delta
 		    or not ((result.winner == MatchWinner::HUNTER
 		             and result.reason == MatchEndReason::ALL_BUILDERS_DEAD)
 		            or (result.winner == MatchWinner::BUILDERS
-		                and (result.reason == MatchEndReason::TIME_LIMIT
-		                     or result.reason == MatchEndReason::TOWER_LIMIT)))) {
+		                and result.reason == MatchEndReason::TIME_LIMIT))) {
 			throw Error{MSG(err) << "Invalid FVD match result in delta"};
 		}
 		next.match_outcome = result;
