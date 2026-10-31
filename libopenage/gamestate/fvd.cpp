@@ -1187,6 +1187,13 @@ std::optional<coord::phys3> FVD::get_ungarrison_point(entity_id_t tower_id) cons
 	                                              : std::make_optional(found->second.destination);
 }
 
+std::optional<entity_id_t> FVD::get_ungarrison_marker_source(entity_id_t marker) const {
+	for (const auto &[tower_id, point] : this->ungarrison_points) {
+		if (point.marker_id == marker) return tower_id;
+	}
+	return std::nullopt;
+}
+
 bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
                                player_id_t owner, const std::vector<entity_id_t> &ids,
                                const coord::phys3 &point, const time::time_t &time,
@@ -1412,24 +1419,31 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 	// Scan adjacent tiles first; if a wall fully encloses the tower, scan
 	// outwards so combat demolition never makes an occupied tower immortal.
 	std::optional<coord::phys3> destination;
+	// Screen-space orientation: (-r,-r) is left; (-r,+r) is below.
+	// Start below the tower, then rotate counter-clockwise around its edge:
+	// bottom -> right -> top -> left, expanding only when all nearer tiles
+	// are blocked. Deterministic for host, replays, and all clients.
+	auto try_exit = [&](coord::tile_t ne, coord::tile_t se) {
+		if (ne < 0 or se < 0 or ne >= static_cast<coord::tile_t>(this->map_size)
+		    or se >= static_cast<coord::tile_t>(this->map_size)) return;
+		const coord::tile candidate{ne, se};
+		if (this->is_tile_reserved(candidate) or this->tile_occupied(state, candidate, time)) return;
+		auto sector = grid->get_sector(candidate.ne / sector_size,
+		                              candidate.se / sector_size);
+		auto local = candidate - sector->get_position().to_tile(sector_size);
+		if (sector->get_cost_field()->get_cost(local) >= path::COST_IMPASSABLE) return;
+		destination = candidate.to_phys3_center();
+	};
 	for (coord::tile_t radius = 1;
 	     radius < static_cast<coord::tile_t>(this->map_size) and not destination; ++radius) {
-		for (coord::tile_t ne = site.ne - radius;
-		     ne <= site.ne + radius and not destination; ++ne) {
-			for (coord::tile_t se = site.se - radius; se <= site.se + radius; ++se) {
-				if (ne < 0 or se < 0 or ne >= static_cast<coord::tile_t>(this->map_size)
-				    or se >= static_cast<coord::tile_t>(this->map_size)) continue;
-				if (std::max(std::abs(ne - site.ne), std::abs(se - site.se)) != radius) continue;
-				const coord::tile candidate{ne, se};
-				if (this->is_tile_reserved(candidate) or this->tile_occupied(state, candidate, time)) continue;
-				auto sector = grid->get_sector(candidate.ne / sector_size,
-				                              candidate.se / sector_size);
-				auto local = candidate - sector->get_position().to_tile(sector_size);
-				if (sector->get_cost_field()->get_cost(local) >= path::COST_IMPASSABLE) continue;
-				destination = candidate.to_phys3_center();
-				break;
-			}
-		}
+		for (coord::tile_t ne = site.ne - radius; ne <= site.ne + radius and not destination; ++ne)
+			try_exit(ne, site.se + radius);
+		for (coord::tile_t se = site.se + radius - 1; se >= site.se - radius and not destination; --se)
+			try_exit(site.ne + radius, se);
+		for (coord::tile_t ne = site.ne + radius - 1; ne >= site.ne - radius and not destination; --ne)
+			try_exit(ne, site.se - radius);
+		for (coord::tile_t se = site.se - radius + 1; se < site.se + radius and not destination; ++se)
+			try_exit(site.ne - radius, se);
 	}
 	// After destruction the centre footprint becomes free. It is a safe
 	// last-resort exit when a fully enclosed wall has no exterior tile.
