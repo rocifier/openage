@@ -677,16 +677,25 @@ std::optional<coord::phys3> FVD::find_build_stand(
 		                 return da < db;
 	                 });
 
+	// Consider all eight faces and corners. The nearest tile by straight-line
+	// distance is not always the shortest accessible route around other
+	// towers. Choose by actual path length, with the stable candidate order
+	// providing a deterministic tie-breaker.
 	std::optional<coord::phys3> stand;
+	std::optional<double> best_length;
 	for (const auto &candidate : candidates) {
-		if (candidate == origin) {
-			stand = current_position;
-			break;
-		}
+		if (candidate == origin) return current_position;
 		auto route = pathfinder->get_path(path::PathRequest{grid, origin, candidate, time});
-		if (route.status == path::PathResult::FOUND and not route.waypoints.empty()) {
+		if (route.status != path::PathResult::FOUND or route.waypoints.empty()) continue;
+		double length = 0.0;
+		for (size_t i = 1; i < route.waypoints.size(); ++i) {
+			auto ne = route.waypoints[i].ne - route.waypoints[i - 1].ne;
+			auto se = route.waypoints[i].se - route.waypoints[i - 1].se;
+			length += std::hypot(static_cast<double>(ne), static_cast<double>(se));
+		}
+		if (not best_length or length < *best_length) {
+			best_length = length;
 			stand = candidate.to_phys3_center();
-			break;
 		}
 	}
 	return stand;
