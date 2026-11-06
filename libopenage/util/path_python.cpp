@@ -12,15 +12,13 @@
 
 namespace openage::util {
 
+// Shared path normalization from path.cpp; both adapters and the native
+// constructor must canonicalize traversal the same way.
+void path_normalizer(Path::parts_t &output, const Path::parts_t &input);
+
 Path::Path(const py::Obj &fsobj_in,
            const std::vector<std::string> &parts) {
-	for (const auto &part : parts) {
-		if (part.empty() or part == ".") continue;
-		if (part == "..") {
-			if (not this->parts.empty()) this->parts.pop_back();
-		}
-		else this->parts.push_back(part);
-	}
+	path_normalizer(this->parts, parts);
 
 	// Preserve the Cython filesystem compatibility optimization.
 	if (fslike::pyx_fs_is_fslike_directory.call(fsobj_in.get_ref())) {
