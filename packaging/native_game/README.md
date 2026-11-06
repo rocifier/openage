@@ -1,57 +1,55 @@
-# FVD native game startup
+# FVD native game and relay: building and testing
 
-## Windows: one-command native release
+The end-user Fast Villager Defense (FVD) runtime uses native C++ entry points:
+`openage-native` for the game and `openage-relay` for the relay. Neither
+runtime loads Python or Cython. Python 3.12+, Cython 3.1+ and Python
+packages remain **developer/build-time tools** for code generation,
+asset conversion, API export and the traditional openage test suite.
 
-From an existing configured MSVC/vcpkg checkout, run at the repository root:
+## The normal workflow: one command
+
+From an existing configured C++/Qt/CMake development checkout:
+
+**Windows (MSVC/vcpkg):**
 
 ```powershell
 .\build-fvd.cmd
 ```
 
-This handles the complete native release workflow automatically:
-
-- Reuse the exported nyan engine API when already available; otherwise build the developer exporter once and generate it (Python/Cython are **build-time tools only**).
-- Configure and incrementally build `openage_native_game` and `openage_native_relay` with Python adapters disabled.
-- Create the strict Python-free 7Z archive under `dist\`.
-- Locate 7-Zip and Visual Studio `dumpbin.exe`, extract the archive to a temporary folder, audit DLL imports and Python-free contents, verify SHA-256 assets/tamper detection, and observe a solo native process for 30 seconds.
-
-The script also loads a local `deps/msvc-env.ps1` if present, so you do not have to source it separately. On subsequent runs, an existing valid API export is reused and the CMake build is incremental: **there is no need to rebuild the developer/Cython targets each time**. The build still requires MSVC, CMake, vcpkg dependencies and 7-Zip on the developer's Windows machine; **none of the developer's Python dependencies ship in the player archive**.
-
-Useful optional switches:
-
-```powershell
-.\build-fvd.cmd -ReexportApi         # Refresh a changed nyan API (may rebuild developer tools)
-.\build-fvd.cmd -SkipSmoke           # Just create the archive, without extracted verification
-.\build-fvd.cmd -ObserveSoloSeconds 0 # Audit archive without launching the graphical solo process
-.\build-fvd.cmd -Jobs 8              # Adjust build parallelism
-```
-
-**Manual acceptance remains:** test actual graphical solo gameplay, native relay host/guest replication and clean exits on a Windows installation with no Python. The 30-second smoke check proves the process survives and has no Python DLLs; it is not a substitute for gameplay testing.
-
-## Linux: one-command native release
-
-From an existing Linux C++/Qt/CMake development checkout, run:
+**Linux:**
 
 ```bash
 bash build-fvd.sh
 ```
 
-This reuses a compatible engine API export, or creates it using developer-only Python tools when missing. It incrementally builds the native game and relay, creates a 7Z in `dist/` and checks the extracted Linux package with CLI, asset, ELF dependency and bounded headless-solo tests.
+Both wrappers reuse a compatible previously exported engine API. If it is
+missing, they first configure/build the developer exporter and generate
+the API, then switch to the native-only build. They incrementally compile
+the C++ game and relay, create a **native-only 7Z archive under `dist/`**,
+and smoke-test an extracted copy.
 
-Linux builds currently depend on compatible distribution-provided libraries. The package is **not yet verified portable across clean Linux distributions**.
+On Windows the script discovers 7-Zip and Visual Studio `dumpbin.exe`,
+audits every packaged EXE/DLL/Qt plugin and non-system DLL import,
+validates SHA-256 assets, tests deliberate asset corruption/restoration,
+and observes a solo process for 30 seconds. Normal exit code 0 during the
+observation window is a clean exit, not a crash.
 
-## Run, test, and host with one command
+On Linux the script audits package contents and ELF dependencies and
+checks native CLI, asset integrity, and a bounded headless solo startup.
+Linux runtime libraries are currently supplied by a compatible host
+distribution; the archive is **not yet independently validated on clean,
+different distributions**.
 
-All four modes work on both platforms:
+### Launch, test or host without rebuilding
 
-| Mode | Windows (PowerShell) | Linux (bash) |
+| Action | Windows | Linux |
 | --- | --- | --- |
-| Build/package/smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
-| Native CTest + archive smoke | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
-| Play solo | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
-| Start native relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
+| Package + smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
+| Native tests + archive smoke | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
+| Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
-Pass game and relay options directly after the mode (or after `--` to separate them explicitly):
+Arguments following `solo` or `relay` go directly to the native executable:
 
 ```powershell
 .\build-fvd.cmd solo --no-audio --window-mode fullscreen
@@ -60,180 +58,89 @@ Pass game and relay options directly after the mode (or after `--` to separate t
 ```
 
 ```bash
-bash build-fvd.sh solo --no-audio --window-mode fullscreen
+bash build-fvd.sh solo --no-audio
 bash build-fvd.sh relay --listen 127.0.0.1 --port 32456
-bash build-fvd.sh relay -- --help
 ```
 
-The `solo` and `relay` modes launch the **latest packaged** executables via a reusable `dist/run/` extraction; neither mode recompiles anything. The `test` mode incrementally builds native test targets, runs native game/relay CTest cases, and checks the latest archive if available. Use the developer runner separately for the full Python-powered source-tree test suite.
+The launch commands use the most recent archive, extracted to `dist/run/`;
+they do **not** reconfigure or compile. Run `test` to incrementally build
+native test targets and execute CTest plus any available package smoke
+checks. The complete traditional Python-backed developer suite is a
+separate build configuration.
 
-## Developer/advanced commands
+Optional arguments: refresh an outdated exported API with
+`.\build-fvd.cmd -ReexportApi` or `bash build-fvd.sh --reexport-api`;
+skip the extracted-package test with `-SkipSmoke` or `--skip-smoke`.
+Windows additionally supports `-ObserveSoloSeconds 0` to disable the
+live graphical-process observation.
 
-The `openage-native` client is a C++ entry point that calls `run_game`
-directly, with native filesystem mounts and configuration. The **native
-release runtime** needs Qt and the engine, but does **not** ship Python or
-Cython; developer builds can continue using them.
+### Prerequisites
 
-The public Windows distribution remains on its legacy launcher until
-manual graphical, multiplayer and clean-machine acceptance passes. This
-does not affect the verified native-only 7Z release candidate.
+The **build machine** needs compiler/Qt/nyan and the other native
+dependencies described in [building.md](../../doc/building.md).
+An initial engine API export may also need a Python 3.12+ developer
+environment, installed with `uv sync` using
+[pyproject.toml](../../pyproject.toml). The **shipped native game** does
+not need Python, pip, setuptools, or Cython; the standalone native relay
+does not even require Qt, nyan or game assets.
 
-## Build and test
+On Windows, 7-Zip and the MSVC `dumpbin.exe` are used by smoke tests.
+The script loads a local `deps/msvc-env.ps1` if one exists.
 
-Using a normal configured openage source build:
+For a **relay-only volunteer host**, see
+[the minimal standalone relay build](../native_relay/README.md):
+it compiles with CMake and a C++20 compiler, without configuring the
+full game engine or building Python tools.
 
-```sh
-cmake --build bin --target openage_native_game
-ctest --test-dir bin -R fvd_native_game_ --output-on-failure
-```
+## Advanced/manual release steps
 
-Run the native C++ client from the repository root using converted assets:
+These commands are for diagnosing the wrappers, not the normal workflow.
+The pre-exported engine API must contain `modpack.toml` and
+`manifest.toml` under `assets/converted/engine` (engine version 0.5.0).
+The release manifest is created **during CMake configuration**, and
+the player validates every asset SHA-256 before opening the game.
 
-```sh
-bin/packaging/openage-native --asset-dir ./assets --cfg-dir ./cfg --solo
-```
-
-For a network lobby, omit `--solo`. `--help` lists available native
-options. `--headless` is useful for diagnostics, but is not yet a bounded
-startup smoke test. `--verify-assets` validates the installed FVD modpack,
-exported engine API and every SHA-256 entry in the native release manifest,
-then exits **without opening the renderer or writing user configuration**.
-Strict-release builds reject a missing manifest.
-
-Before launching, the asset directory must include the FVD modpack at
-`fvd/modpack.toml` and the exported nyan API with `converted/engine/modpack.toml`
-and `converted/engine/manifest.toml`. The API must have version `0.5.0`,
-as defined in `openage/convert/service/init/api_export_required.py`.
-Conversion/export remains a **developer or release-build** operation and
-is never attempted by `openage-native`.
-
-The game finds `share/openage` relative to the executable in a packaged
-layout unless `--asset-dir` overrides that location. It writes configuration
-to the platform user configuration directory (or `--cfg-dir`) and copies
-packaged default `audio.oac` and `keybinds.oac` if missing.
-
-## Native-only build and package-content audit
-
-The developer configuration has `FVD_WITH_PYTHON_ADAPTERS=ON` by default.
-Release staging can exclude Python-backed filesystem implementations:
-
-```sh
-cmake -S . -B build -DFVD_WITH_PYTHON_ADAPTERS=OFF
-cmake --build build --target openage_native_game openage_native_relay
-cmake --install build --component FVDNative --prefix build/fvd-native-stage
-cmake -DFVD_NATIVE_STAGE=build/fvd-native-stage -P packaging/native_game/AuditNativePackage.cmake
-```
-
-This installs only a selected C++ game/relay, engine, nyan, FVD media,
-shaders, and default config; it rejects Python executables/libraries and
-`.py`/`.pyc`/`.pyd` files in the resulting stage. It does **not**
-package conversion tools or the embedded Windows Python launcher.
-
-A playable release stage also needs an exported engine nyan API, which can
-be supplied at CMake configuration using
-`-DFVD_NATIVE_API_ASSET_DIR=<path-to-exported-engine-modpack>`.
-That directory must contain `modpack.toml` and `manifest.toml`. Python
-may be used to **generate** the assets, but is not used to load them.
-
-The Windows extracted 7Z has passed its automated package/CLI/integrity/DLL
-and bounded solo-process audits (2026-11-06). Full manual gameplay/multiplayer
-and clean-machine acceptance remains open. The normal `cmake --install`
-still installs the legacy developer runtime; select `--component FVDNative`
-for Python-free staging.
-
-## Strict native release staging
-
-Use `-DFVD_NATIVE_RELEASE=ON -DFVD_WITH_PYTHON_ADAPTERS=OFF` when
-configuring a release, and pass
-`-DFVD_NATIVE_API_ASSET_DIR=<exported engine modpack directory>`.
-The developer can export the API first with
-`<build>/run convert-export-api assets/converted`. Release
-configuration generates `fvd-native-manifest.toml` with SHA-256 hashes
-for FVD media and the pre-exported nyan API. Native startup verifies
-the manifest; the player never runs the converter.
-
-For a staged release, run the CMake audit with
-`-DFVD_NATIVE_REQUIRE_MANIFEST=ON`. On Windows, source
-`deps/msvc-env.ps1` and also run:
+For example, on an already configured Windows checkout from the repo root:
 
 ```powershell
-.\packaging\native_game\AuditWindowsImports.ps1 -Stage .\build\fvd-native-stage
+cmake -S . -B .bin\msvc-vcpkg -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_RELEASE=ON -DFVD_NATIVE_API_ASSET_DIR="$((Resolve-Path .\assets\converted\engine).Path)"
+cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_game openage_native_relay --parallel 4
+cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z -B dist
 ```
 
-The audit checks every staged EXE/DLL for Python imports and verifies
-that all non-system DLL dependencies are supplied inside the package,
-including Qt plugins. Graphical verification remains outstanding.
-
-## Windows 7Z release candidate (native-only)
-
-From an existing configured Windows MSVC/vcpkg development checkout, export the
-engine nyan API **once** using your developer runner (this step may use Python):
+If the engine API is missing, the **developer-only** export must run from
+the build directory (not the repository root), for example:
 
 ```powershell
-. .\deps\msvc-env.ps1
-.\.bin\msvc-vcpkg\RelWithDebInfo\run.exe convert-export-api .\assets\converted
+Push-Location .\.bin\msvc-vcpkg
+.\RelWithDebInfo\run.exe convert-export-api ..\..\assets\converted
+Pop-Location
 ```
 
-Then reconfigure the same CMake build for the native player, rebuild the
-native targets and ask CPack for **only** the `FVDNative` component:
+That requires the Python/Cython developer configuration. The one-command
+wrapper handles it automatically if the exported API does not exist.
 
-```powershell
-cmake -S . -B .bin\msvc-vcpkg -DFVD_NATIVE_RELEASE=ON -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_API_ASSET_DIR="$((Resolve-Path .\assets\converted\engine).Path)"
-cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_game openage_native_relay
-cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z
-```
+On Linux use a configured CMake directory (`build/` or `bin/`), a
+Python-enabled developer runner for asset export if needed, then
+`-DFVD_WITH_PYTHON_ADAPTERS=OFF` and
+`-DFVD_NATIVE_RELEASE=ON` for the release. The wrapper does this for you.
 
-The Windows `FVDNative` install component stages Qt/QML plugins, vcpkg
-and MSVC runtime DLLs, native FVD game/relay, graphics/audio/config and the
-pre-exported API, without calling the legacy embedded-Python installer.
-The archive still needs extraction and real Windows solo/network testing
-before it can replace the current public package.
+The FVDNative CMake install component stages the native game/relay, C++
+engine libraries, Qt/QML runtime, FVD data, shaders, config and exported
+API. Its content audit rejects Python runtime files. Windows packaging
+also checks all shipped imports and verifies the actual staged game
+assets **before** CPack produces the archive.
 
-### Check the extracted archive (not just the install directory)
+## What remains before a public release
 
-The test script needs 7-Zip and a Visual Studio developer PowerShell for
-`dumpbin.exe`. Supply the actual 7Z built by CPack:
+The Windows extracted 7Z has passed automated package, import,
+integrity/tampering and bounded solo-process smoke tests (2026-11-06).
+The final manual acceptance gates remain: actual graphical solo gameplay,
+native relay host/guest replication, clean exits and running on a
+Windows machine/VM **without Python**. Linux additionally requires
+clean-distribution library portability testing. Do not mistake a
+successful process smoke test for full gameplay acceptance.
 
-```powershell
-. .\deps\msvc-env.ps1
-.\packaging\native_game\SmokeTestWindowsArchive.ps1 -Archive "<path-to-native-7z>" -KeepExtracted
-```
-
-It extracts the release to a fresh temporary directory, finds the native
-launcher, audits **every shipped EXE/DLL and its non-system DLL dependencies**
-and rejects Python files/directories. Then it runs `--help`, `--version`,
-invalid-input, missing-asset, and successful `--verify-assets` smoke tests.
-It also deliberately corrupts a packaged asset, checks for checksum rejection
-and restores it. `-KeepExtracted` prints the extracted folder for manual
-playtesting; omit it to remove the temporary files.
-
-To additionally launch the extracted native solo game and inspect its **live**
-loaded Windows DLL modules for Python, use `-ObserveSoloSeconds 30` (or
-another duration up to 600 seconds). This requires a working graphical
-desktop. The process is stopped automatically afterward; watch the window
-to determine whether it actually reached gameplay.
-
-**Still manual:** on a machine without Python installed, launch
-`bin/openage-native.exe --solo`, start actual gameplay, test a hosted lobby
-and a guest through `bin/openage-relay.exe`, exercise replication and exit
-cleanly. Observe the running process modules for Python DLLs, not just
-static DLL imports. Do not mark OpenSpec acceptance complete until these
-passes are recorded.
-
-To inspect the staged component separately, run:
-
-```powershell
-cmake --install .bin\msvc-vcpkg --config RelWithDebInfo --component FVDNative --prefix .bin\fvd-native-stage
-.\packaging\native_game\AuditWindowsImports.ps1 -Stage .bin\fvd-native-stage
-```
-
-## Before replacing the Windows launcher
-
-- Separate Python filesystem, exception and Cython adapters from the
-  runtime-linked engine.
-- Build, run and audit the native application and all loaded libraries
-  without Python.
-- Create and validate the versioned release asset manifest.
-- Manually verify Windows solo, lobby hosting, guest joining and exit.
-- Switch the end-user package and remove the embedded interpreter only
-  after the native route passes all acceptance checks.
+The general openage developer build and existing public/legacy
+installer still coexist. The native release candidate does not replace
+those until the acceptance gates pass.
