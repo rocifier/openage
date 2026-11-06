@@ -379,7 +379,10 @@ if(NOT FVD_WITH_PYTHON_ADAPTERS)
 	set(_native_engine_sources "")
 	foreach(_source IN LISTS _all_engine_sources)
 		get_filename_component(_filename "${_source}" NAME)
-		if(_filename MATCHES "(^test|_test)[A-Za-z0-9_-]*[.]cpp$")
+		# Source names are not consistent: some tests live under tests/
+		# while other files are *_test.cpp or *_tests.cpp.
+		if(_source MATCHES "/(test|tests)/"
+		   OR _filename MATCHES "(^test|_test)[A-Za-z0-9_-]*[.]cpp$")
 			continue()
 		endif()
 		list(APPEND _native_engine_sources "${_source}")
