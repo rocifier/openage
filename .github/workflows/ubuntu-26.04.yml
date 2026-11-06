@@ -65,6 +65,10 @@ jobs:
 
         cmake --build . --parallel $(nproc) -- -k1
 
+        # Process-level FVD tests load the nyan API; export it with the
+        # developer tool once, never via the native game executable.
+        mkdir -p ../assets/converted
+        ./run convert-export-api ../assets/converted
         ./run test -a
         ctest -R fvd_native_game_ --output-on-failure
 
