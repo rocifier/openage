@@ -9,10 +9,12 @@ installed binary is already Python-free.
 - Packaged Windows game: `packaging/openage_launcher.cpp` launches an
   embedded `python.exe -m openage game`. Windows deployment must replace
   this launcher before the Python-free acceptance criterion is met.
-- Relay: `openage/relay/main.py` validates arguments and runs the service
-  through `openage/relay/main_cpp.pyx` (Cython). The native relay now
-  parses the same relay options and calls `network::run_relay_service`
-  directly, without that Python entry point.
+- Relay: `openage/relay/main.py` remains as a developer compatibility path,
+  but `packaging/native_relay` builds a dedicated `openage-relay` program.
+  It compiles only the FVD transport, relay, protocol, serialization and
+  minimal logging/error utilities without linking `libopenage`, Qt, nyan,
+  Python or Cython. Portable command-line tests cover argument parsing and
+  process startup; the standalone CMake project is release-focused.
 - Game: `libopenage/main.cpp` already exposes a C++ `run_game` function,
   but `main_arguments` carries a `util::Path` root created by the Python
   startup flow.
@@ -33,8 +35,10 @@ installed binary is already Python-free.
 
 ## Migration gates
 
-1. Link and run the standalone relay on Windows and Linux, including
+1. Link and run the standalone relay on Windows, macOS and Linux, including
    help/version, invalid options, a real connection and SIGINT/SIGTERM.
+   The cross-platform standalone workflow installs just the executable,
+   checks imports on Linux/macOS and tests signal-driven shutdown on Unix.
 2. Inspect the import tables of the executable **and all recursively loaded
    libraries**. Native source alone does not prove no Python ABI dependency.
 3. Separate the Python filesystem/exception adapters and native engine root.

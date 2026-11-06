@@ -3,6 +3,8 @@
 ## Runtime boundary
 
 Create native `openage` game and `openage-relay` executable targets.
+The relay must additionally have an independent, minimal CMake build path
+for hosts that never need to build the renderer or game client.
 The game executable owns command-line parsing, logging setup, installation path
 discovery and error presentation before calling `openage::run_game`.
 The relay executable performs the equivalent validation before calling
