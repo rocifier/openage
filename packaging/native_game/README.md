@@ -45,7 +45,9 @@ different distributions**.
 | Action | Windows | Linux |
 | --- | --- | --- |
 | Package + smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
-| Native tests + archive smoke | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Build native game and relay | `.\build-fvd.cmd build` | `bash build-fvd.sh build` |
+| Native tests | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Legacy C++/Python tests | `.\build-fvd.cmd legacy-test` | `bash build-fvd.sh legacy-test` |
 | Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
 | Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
@@ -62,11 +64,12 @@ bash build-fvd.sh solo --no-audio
 bash build-fvd.sh relay --listen 127.0.0.1 --port 32456
 ```
 
-The launch commands use the most recent archive, extracted to `dist/run/`;
-they do **not** reconfigure or compile. Run `test` to incrementally build
-native test targets and execute CTest plus any available package smoke
-checks. The complete traditional Python-backed developer suite is a
-separate build configuration.
+The launch commands use the most recent archive, extracted to `dist/run/`; they do **not** reconfigure or compile.
+Run `build` for an incremental native game and relay build without creating or inspecting an archive.
+The developer game accepts loose source assets through `--asset-dir assets`; packaged builds retain strict release manifest validation.
+Run `test` to incrementally build native test targets and execute CTest.
+Run `legacy-test` to configure Python adapters, build the developer runner and execute the traditional C++/Python suite.
+With no test name it passes `-a` to the legacy runner and executes every test that does not require external game assets.
 
 Optional arguments: refresh an outdated exported API with
 `.\build-fvd.cmd -ReexportApi` or `bash build-fvd.sh --reexport-api`;

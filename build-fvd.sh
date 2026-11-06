@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Linux FVD native candidate: build, package and smoke-test.
-# Usage: bash build-fvd.sh [package|test|solo|relay] [options] [-- native-options]
+# Usage: bash build-fvd.sh [package|build|test|legacy-test|solo|relay] [options]
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -16,7 +16,7 @@ reexport_api=0
 skip_smoke=0
 mode=package
 forwarded=()
-if (($#)) && [[ "$1" =~ ^(package|test|solo|relay)$ ]]; then
+if (($#)) && [[ "$1" =~ ^(package|build|test|legacy-test|solo|relay)$ ]]; then
     mode="$1"
     shift
 fi
@@ -26,7 +26,9 @@ usage() {
 FVD Linux native release candidate
 
   bash build-fvd.sh                  Build, package and verify
-  bash build-fvd.sh test             Run native CTest + archive smoke checks
+  bash build-fvd.sh build            Build the native game and relay
+  bash build-fvd.sh test             Run native CTest
+  bash build-fvd.sh legacy-test      Build and run the legacy C++/Python tests
   bash build-fvd.sh solo --no-audio  Launch packaged native solo gameplay
   bash build-fvd.sh relay --port 32456  Start packaged native relay
   bash build-fvd.sh relay -- --help  Pass any native options after --
@@ -55,7 +57,7 @@ while (($#)); do
             ;;
         -h|--help) usage; exit 0 ;;
         *)
-            if [[ "$mode" == "solo" || "$mode" == "relay" ]]; then
+            if [[ "$mode" == "legacy-test" || "$mode" == "solo" || "$mode" == "relay" ]]; then
                 forwarded+=("$1")
                 shift
             else
@@ -67,7 +69,7 @@ while (($#)); do
     esac
 done
 
-for tool in cmake cpack c++; do
+for tool in cmake c++; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "Missing build tool: $tool" >&2
         exit 1
@@ -89,7 +91,7 @@ dist="$root/dist"
 
 step() { printf '\n==> %s\n' "$*"; }
 
-# Subcommands act on the most recent archive and do not reconfigure/build.
+# Launch commands act on the most recent archive and do not reconfigure/build.
 find_archive() {
     [[ -d "$dist" ]] || { echo "No Linux native package found; run: bash build-fvd.sh" >&2; exit 1; }
     local candidate listing
@@ -143,16 +145,12 @@ if [[ "$mode" == "solo" || "$mode" == "relay" ]]; then
 fi
 
 if [[ "$mode" == "test" ]]; then
-    [[ -f "$build/CMakeCache.txt" ]] || { echo "No configured build. First run: bash build-fvd.sh" >&2; exit 1; }
+    [[ -f "$build/CMakeCache.txt" ]] || { echo "No configured build. First run: bash build-fvd.sh build" >&2; exit 1; }
     step "Build native test targets (incremental)"
     cmake --build "$build" --parallel "$jobs" \
         --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
     step "Run native game/relay CTest suite"
     ctest --test-dir "$build" --output-on-failure -R '^fvd_native_(game|relay)_'
-    if (( ! skip_smoke )) && archive="$(find_archive 2>/dev/null)"; then
-        step "Verify latest extracted Linux native archive"
-        bash "$root/packaging/native_game/SmokeTestLinuxArchive.sh" "$archive"
-    fi
     echo "Native Linux tests passed."
     exit 0
 fi
@@ -167,6 +165,28 @@ if [[ ! -f "$build/CMakeCache.txt" ]]; then
         exit 1
     fi
     initial=(-G Ninja -DDOWNLOAD_NYAN=YES -DCMAKE_BUILD_TYPE=Release)
+fi
+
+if [[ "$mode" == "legacy-test" ]]; then
+    python_args=()
+    if [[ -x "$root/.venv/bin/python" ]]; then
+        python_args=("-DPython3_EXECUTABLE=$root/.venv/bin/python")
+    fi
+    step "Configure Python-enabled developer tests"
+    cmake -S "$root" -B "$build" "${initial[@]}" "${python_args[@]}" \
+        -DFVD_NATIVE_RELEASE=OFF \
+        -DFVD_WITH_PYTHON_ADAPTERS=ON \
+        "-DNYAN_CLONE_VERSION=$nyan_version"
+    step "Build Python-enabled developer tests"
+    cmake --build "$build" --parallel "$jobs"
+    [[ -x "$build/run" ]] || { echo "Cannot locate legacy test runner at $build/run" >&2; exit 1; }
+    test_args=("${forwarded[@]}")
+    if ((${#test_args[@]} == 0)); then
+        test_args=(-a)
+    fi
+    step "Run legacy C++/Python tests"
+    (cd "$build" && ./run test "${test_args[@]}")
+    exit 0
 fi
 
 api_valid() {
@@ -197,9 +217,15 @@ if ! api_valid; then
     exit 1
 fi
 
-step "Configure native-only FVD release"
+native_release=ON
+configure_description="Configure native-only FVD release"
+if [[ "$mode" == "build" ]]; then
+    native_release=OFF
+    configure_description="Configure native-only FVD developer build"
+fi
+step "$configure_description"
 cmake -S "$root" -B "$build" "${initial[@]}" \
-    -DFVD_NATIVE_RELEASE=ON \
+    "-DFVD_NATIVE_RELEASE=$native_release" \
     -DFVD_WITH_PYTHON_ADAPTERS=OFF \
     "-DNYAN_CLONE_VERSION=$nyan_version" \
     "-DFVD_NATIVE_API_ASSET_DIR=$api"
@@ -207,6 +233,16 @@ cmake -S "$root" -B "$build" "${initial[@]}" \
 step "Incrementally build native game and relay"
 cmake --build "$build" --config Release --parallel "$jobs" \
     --target openage_native_game openage_native_relay
+
+if [[ "$mode" == "build" ]]; then
+    echo "Native Linux game and relay build completed."
+    exit 0
+fi
+
+if ! command -v cpack >/dev/null 2>&1; then
+    echo "Missing packaging tool: cpack" >&2
+    exit 1
+fi
 
 mkdir -p "$dist"
 step "Create native 7Z archive (no shipped Python/Cython)"

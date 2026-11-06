@@ -2,8 +2,8 @@
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
 # Re-export a changed engine API: .\build-fvd.cmd -ReexportApi
-# Modes: package (default), test, solo, relay. Accept native options directly
-# after solo/relay, e.g. build-fvd.cmd solo --no-audio.
+# Modes: package (default), build, test, legacy-test, solo, relay. Accept runtime or
+# legacy test options directly after their mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "package"
 $ReexportApi = $false
@@ -13,7 +13,8 @@ $Jobs = 4
 $NativeArgs = @()
 $tokens = @($args)
 $i = 0
-if ($tokens.Count -gt 0 -and $tokens[0] -in @("package", "test", "solo", "relay")) {
+if ($tokens.Count -gt 0 -and
+    $tokens[0] -in @("package", "build", "test", "legacy-test", "solo", "relay")) {
     $Mode = $tokens[0]
     $i = 1
 }
@@ -46,11 +47,11 @@ while ($i -lt $tokens.Count) {
             continue
         }
         default {
-            if ($Mode -in @("solo", "relay")) {
+            if ($Mode -in @("legacy-test", "solo", "relay")) {
                 $NativeArgs += $token
             }
             else {
-                throw "Unknown argument '$token'. Commands: package, test, solo, relay."
+                throw "Unknown argument '$token'. Commands: package, build, test, legacy-test, solo, relay."
             }
         }
     }
@@ -197,27 +198,41 @@ try {
     if (-not (Get-Command "cmake.exe" -ErrorAction SilentlyContinue)) {
         throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
     }
-    if (-not (Get-Command "cpack.exe" -ErrorAction SilentlyContinue)) {
-        throw "CPack not found; it is installed with CMake."
+    if ($Mode -eq "legacy-test") {
+        $python = Join-Path $root ".venv\Scripts\python.exe"
+        if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+            throw "Python developer environment missing. Run 'uv sync' from $root first."
+        }
+
+        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
+            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=ON",
+            "-DPython3_EXECUTABLE=$python") "Configure Python-enabled developer tests"
+        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
+            "--parallel", "$Jobs") "Build Python-enabled developer tests"
+
+        $runner = Join-Path $build "RelWithDebInfo\run.exe"
+        if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
+            throw "Python-enabled test runner missing: $runner"
+        }
+        $testArgs = @($NativeArgs)
+        if ($testArgs.Count -eq 0) { $testArgs = @("-a") }
+        Push-Location $build
+        try {
+            Invoke-Checked $runner (@("test") + $testArgs) "Run legacy C++/Python tests"
+        }
+        finally { Pop-Location }
+        return
     }
 
     if ($Mode -eq "test") {
         if (-not (Test-Path -LiteralPath (Join-Path $build "CMakeCache.txt") -PathType Leaf)) {
-            throw "No configured Windows build; first run: .\build-fvd.cmd"
+            throw "No configured Windows build; first run: .\build-fvd.cmd build"
         }
         Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
             "--target", "openage_native_game_args_test", "openage_native_relay_args_test",
             "openage_native_relay_network_test", "--parallel", "$Jobs") "Build native test targets"
         Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
             "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
-        $archiveAvailable = @(Get-CompatibleWindowsArchives).Count -gt 0
-        if (-not $SkipSmoke -and $archiveAvailable) {
-            $archive = Get-LatestArchive
-            & (Join-Path $root "packaging\native_game\SmokeTestWindowsArchive.ps1") `
-                -Archive $archive.FullName -SevenZip (Find-SevenZip) -Dumpbin (Find-Dumpbin) `
-                -ObserveSoloSeconds $ObserveSoloSeconds
-            if (-not $?) { throw "Extracted archive smoke test failed" }
-        }
         Write-Host "FVD native tests passed." -ForegroundColor Green
         return
     }
@@ -253,12 +268,28 @@ try {
         throw "Engine API export is incomplete in $api"
     }
 
+    $nativeRelease = if ($Mode -eq "package") { "ON" } else { "OFF" }
+    $configureDescription = if ($Mode -eq "package") {
+        "Configure Python-free native release"
+    }
+    else {
+        "Configure Python-free native developer build"
+    }
     Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-        "-DFVD_NATIVE_RELEASE=ON", "-DFVD_WITH_PYTHON_ADAPTERS=OFF",
-        "-DFVD_NATIVE_API_ASSET_DIR=$api") "Configure Python-free native release"
+        "-DFVD_NATIVE_RELEASE=$nativeRelease", "-DFVD_WITH_PYTHON_ADAPTERS=OFF",
+        "-DFVD_NATIVE_API_ASSET_DIR=$api") $configureDescription
     Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
         "--target", "openage_native_game", "openage_native_relay",
         "--parallel", "$Jobs") "Build native game and relay"
+
+    if ($Mode -eq "build") {
+        Write-Host "FVD native game and relay build completed." -ForegroundColor Green
+        return
+    }
+
+    if (-not (Get-Command "cpack.exe" -ErrorAction SilentlyContinue)) {
+        throw "CPack not found; it is installed with CMake."
+    }
 
     New-Item -ItemType Directory -Path $dist -Force | Out-Null
     Invoke-Checked "cpack.exe" @("--config", (Join-Path $build "CPackConfig.cmake"),

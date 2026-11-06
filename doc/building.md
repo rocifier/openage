@@ -51,12 +51,14 @@ universal portable distribution.
 
 ### Build, test, play or host
 
-The same four commands work on both systems:
+The same six commands work on both systems:
 
 | Purpose | Windows | Linux |
 | --- | --- | --- |
 | Build, package and smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
-| Run native tests + archive smoke | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Build native game and relay | `.\build-fvd.cmd build` | `bash build-fvd.sh build` |
+| Run native tests | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Run legacy C++/Python tests | `.\build-fvd.cmd legacy-test` | `bash build-fvd.sh legacy-test` |
 | Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
 | Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
@@ -72,10 +74,12 @@ bash build-fvd.sh solo --no-audio
 bash build-fvd.sh relay --listen 0.0.0.0 --port 32456
 ```
 
-The `solo` and `relay` commands reuse the latest archive in `dist/` without
-rebuilding. The `test` command runs the native game/relay CTest cases and the
-latest archive smoke check, when available. The *full legacy developer test
-suite* is separate and needs the Python-enabled developer build.
+The `build` command configures and builds the native game and relay for development without creating or inspecting an archive.
+Its game executable accepts loose source assets through `--asset-dir assets`, while `package` retains release manifest enforcement.
+The `solo` and `relay` commands reuse the latest archive in `dist/` without rebuilding.
+The `test` command runs the native game/relay CTest cases.
+The `legacy-test` command switches the build directory to the Python-enabled developer configuration, builds it and runs the traditional C++/Python suite.
+A test name can follow the command to run one test, for example `.\build-fvd.cmd legacy-test network::tests::session`.
 
 Optional developer switches include `-ReexportApi` on Windows or
 `--reexport-api` on Linux to refresh a changed API, and `-SkipSmoke` /
@@ -195,8 +199,7 @@ mechanism when deliberately packaging the generic developer build. The
 - **Changed native-release flags:** CMake may need to recompile part of
   `libopenage` when toggling between developer adapters and native mode.
   The one-command scripts handle the configuration automatically.
-- **Tests fail:** run `build-fvd ... test` for native game/relay tests;
-  run the Python-enabled developer test suite separately if that is what
-  you're diagnosing.
+- **Tests fail:** run `build-fvd ... test` for native game/relay tests or
+  `build-fvd ... legacy-test` for the traditional C++/Python suite.
 
 For additional help see [troubleshooting](troubleshooting.md).
