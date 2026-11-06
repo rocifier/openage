@@ -74,7 +74,9 @@ jobs:
 
         # Rebuild just the native game with Python filesystem adapters removed.
         # The developer test suite above intentionally runs before this toggle.
-        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF .
+        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF \
+          -DFVD_NATIVE_RELEASE=ON \
+          -DFVD_NATIVE_API_ASSET_DIR="$(pwd)/../assets/converted/engine" .
         cmake --build . --target openage_native_game --parallel $(nproc)
         ctest -R fvd_native_game_ --output-on-failure
         # A source-level import check is insufficient: reject accidental
