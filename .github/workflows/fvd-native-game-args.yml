@@ -9,6 +9,8 @@ on:
       - "packaging/native_game/*.ps1"
       - "build-fvd.ps1"
       - "build-fvd.cmd"
+      - "build-fvd.sh"
+      - "packaging/native_game/*.sh"
       - ".github/workflows/fvd-native-game-args.yml"
   pull_request:
     paths:
@@ -18,6 +20,8 @@ on:
       - "packaging/native_game/*.ps1"
       - "build-fvd.ps1"
       - "build-fvd.cmd"
+      - "build-fvd.sh"
+      - "packaging/native_game/*.sh"
       - ".github/workflows/fvd-native-game-args.yml"
   workflow_dispatch:
 
@@ -38,6 +42,16 @@ jobs:
         run: ctest --test-dir build/native-game-args -C Release --output-on-failure
       - name: Test native release manifest asset filters
         run: cmake -P packaging/native_game/NativeManifestTest.cmake
+      - name: Validate Linux release shell syntax and CLI help
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          bash -n build-fvd.sh packaging/native_game/SmokeTestLinuxArchive.sh
+          bash build-fvd.sh --help
+          if bash build-fvd.sh --jobs nope; then
+            echo "Invalid --jobs input unexpectedly accepted"
+            exit 1
+          fi
       - name: Validate native archive PowerShell syntax
         if: runner.os == 'Windows'
         shell: pwsh
