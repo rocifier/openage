@@ -11,24 +11,37 @@
 - [x] Native-only staging component plus Python-file/import audit tools.
 - [x] Build-time exported-API checks, versioned SHA-256 asset-manifest generator and native manifest validation when present.
 
-These are **building blocks, not proof of a shippable Python-free game**. The game library's remaining Python-facing code, complete DLL deployment, and real gameplay verification are still open.
+The native Windows archive has now passed its automated extracted-package audit and bounded solo-process check. **Full graphical gameplay, native relay multiplayer, clean-machine installation and clean shutdown remain manual acceptance gates.**
 
 ## Critical path — do these in order
 
-- [ ] **1. Make the actual game executable and its full runtime library graph Python/Cython-free.**
+- [x] **1. Make the actual game executable and its full runtime library graph Python/Cython-free (Windows verification).**
   - Build the release variant of `libopenage` and `openage-native` with no Python/Cython dependency. Remove Python-only source files/callbacks from the **runtime link**, replacing the few actually used by gameplay with native C++ implementations; keep the developer Python/Cython build intact.
   - **No separate adapter-migration milestone**: change only what blocks the native build/link/run. Do not require a full rearchitecture of `pyinterface` when unused code can simply be excluded from the release target.
   - Gate with a successful native startup and Windows `dumpbin` checks (plus Linux `ldd`/macOS `otool` when applicable) across the executable **and all shipped or loaded libraries**. A source-level or CLI-only pass is not enough.
 
-- [ ] **2. Produce a complete, extract-and-run Windows 7Z with the native launcher as the player entry point.**
+- [x] **2. Produce a complete, extract-and-run Windows 7Z with the native launcher as the player entry point.**
   - Make the release packaging path ship **only** the native game/relay, engine/nyan libraries, Qt/QML/plugins, fonts, sound, shaders, FVD graphics/data and config. Package the pre-exported engine API and require the release SHA-256 manifest. Include all necessary native DLLs; fail the package build if inputs are missing.
   - Do **not** include the old embedded-Python launcher, interpreter, Python standard library, `.py`/`.pyc`/`.pyd` files or Cython extensions. No conversion or code generation on the player's machine.
   - Keep the source-tree developer launcher and tools available; no need to port them.
 
-- [ ] **3. Prove the extracted Windows package works without Python installed.**
-  - Run native `--help`, `--version`, invalid-input and missing-asset tests; launch real FVD graphics; complete a solo match start; host/join between two native clients (through the native relay where applicable); verify gameplay replication and clean exit.
-  - Audit **the extracted archive**, not just build outputs: no Python artifacts, no Python ABI imports in EXE/DLL/Qt plugin closure, and no Python DLL loaded by a running game. Block release on failure.
+- [ ] **3. Prove the extracted Windows package works without Python installed (automated checks pass; manual acceptance pending).**
+  - [x] Run extracted native `--help`, `--version`, invalid-input, missing-asset, successful `--verify-assets`, tampered-asset rejection and restored-asset validation.
+  - [x] Audit **the extracted archive**, not just build outputs: 112 shipped Windows EXE/DLL binaries (including plugins), no bundled Python artifacts, no Python ABI imports, and no unresolved non-system DLL imports.
+  - [x] Launch the extracted native solo executable for 30 seconds; verify it remains running and inspect its live loaded modules for Python DLLs (automated process smoke test).
+  - [ ] On a **clean Windows machine/VM without Python**, launch the archive, observe actual graphical FVD gameplay and verify solo match start (a running process alone does not prove rendering or playability).
+  - [ ] Host/join with two packaged native clients through the packaged native relay; verify gameplay replication and clean shutdown of both clients and relay.
   - Fix only defects uncovered by these tests; don't spend this milestone expanding unrelated legacy tests.
+
+## Windows extracted-archive verification — 2026-11-06
+
+**Reported result: automated smoke test passed after manifest/install filter fix.** The developer built and launched the Windows native executable, created the release 7Z and ran `packaging/native_game/SmokeTestWindowsArchive.ps1` against a newly extracted archive with `-KeepExtracted -ObserveSoloSeconds 30`.
+
+- **PASS:** 112 staged Windows EXE/DLL imports audited; no Python artifacts/ABI dependencies; all non-system imported DLLs present.
+- **PASS:** native CLI help, version, invalid arguments, nonexistent asset directory, valid manifest, deliberate SHA-256 asset tampering rejection, restored manifest verification.
+- **PASS (bounded smoke):** native solo process stayed alive for 30 seconds with no Python DLL in the inspected live module list.
+- **Packaging fix verified:** `GenerateNativeManifest.cmake` now excludes recursively omitted `README.md`/`prompts.md` entries; manifest filtering has cross-platform regression tests, and Windows staging validates assets before archive creation.
+- **Not yet claimed:** full visual gameplay, multiplayer host/guest replication, clean shutdown, or independent machine without Python. Keep task 3 and final release acceptance open until these are explicitly reported.
 
 ## Follow-on after Windows passes
 
