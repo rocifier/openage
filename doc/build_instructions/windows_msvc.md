@@ -1,161 +1,119 @@
-# Procedure for Microsoft Windows users
+# Building on Windows (MSVC)
 
-<!---
-__NOTE:__ We also have an installer for Win10 (x64), if you just want to play around with *openage* you can find it [here](https://github.com/SFTtech/openage/releases).
+This page covers the **native Fast Villager Defense (FVD) game and relay** and
+the optional Python-based openage developer tools. The packaged native game
+and relay do **not** require Python or Cython on the player's computer.
 
- Since Windows doesn't offer a native package manager, we use a mixture of manual and automated steps to get the dependencies for openage.
- *Please remember to replace the directories referenced below (written in <...>) with the appropriate values.*
+## Windows development machine setup
 
-## Using CI to build openage
-If you use any CI (like Travis-CI or Appveyor) you can make your life easier by using the following yaml-configuration files:
-- Win_x64 - MSVC 15.x - [> Download .yml <](https://gist.githubusercontent.com/simonsan/4c73314e005239938110ec9c91e484c0/raw/)
-- Win_x86 - MSVC 15.x - [> Download .yml <](https://gist.githubusercontent.com/simonsan/390f2e3f60667608f74a2ed687e14dad/raw/)
+Install:
 
-They will build you the latest version from our master branch and package them into an installer and a portable 7z-file.
+- [Visual Studio C++ Build Tools](https://aka.ms/vs/17/release/vs_BuildTools.exe)
+  (MSVC x64 compiler and Windows SDK).
+- [CMake](https://cmake.org/download/), including CPack.
+- [vcpkg](https://github.com/microsoft/vcpkg) and the required native
+  libraries; configure CMake using the vcpkg toolchain.
+- [7-Zip](https://www.7-zip.org/) for extracted-archive smoke testing
+  (normally at `C:\Program Files\7-Zip\7z.exe`).
+- Flex/win_flex as needed to compile
+  [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md#windows).
 
-__NOTE:__ You need to manually make sure and doublecheck if the system you are building on has fulfilled all the [dependencies](/doc/building.md).
--->
+For a vcpkg-based build, the primary native dependencies are:
 
-## Setting up the build environment
-You will need to download and install the following manually.
-Those who already have the latest stable versions of these programs can skip this:
-
-- [Visual Studio Buildtools](https://aka.ms/vs/17/release/vs_BuildTools.exe)
-  - With the "Visual C++ Buildtools" workload.
-  _NOTE:_ If you are searching for an IDE for development you can get an overview [here](https://en.wikipedia.org/wiki/Comparison_of_integrated_development_environments#C/C++). We've also written some [instructions for developing with different IDEs](/doc/ide/README.md).
-
-- [Python 3](https://www.python.org/downloads/windows/)
-  - With the *pip* option enabled. We use `pip` to install other dependencies.
-  - With the *Precompile standard library* option enabled.
-  - With the *Download debug binaries (...)* option enabled.
-  - If in doubt, run the installer again and choose *Modify*.
-  - You are going to need the 64-bit version of python if you are planning to build the 64-bit version of openage, and vice versa.
-
- - [CMake](https://cmake.org/download/)
-
-### Python Modules
-Open a command prompt at `<Python 3 installation directory>/Scripts`
-
-```ps
-pip install cython setuptools numpy lz4 toml pillow pygments pyreadline3 mako
-```
-_Note:_ Make sure the Python 3 instance you're installing these scripts for is the one you call `python` in CMD
-
-_Note:_ Also ensure that `python` and `python3` both point to the correct and the same version of Python 3
-
-### vcpkg packages
-Set up [vcpkg](https://github.com/Microsoft/vcpkg#quick-start). Open a command prompt at `<vcpkg directory>`
-
-```ps
+```powershell
 vcpkg install dirent eigen3 fontconfig freetype harfbuzz libepoxy libogg libpng opus opusfile qtbase qtdeclarative qtmultimedia toml11
 ```
 
-Qt must include PNG image decoding to load terrain and sprites.
-When disabling vcpkg's default features, explicitly enable `qtbase[png]`; installing `libpng` alone does not enable Qt's decoder.
+Use your configured Windows triplet (for example, `x64-windows`).
+Qt must support PNG decoding; when opting out of defaults, enable
+`qtbase[png]`. Optional Vulkan support uses `vcpkg install vulkan`.
 
-If you also want Vulkan graphics support, you should also run this command:
+**Python installation is not required to run the native FVD archive.**
+However, the *full source-tree developer build* and first engine nyan API
+export still use Python 3.12+, Cython 3.1+ and other build-time tools.
+For that workflow, install a normal 64-bit Python interpreter and use
+`uv sync` from the checkout root to obtain dependencies from
+[`pyproject.toml`](../../pyproject.toml). You do not need to manually
+install old pip package lists, the Python embeddable distribution, or
+special Python debug binaries for native FVD packaging.
 
-```ps
-vcpkg install vulkan
-```
+## Build and package native FVD (recommended)
 
-_Note:_ The `qt` port in vcpkg has been split into multiple packages, build times are acceptable now. If you want, you can still use [the prebuilt version](https://www.qt.io/download-open-source/) instead. If you do so, include `-DCMAKE_PREFIX_PATH=<QT6 directory>` in the cmake configure command.
-
-_Note:_ If you are planning to build the 64-bit version of openage, you are going to need 64-bit libraries. Add command line option `--triplet x64-windows` to the above command or add the environment variable `VCPKG_DEFAULT_TRIPLET=x64-windows` to build x64 libraries. [See here](https://github.com/Microsoft/vcpkg/issues/1254)
-
-<!---
-__NOTE:__ You can also download the pre-built vcpkg dependencies (without Qt) [from this repository](https://github.com/simonsan/openage-win-dependencies/releases).
--->
-
-## Building openage
-Note that openage doesn't support completely out-of-source-tree builds yet. We will, however, use a separate `build` directory to build the binaries.
-
-_Note:_ You will also need to set up [the dependencies for nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md#windows), which is mainly [flex](https://sourceforge.net/projects/winflexbison/).
-
-Open a command prompt at `<openage directory>`:
-
-```ps
-mkdir build
-cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=<vcpkg directory>\scripts\buildsystems\vcpkg.cmake ..
-cmake --build . --config RelWithDebInfo -- /nologo /m /v:m
-```
-
-_Note:_ If you want to build the x64 version, please add `-G "Visual Studio 17 2022" -A x64` (for VS2022) to the first cmake command.
-
-_Note:_ If you want to download and build Nyan automatically add `-DDOWNLOAD_NYAN=YES -DFLEX_EXECUTABLE=<path to win_flex.exe>` to the first cmake command.
-
-## Running openage (in devmode)
-While this is straightforward on other platforms, there is still stuff to do to run openage on Windows:
-
-- Install the [DejaVu Book Font](https://dejavu-fonts.github.io/Download.html).
-  - Download and extract the latest `dejavu-fonts-ttf` tarball/zip file.
-  - Select all `ttf\DejaVuSerif*.ttf` files, right click and click `Install for all users`.
-  _Note:_ This will require administrator rights.
-
-  - Set the `FONTCONFIG_PATH` environment variable to `<vcpkg directory>\installed\<relevant config>\tools\fontconfig\fonts\` or `<vcpkg directory>\installed\<relevant config>\etc\fonts\`.
-  - Copy `fontconfig\57-dejavu-serif.conf` to `%FONTCONFIG_PATH%\conf.d`.
-- [Optional] Set the `AGE2DIR` environment variable to the AoE 2 installation directory.
-- Set `QML2_IMPORT_PATH` to `<vcpkg directory>\installed\<relevant config>\qml` or for prebuilt Qt `<qt directory>\<qt-version>\<compiler-version>\qml`
-- openage needs these DLL files to run:
-  - `openage.dll` (Usually in `<openage directory>\build\libopenage\<config built>`.)
-  - `nyan.dll` (The location depends on the procedure chosen to get nyan.)
-  - DLLs from vcpkg-installed dependencies. Normally, these DLLs should be copied to `<openage directory>\build\libopenage\<config built>` during the build process. If they are not, you can find them in `<vcpkg directory>\installed\<relevant config>\bin`.
-    - If prebuilt QT6 was installed, the original location of QT6 DLLs is `<QT6 directory>\bin`.
-
-Now, to run openage:
-
-- Open a CMD window in `<openage directory>\build\` and run `python -m openage main`
-- Execute`<openage directory>\build\run.exe` every time after that and enjoy!
-
-### Running the FVD relay
-
-The relay uses the same executable and runtime DLL environment as the game.
-Start it from the build directory, using the executable's configuration subdirectory if your generator creates one:
+Once the CMake/MSVC/vcpkg development checkout is configured, run from
+the repository root:
 
 ```powershell
-Set-Location <openage directory>\build
-.\RelWithDebInfo\run.exe relay
+.\build-fvd.cmd
 ```
 
-If Windows exits with `0xC0000135` (DLL not found), ensure that the configured Python installation and the directories containing `openage.dll`, `nyan.dll` and their native dependencies are on the terminal's `PATH` before launching the executable.
-Python's DLL search options cannot fix dependencies that Windows must load before the embedded interpreter starts.
-Use the same environment setup as your working game launch.
+This wraps API export (only when missing), native-only CMake configuration,
+incremental game/relay compilation, packaging to `dist\*.7z` and
+extracted-archive tests, including DLL/Python import audits and a bounded
+solo-process check. It loads `deps/msvc-env.ps1` automatically **if that
+local environment script exists**.
 
-For this checkout's local MSVC setup, run these commands from the repository root:
+No repeated CMake or CPack flags are needed. On subsequent builds, the
+exported API is reused unless explicitly refreshed.
+
+### Run and test the packaged native binaries
 
 ```powershell
-. .\deps\msvc-env.ps1
-Set-Location .bin\msvc-vcpkg
-.\RelWithDebInfo\run.exe relay
+.\build-fvd.cmd test
+.\build-fvd.cmd solo
+.\build-fvd.cmd solo --no-audio --window-mode fullscreen
+.\build-fvd.cmd relay
+.\build-fvd.cmd relay --listen 127.0.0.1 --port 32456
 ```
 
-The relay listens on all interfaces on TCP port `32456` by default.
-Append `--listen 127.0.0.1` to restrict it to local clients, or `--help` to list its options.
-Keep the terminal open and stop the service with Ctrl+C.
-See the [two-player relay check](../code/network/README.md#manual-two-player-relay-check) for connecting game clients and the current multiplayer limitations.
+The `solo` and `relay` modes reuse the latest archive under `dist/` without
+recompiling anything. Add `--help` after a mode to see native command-line
+options. For example, `.\build-fvd.cmd relay -- --help`.
 
-## Packaging
+`test` runs native game/relay CTest cases and validates an available
+archive. To refresh a changed exported API, use
+`.\build-fvd.cmd -ReexportApi`. To package without smoke testing, use
+`.\build-fvd.cmd -SkipSmoke`.
 
-- Install [NSIS](https://sourceforge.net/projects/nsis/files/latest/download).
-- Depending on the way you installed Qt (vcpkg/pre-built) you need to edit the following line in `<openage-repo-dir>\buildsystem\templates\ForwardVariables.cmake.in`:
+The relay is a standalone C++ service and does not require Python, Qt,
+nyan, game media or the rendering engine. Volunteer hosts can build just
+the relay using the
+[standalone relay guide](../../packaging/native_relay/README.md).
 
+**Release status:** the native Windows extracted archive has passed
+automated CLI, integrity, DLL/import and bounded solo checks. Manual
+graphical, two-client multiplayer, clean exit and clean Windows machine
+verification are still acceptance requirements. The normal public player
+distribution is not replaced yet.
+
+## Optional: general openage developer build
+
+Use this only when you need the traditional Python/Cython developer runner,
+conversion tools or the full source-tree test suite. Python/Cython remain
+build-time/developer requirements here; they are not player requirements.
+
+Set up the Python environment:
+
+```powershell
+uv sync
 ```
-# Use windeploy for packaging qt-prebuilt, standard value '1' for windeploy, '0' for vcpkg
-set(use_windeployqt 1)
+
+Configure the existing vcpkg toolchain for MSVC, adapting the path to your
+installation:
+
+```powershell
+cmake -S . -B .bin\msvc-vcpkg -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="C:\path\to\vcpkg\scripts\buildsystems\vcpkg.cmake" -DFVD_WITH_PYTHON_ADAPTERS=ON -DFVD_NATIVE_RELEASE=OFF
+cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --parallel 4
 ```
 
-Open a command prompt at `<openage directory>\build` (or use the one from the building step):
+Set `-DPython3_EXECUTABLE=...` to the venv interpreter if CMake
+does not select it automatically. Additional nyan setup may need
+`-DDOWNLOAD_NYAN=YES` and `-DFLEX_EXECUTABLE=...`.
 
-```ps
-    cpack -C RelWithDebInfo
-```
+The Python-enabled `run.exe` is for legacy developer commands. Do not
+use `run.exe relay` or an embedded-Python launcher for a Python-free
+distribution; use `build-fvd.cmd relay` instead.
 
-The installer (`openage-<version>-<arch>.exe`) will be generated in the same directory.<br>
-
-_Note:_ Append `-V` to the `cpack` command for verbose output (it takes time to package all dependencies).
-
-_Note:_ <arch> you can set with the environment variable `TARGET_PLATFORM` (e.g. amd64, x86).
-
-For Python versions that no longer publish Windows binaries, CMake selects the last binary-compatible embeddable release by default.
-Override it at configure time with `-DPYTHON_EMBED_VERSION=<version>` when needed.
+For advanced native packaging and troubleshooting, see
+[the FVD packaging guide](../../packaging/native_game/README.md).
+The historical generic `cpack`/NSIS packaging route may still include
+developer Python components; it is **not** the FVD-native release route.
