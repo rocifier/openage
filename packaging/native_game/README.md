@@ -1,9 +1,39 @@
 # FVD native game startup
 
-The experimental `openage-native` client is a C++ entry point that calls
-`run_game` directly. It uses native C++ filesystem mounts and a native
-configuration loader. Unlike the dedicated relay, the **game client still
-needs Qt, the engine and the development build's Python/Cython toolchain**.
+## Windows: one-command native release
+
+From an existing configured MSVC/vcpkg checkout, run at the repository root:
+
+```powershell
+.\build-fvd.cmd
+```
+
+This handles the complete native release workflow automatically:
+
+- Reuse the exported nyan engine API when already available; otherwise build the developer exporter once and generate it (Python/Cython are **build-time tools only**).
+- Configure and incrementally build `openage_native_game` and `openage_native_relay` with Python adapters disabled.
+- Create the strict Python-free 7Z archive under `dist\`.
+- Locate 7-Zip and Visual Studio `dumpbin.exe`, extract the archive to a temporary folder, audit DLL imports and Python-free contents, verify SHA-256 assets/tamper detection, and observe a solo native process for 30 seconds.
+
+The script also loads a local `deps/msvc-env.ps1` if present, so you do not have to source it separately. On subsequent runs, an existing valid API export is reused and the CMake build is incremental: **there is no need to rebuild the developer/Cython targets each time**. The build still requires MSVC, CMake, vcpkg dependencies and 7-Zip on the developer's Windows machine; **none of the developer's Python dependencies ship in the player archive**.
+
+Useful optional switches:
+
+```powershell
+.\build-fvd.cmd -ReexportApi         # Refresh a changed nyan API (may rebuild developer tools)
+.\build-fvd.cmd -SkipSmoke           # Just create the archive, without extracted verification
+.\build-fvd.cmd -ObserveSoloSeconds 0 # Audit archive without launching the graphical solo process
+.\build-fvd.cmd -Jobs 8              # Adjust build parallelism
+```
+
+**Manual acceptance remains:** test actual graphical solo gameplay, native relay host/guest replication and clean exits on a Windows installation with no Python. The 30-second smoke check proves the process survives and has no Python DLLs; it is not a substitute for gameplay testing.
+
+## Developer/advanced commands
+
+The `openage-native` client is a C++ entry point that calls `run_game`
+directly, with native filesystem mounts and configuration. The **native
+release runtime** needs Qt and the engine, but does **not** ship Python or
+Cython; developer builds can continue using them.
 
 The current Windows portable release still starts through the embedded
 Python launcher. Do not replace that launcher or remove Python from the
@@ -66,10 +96,9 @@ be supplied at CMake configuration using
 That directory must contain `modpack.toml` and `manifest.toml`. Python
 may be used to **generate** the assets, but is not used to load them.
 
-**Not yet a proven portable release:** the Windows component now deploys
-Qt/platform and native dependency DLLs and audits all staged imports,
-but the **extracted** archive and graphical/network runtime have not been
-verified on a clean Windows installation. The normal `cmake --install`
+The Windows extracted 7Z has passed its automated package/CLI/integrity/DLL
+and bounded solo-process audits (2026-11-06). Full manual gameplay/multiplayer
+and clean-machine acceptance remains open. The normal `cmake --install`
 still installs the legacy developer runtime; select `--component FVDNative`
 for Python-free staging.
 
