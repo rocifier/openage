@@ -139,6 +139,12 @@ It also deliberately corrupts a packaged asset, checks for checksum rejection
 and restores it. `-KeepExtracted` prints the extracted folder for manual
 playtesting; omit it to remove the temporary files.
 
+To additionally launch the extracted native solo game and inspect its **live**
+loaded Windows DLL modules for Python, use `-ObserveSoloSeconds 30` (or
+another duration up to 600 seconds). This requires a working graphical
+desktop. The process is stopped automatically afterward; watch the window
+to determine whether it actually reached gameplay.
+
 **Still manual:** on a machine without Python installed, launch
 `bin/openage-native.exe --solo`, start actual gameplay, test a hosted lobby
 and a guest through `bin/openage-relay.exe`, exercise replication and exit
