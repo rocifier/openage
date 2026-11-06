@@ -56,6 +56,15 @@ endif()
 
 # Only the standalone Windows portable game package deploys Qt binaries here.
 # The legacy all-component installer still has its separate Python deployer.
+if(MSVC)
+	# Keep the portable archive runnable on Windows without VS redistributables.
+	include(InstallRequiredSystemLibraries)
+	if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+		install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+			DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
+	endif()
+endif()
+
 if(WIN32)
 	configure_file(
 		"${CMAKE_CURRENT_LIST_DIR}/DeployWindows.cmake.in"
