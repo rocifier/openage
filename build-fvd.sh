@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# Copyright 2026 the openage authors. See copying.md for legal info.
+# One-command Linux FVD native candidate: build, package and smoke-test.
+# Usage: bash build-fvd.sh [--reexport-api] [--skip-smoke] [--jobs N]
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "This script targets Linux; use build-fvd.cmd for Windows." >&2
+    exit 1
+fi
+
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+jobs="$(nproc 2>/dev/null || echo 4)"
+reexport_api=0
+skip_smoke=0
+
+usage() {
+    cat <<'USAGE'
+FVD Linux native release candidate
+
+  bash build-fvd.sh                  Build, package and verify
+  bash build-fvd.sh --reexport-api   Refresh the developer-exported nyan API
+  bash build-fvd.sh --skip-smoke     Create the archive without extracting it
+  bash build-fvd.sh --jobs 4         Limit parallel compilation
+
+Requires an existing Linux C++/Qt/CMake development setup; CMake, CPack,
+a C++ compiler and nyan development dependencies. Python is only needed
+if the build-time engine API must be exported.
+USAGE
+}
+
+while (($#)); do
+    case "$1" in
+        --reexport-api) reexport_api=1; shift ;;
+        --skip-smoke) skip_smoke=1; shift ;;
+        --jobs)
+            if (($# < 2)) || [[ ! "$2" =~ ^[1-9][0-9]*$ ]]; then
+                echo "--jobs needs a positive integer" >&2
+                exit 2
+            fi
+            jobs="$2"
+            shift 2
+            ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+for tool in cmake cpack c++; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Missing build tool: $tool" >&2
+        exit 1
+    fi
+done
+
+# Reuse the preconfigured developer build if one exists. ./configure uses
+# a bin symlink; Linux CI commonly uses a separate build directory.
+if [[ -f "$root/bin/CMakeCache.txt" ]]; then
+    build="$root/bin"
+elif [[ -f "$root/build/CMakeCache.txt" ]]; then
+    build="$root/build"
+else
+    build="$root/build"
+fi
+api="$root/assets/converted/engine"
+converted="$root/assets/converted"
+dist="$root/dist"
+
+step() { printf '\n==> %s\n' "$*"; }
+
+# For a fresh checkout only, initialize Ninja and download the nyan source.
+# Existing generators and toolchain settings remain untouched.
+initial=()
+if [[ ! -f "$build/CMakeCache.txt" ]]; then
+    if ! command -v ninja >/dev/null 2>&1; then
+        echo "Install Ninja (e.g. apt install ninja-build), or configure CMake first." >&2
+        exit 1
+    fi
+    initial=(-G Ninja -DDOWNLOAD_NYAN=YES -DCMAKE_BUILD_TYPE=Release)
+fi
+
+api_valid() {
+    [[ -f "$api/modpack.toml" && -f "$api/manifest.toml" ]] &&
+        grep -Eq '^[[:space:]]*version[[:space:]]*=[[:space:]]*"0[.]5[.]0"' "$api/modpack.toml"
+}
+
+if ((reexport_api)) || ! api_valid; then
+    step "Build developer tools to export the engine API (build-time Python only)"
+    cmake -S "$root" -B "$build" "${initial[@]}" \
+        -DFVD_NATIVE_RELEASE=OFF -DFVD_WITH_PYTHON_ADAPTERS=ON
+    initial=()
+    cmake --build "$build" --parallel "$jobs"
+
+    if [[ ! -x "$build/run" ]]; then
+        echo "Cannot locate developer launcher at $build/run" >&2
+        exit 1
+    fi
+    mkdir -p "$converted"
+    step "Export compatible engine nyan API"
+    (cd "$build" && ./run convert-export-api "$converted")
+else
+    step "Reuse existing engine API; skipping the developer/Cython rebuild"
+fi
+if ! api_valid; then
+    echo "Missing/incompatible engine API in $api after export (requires version 0.5.0)" >&2
+    exit 1
+fi
+
+step "Configure native-only FVD release"
+cmake -S "$root" -B "$build" "${initial[@]}" \
+    -DFVD_NATIVE_RELEASE=ON \
+    -DFVD_WITH_PYTHON_ADAPTERS=OFF \
+    "-DFVD_NATIVE_API_ASSET_DIR=$api"
+
+step "Incrementally build native game and relay"
+cmake --build "$build" --config Release --parallel "$jobs" \
+    --target openage_native_game openage_native_relay
+
+mkdir -p "$dist"
+step "Create native 7Z archive (no shipped Python/Cython)"
+cpack --config "$build/CPackConfig.cmake" -C Release -G 7Z -B "$dist"
+
+# -printf is available on the GNU find used by the supported Linux build.
+archive="$(find "$dist" -maxdepth 1 -type f -name '*.7z' -printf '%T@ %p\n' |
+    sort -nr | head -n 1 | cut -d' ' -f2-)"
+if [[ -z "$archive" || ! -f "$archive" ]]; then
+    echo "CPack produced no 7Z archive in $dist" >&2
+    exit 1
+fi
+printf '\nPackage: %s\n' "$archive"
+
+if (( ! skip_smoke )); then
+    step "Smoke-test the extracted package"
+    bash "$root/packaging/native_game/SmokeTestLinuxArchive.sh" "$archive" --keep-extracted
+else
+    echo "Smoke test skipped (--skip-smoke)."
+fi
+
+printf '\nLinux FVD native candidate: %s\n' "$archive"
+echo "Final release still requires graphical/multiplayer and clean-distro validation."
