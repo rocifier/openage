@@ -55,6 +55,7 @@ int main() {
 	require(options.window_mode == "borderless" and options.verbosity == 1);
 	require(parse({"openage-native", "--help"}).help);
 	require(parse({"openage-native", "--version"}).version);
+	require(parse({"openage-native", "--verify-assets"}).verify_assets);
 	require(parse({"openage-native", "--single-player"}).solo);
 
 	reject({"openage-native", "--window-mode", "floating"});
