@@ -93,4 +93,29 @@ elseif(EXISTS "${_vcpkg}/tools/fontconfig/fonts")
 	file(COPY "${_vcpkg}/tools/fontconfig/fonts" DESTINATION "${_bin}")
 endif()
 
-message(STATUS "FVDNative Windows runtime staged with Qt and vcpkg DLLs (without Python)")
+# Package creation is a release gate: validate the complete staged archive,
+# then check every EXE/DLL (including recursively deployed Qt plugins).
+execute_process(
+	COMMAND "${CMAKE_COMMAND}"
+		"-DFVD_NATIVE_STAGE=${CMAKE_INSTALL_PREFIX}"
+		"-DFVD_NATIVE_REQUIRE_MANIFEST=ON"
+		-P "@CMAKE_SOURCE_DIR@/packaging/native_game/AuditNativePackage.cmake"
+	RESULT_VARIABLE _audit_rc)
+if(NOT _audit_rc EQUAL 0)
+	message(FATAL_ERROR "Native Windows package audit failed (${_audit_rc})")
+endif()
+find_program(_powershell NAMES powershell.exe)
+if(NOT _powershell)
+	message(FATAL_ERROR "PowerShell is needed to audit all packaged Windows DLL imports")
+endif()
+execute_process(
+	COMMAND "${_powershell}" -NoProfile -ExecutionPolicy Bypass
+		-File "@CMAKE_SOURCE_DIR@/packaging/native_game/AuditWindowsImports.ps1"
+		-Stage "${CMAKE_INSTALL_PREFIX}"
+	RESULT_VARIABLE _imports_rc)
+if(NOT _imports_rc EQUAL 0)
+	message(FATAL_ERROR "Windows import audit failed (${_imports_rc})")
+endif()
+
+message(STATUS "FVDNative Windows runtime staged and audited without Python")
+

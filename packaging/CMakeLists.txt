@@ -79,6 +79,10 @@ target_link_libraries(openage_native_game PRIVATE libopenage Qt6::Core)
 install(TARGETS openage_native_game RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 # Independent staged runtime component excludes Python/Cython artifacts.
 include("${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativePackage.cmake")
+# NativePackage.cmake declares FVD_NATIVE_RELEASE; set this only after
+# the release option has been evaluated.
+target_compile_definitions(openage_native_game PRIVATE
+	FVD_NATIVE_RELEASE=$<BOOL:${FVD_NATIVE_RELEASE}>)
 
 if(BUILD_TESTING)
 	add_executable(openage_native_game_args_test native_game_args_test.cpp native_game_args.cpp)

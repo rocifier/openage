@@ -54,25 +54,6 @@ else()
 		DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT FVDNative)
 endif()
 
-# Only the standalone Windows portable game package deploys Qt binaries here.
-# The legacy all-component installer still has its separate Python deployer.
-if(MSVC)
-	# Keep the portable archive runnable on Windows without VS redistributables.
-	include(InstallRequiredSystemLibraries)
-	if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
-		install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
-			DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
-	endif()
-endif()
-
-if(WIN32)
-	configure_file(
-		"${CMAKE_CURRENT_LIST_DIR}/DeployWindows.cmake.in"
-		"${CMAKE_CURRENT_BINARY_DIR}/DeployWindows.cmake" @ONLY)
-	install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/DeployWindows.cmake"
-		COMPONENT FVDNative)
-endif()
-
 # Conversion is a development/build-time tool, never a player operation.
 if(FVD_NATIVE_API_ASSET_DIR)
 	if(NOT EXISTS "${FVD_NATIVE_API_ASSET_DIR}/modpack.toml"
@@ -99,3 +80,26 @@ if(FVD_NATIVE_API_ASSET_DIR)
 	install(FILES "${_fvd_manifest}"
 		DESTINATION "${ASSET_DIR}" COMPONENT FVDNative)
 endif()
+
+# Deploy dependencies and audit the *completed* native stage, including the
+# engine API and integrity manifest. Run this at the END of component install.
+# Only the standalone Windows portable game package deploys Qt binaries here.
+# The legacy all-component installer still has its separate Python deployer.
+if(MSVC)
+	# Keep the portable archive runnable on Windows without VS redistributables.
+	include(InstallRequiredSystemLibraries)
+	if(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS)
+		install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+			DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
+	endif()
+endif()
+
+if(WIN32)
+	configure_file(
+		"${CMAKE_CURRENT_LIST_DIR}/DeployWindows.cmake.in"
+		"${CMAKE_CURRENT_BINARY_DIR}/DeployWindows.cmake" @ONLY)
+	install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/DeployWindows.cmake"
+		COMPONENT FVDNative)
+endif()
+
+
