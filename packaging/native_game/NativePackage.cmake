@@ -50,7 +50,13 @@ if(WIN32)
 	install(FILES "$<TARGET_FILE:nyan::nyan>"
 		DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
 else()
+	# TARGET_FILE is the versioned real library (e.g. libnyan.so.0.3.0),
+	# whereas the runtime loader requests its SONAME (e.g. libnyan.so.1).
+	# Stage both the file and the SONAME symlink. Installing the real
+	# library alone makes an otherwise correct native archive unlaunchable.
 	install(FILES "$<TARGET_FILE:nyan::nyan>"
+		DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT FVDNative)
+	install(FILES "$<TARGET_SONAME_FILE:nyan::nyan>"
 		DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT FVDNative)
 endif()
 
