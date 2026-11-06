@@ -98,7 +98,7 @@ From an existing configured Windows MSVC/vcpkg development checkout, export the
 engine nyan API **once** using your developer runner (this step may use Python):
 
 ```powershell
-.\deps\msvc-env.ps1
+. .\deps\msvc-env.ps1
 .\.bin\msvc-vcpkg\RelWithDebInfo\run.exe convert-export-api .\assets\converted
 ```
 
