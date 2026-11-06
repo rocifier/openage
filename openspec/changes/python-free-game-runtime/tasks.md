@@ -33,6 +33,13 @@ The native Windows archive has now passed its automated extracted-package audit 
   - [ ] Host/join with two packaged native clients through the packaged native relay; verify gameplay replication and clean shutdown of both clients and relay.
   - Fix only defects uncovered by these tests; don't spend this milestone expanding unrelated legacy tests.
 
+## One-command Windows release workflow
+
+- [x] Provide a zero-argument `build-fvd.cmd` entry point from the repository root that handles asset export when absent, native-only CMake configuration, incremental game/relay build, strict 7Z packaging and extracted-archive smoke checks.
+- [x] Automatically discover local 7-Zip and Visual Studio `dumpbin.exe`; place the archive in `dist/`, keep the extracted candidate for manual playtesting, and support optional API refresh/test skips.
+- [x] Document the one-command path as the default, with manual CMake/CPack arguments reserved for diagnostics.
+- [ ] Validate the complete wrapper on a fresh configured Windows developer checkout. Automated script syntax validation is wired into Windows CI; the actual end-to-end wrapper still requires a developer run.
+
 ## Windows extracted-archive verification — 2026-11-06
 
 **Reported result: automated smoke test passed after manifest/install filter fix.** The developer built and launched the Windows native executable, created the release 7Z and ran `packaging/native_game/SmokeTestWindowsArchive.ps1` against a newly extracted archive with `-KeepExtracted -ObserveSoloSeconds 30`.
