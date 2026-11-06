@@ -42,13 +42,15 @@ file(GLOB_RECURSE _asset_files LIST_DIRECTORIES FALSE
 	RELATIVE "${_root}"
 	"${_root}/fvd/*"
 	"${_root}/shaders/*"
+	"${_root}/qml/*"
 	"${_root}/test/textures/*")
 list(SORT _asset_files)
 foreach(_path IN LISTS _asset_files)
 	# Keep in sync with NativePackage.cmake's asset installation filters.
 	if(_path MATCHES "(^|/)CMakeLists[.]txt$"
 	   OR _path MATCHES "^fvd/(README[.]md|prompts[.]md)$"
-	   OR (_path MATCHES "^shaders/" AND NOT _path MATCHES "[.]glsl$"))
+	   OR (_path MATCHES "^shaders/" AND NOT _path MATCHES "[.]glsl$")
+	   OR (_path MATCHES "^qml/" AND NOT _path MATCHES "[.]qml$"))
 		continue()
 	endif()
 	_append_file("${_path}" "${_root}/${_path}")
