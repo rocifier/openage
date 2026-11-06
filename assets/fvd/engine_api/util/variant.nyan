@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.patch
+
+import engine.root as root
+
+Variant(root.Object):
+    changes : orderedset(engine.util.patch.Patch)
+    priority : int

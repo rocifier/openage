@@ -1,0 +1,25 @@
+# openage modpack definition file
+
+file_version = "2"
+
+[info]
+name = "engine"
+version = "0.5.0"
+versionstr = "0.5.0"
+repo = "openage"
+
+[assets]
+include = [
+    "**",
+]
+exclude = []
+
+[dependency]
+modpacks = []
+
+[conflict]
+modpacks = []
+
+[authors]
+
+[authorgroups]

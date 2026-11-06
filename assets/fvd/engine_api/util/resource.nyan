@@ -1,0 +1,23 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.language.translated.type
+import engine.util.resource
+
+import engine.root as root
+
+Resource(root.Object):
+    name : engine.util.language.translated.type.TranslatedString
+    max_storage : int
+
+ResourceContingent(engine.util.resource.Resource):
+    min_amount : int
+    max_amount : int
+
+ResourceAmount(root.Object):
+    type : engine.util.resource.Resource
+    amount : int
+
+ResourceRate(root.Object):
+    type : engine.util.resource.Resource
+    rate : float

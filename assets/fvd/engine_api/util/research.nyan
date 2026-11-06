@@ -1,0 +1,16 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.cost
+import engine.util.logic
+import engine.util.sound
+import engine.util.tech
+
+import engine.root as root
+
+ResearchableTech(root.Object):
+    tech : engine.util.tech.Tech
+    cost : engine.util.cost.Cost
+    research_time : float
+    research_sounds : set(engine.util.sound.Sound)
+    condition : set(engine.util.logic.LogicElement)

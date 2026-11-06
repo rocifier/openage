@@ -1,0 +1,14 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.patch
+import engine.util.patch.property
+
+import engine.root as root
+
+NyanPatch(root.Object):
+    pass
+
+Patch(root.Object):
+    properties : dict(abstract(engine.util.patch.property.PatchProperty), engine.util.patch.property.PatchProperty) = {}
+    patch : children(engine.util.patch.NyanPatch)

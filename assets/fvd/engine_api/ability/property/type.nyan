@@ -1,0 +1,27 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.ability.property
+import engine.util.animation_override
+import engine.util.diplomatic_stance
+import engine.util.graphics
+import engine.util.lock
+import engine.util.sound
+
+Animated(engine.ability.property.AbilityProperty):
+    animations : set(engine.util.graphics.Animation)
+
+AnimationOverride(engine.ability.property.AbilityProperty):
+    overrides : set(engine.util.animation_override.AnimationOverride)
+
+CommandSound(engine.ability.property.AbilityProperty):
+    sounds : set(engine.util.sound.Sound)
+
+Diplomatic(engine.ability.property.AbilityProperty):
+    stances : set(children(engine.util.diplomatic_stance.DiplomaticStance))
+
+ExecutionSound(engine.ability.property.AbilityProperty):
+    sounds : set(engine.util.sound.Sound)
+
+Lock(engine.ability.property.AbilityProperty):
+    lock_pool : engine.util.lock.LockPool

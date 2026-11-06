@@ -1,0 +1,22 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.game_entity
+import engine.util.placement_mode
+import engine.util.storage
+
+Eject(engine.util.placement_mode.PlacementMode):
+    pass
+
+OwnStorage(engine.util.placement_mode.PlacementMode):
+    container : engine.util.storage.EntityContainer
+
+Place(engine.util.placement_mode.PlacementMode):
+    tile_snap_distance : float
+    clearance_size_x : float
+    clearance_size_y : float
+    allow_rotation : bool
+    max_elevation_difference : int
+
+Replace(engine.util.placement_mode.PlacementMode):
+    game_entities : set(engine.util.game_entity.GameEntity)

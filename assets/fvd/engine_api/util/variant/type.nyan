@@ -1,0 +1,24 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.game_entity
+import engine.util.variant
+
+AdjacentTilesVariant(engine.util.variant.Variant):
+    north : optional(engine.util.game_entity.GameEntity)
+    north_east : optional(engine.util.game_entity.GameEntity)
+    east : optional(engine.util.game_entity.GameEntity)
+    south_east : optional(engine.util.game_entity.GameEntity)
+    south : optional(engine.util.game_entity.GameEntity)
+    south_west : optional(engine.util.game_entity.GameEntity)
+    west : optional(engine.util.game_entity.GameEntity)
+    north_west : optional(engine.util.game_entity.GameEntity)
+
+MiscVariant(engine.util.variant.Variant):
+    pass
+
+RandomVariant(engine.util.variant.Variant):
+    chance_share : float
+
+PerspectiveVariant(engine.util.variant.Variant):
+    angle : int

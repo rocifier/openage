@@ -1,0 +1,17 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.resistance.discrete
+import engine.util.container_type
+import engine.util.logic
+import engine.util.resource_spot
+import engine.util.storage
+
+MakeHarvestable(engine.resistance.discrete.DiscreteResistance):
+    resource_spot : engine.util.resource_spot.ResourceSpot
+    harvest_conditions : set(engine.util.logic.LogicElement)
+
+SendToContainer(engine.resistance.discrete.DiscreteResistance):
+    type : children(engine.util.container_type.SendToContainerType)
+    search_range : float
+    ignore_containers : set(engine.util.storage.EntityContainer)

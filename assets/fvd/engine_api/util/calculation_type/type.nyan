@@ -1,0 +1,17 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.calculation_type
+
+Hyperbolic(engine.util.calculation_type.CalculationType):
+    shift_x : int
+    shift_y : int
+    scale_factor : float
+
+Linear(engine.util.calculation_type.CalculationType):
+    shift_x : int
+    shift_y : int
+    scale_factor : float
+
+NoStack(engine.util.calculation_type.CalculationType):
+    pass

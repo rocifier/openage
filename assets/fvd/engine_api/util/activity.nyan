@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.activity.node.type
+
+import engine.root as root
+
+Activity(root.Object):
+    start : engine.util.activity.node.type.Start

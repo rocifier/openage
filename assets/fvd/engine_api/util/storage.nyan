@@ -1,0 +1,29 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.game_entity
+import engine.util.game_entity_type
+import engine.util.progress
+import engine.util.resource
+import engine.util.state_machine
+import engine.util.storage
+
+import engine.root as root
+
+EntityContainer(root.Object):
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+    storage_element_defs : set(engine.util.storage.StorageElementDefinition)
+    slots : int
+    carry_progress : set(engine.util.progress.Progress)
+
+ResourceContainer(root.Object):
+    resource : engine.util.resource.Resource
+    max_amount : int
+    carry_progress : set(engine.util.progress.Progress)
+
+StorageElementDefinition(root.Object):
+    storage_element : engine.util.game_entity.GameEntity
+    elements_per_slot : int
+    conflicts : set(engine.util.storage.StorageElementDefinition)
+    state_change : optional(engine.util.state_machine.StateChanger) = None

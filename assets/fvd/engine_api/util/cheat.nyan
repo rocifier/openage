@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.patch
+
+import engine.root as root
+
+Cheat(root.Object):
+    activation_message : text
+    changes : orderedset(engine.util.patch.Patch)

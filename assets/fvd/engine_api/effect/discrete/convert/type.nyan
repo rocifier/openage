@@ -1,0 +1,8 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.effect.discrete.convert
+
+AoE2Convert(engine.effect.discrete.convert.Convert):
+    skip_guaranteed_rounds : int
+    skip_protected_rounds : int

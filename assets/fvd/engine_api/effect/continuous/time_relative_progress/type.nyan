@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.effect.continuous.time_relative_progress
+
+TimeRelativeProgressDecrease(engine.effect.continuous.time_relative_progress.TimeRelativeProgressChange):
+    pass
+
+TimeRelativeProgressIncrease(engine.effect.continuous.time_relative_progress.TimeRelativeProgressChange):
+    pass

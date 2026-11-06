@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.ability
+import engine.util.game_entity_type
+
+import engine.root as root
+
+GameEntityStance(root.Object):
+    search_range : float
+    ability_preference : orderedset(engine.ability.Ability)
+    type_preference : orderedset(children(engine.util.game_entity_type.GameEntityType))

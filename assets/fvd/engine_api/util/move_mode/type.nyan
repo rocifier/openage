@@ -1,0 +1,19 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.move_mode
+
+AttackMove(engine.util.move_mode.MoveMode):
+    pass
+
+Follow(engine.util.move_mode.MoveMode):
+    range : float
+
+Guard(engine.util.move_mode.MoveMode):
+    range : float
+
+Normal(engine.util.move_mode.MoveMode):
+    pass
+
+Patrol(engine.util.move_mode.MoveMode):
+    pass

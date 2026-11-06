@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.create
+import engine.util.production_mode
+import engine.util.research
+
+Creatables(engine.util.production_mode.ProductionMode):
+    exclude : set(engine.util.create.CreatableGameEntity)
+
+Researchables(engine.util.production_mode.ProductionMode):
+    exclude : set(engine.util.research.ResearchableTech)

@@ -1,0 +1,20 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.effect.property
+import engine.util.cost
+import engine.util.diplomatic_stance
+import engine.util.dropoff_type
+
+Area(engine.effect.property.EffectProperty):
+    range : float
+    dropoff : engine.util.dropoff_type.DropoffType
+
+Cost(engine.effect.property.EffectProperty):
+    cost : engine.util.cost.Cost
+
+Diplomatic(engine.effect.property.EffectProperty):
+    stances : set(children(engine.util.diplomatic_stance.DiplomaticStance))
+
+Priority(engine.effect.property.EffectProperty):
+    priority : int

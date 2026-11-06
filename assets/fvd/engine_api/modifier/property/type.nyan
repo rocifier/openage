@@ -1,0 +1,14 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.modifier.property
+import engine.util.diplomatic_stance
+
+Multiplier(engine.modifier.property.ModifierProperty):
+    multiplier : float
+
+Scoped(engine.modifier.property.ModifierProperty):
+    stances : set(engine.util.diplomatic_stance.DiplomaticStance)
+
+Stacked(engine.modifier.property.ModifierProperty):
+    stack_limit : int

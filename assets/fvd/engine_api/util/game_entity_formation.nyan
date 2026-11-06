@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.formation
+
+import engine.root as root
+
+GameEntityFormation(root.Object):
+    formation : engine.util.formation.Formation
+    subformation : engine.util.formation.Subformation

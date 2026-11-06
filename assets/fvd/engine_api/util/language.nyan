@@ -1,0 +1,22 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.language
+import engine.util.sound
+
+import engine.root as root
+
+Language(root.Object):
+    ietf_string : text
+
+LanguageMarkupPair(root.Object):
+    language : engine.util.language.Language
+    markup_file : file
+
+LanguageSoundPair(root.Object):
+    language : engine.util.language.Language
+    sound : engine.util.sound.Sound
+
+LanguageTextPair(root.Object):
+    language : engine.util.language.Language
+    string : text

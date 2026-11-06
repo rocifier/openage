@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.resistance.continuous
+import engine.util.attribute
+import engine.util.attribute_change_type
+
+FlatAttributeChange(engine.resistance.continuous.Resistance):
+    type : children(engine.util.attribute_change_type.AttributeChangeType)
+    block_rate : engine.util.attribute.AttributeRate

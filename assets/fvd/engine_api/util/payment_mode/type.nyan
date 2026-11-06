@@ -1,0 +1,16 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.payment_mode
+
+Adaptive(engine.util.payment_mode.PaymentMode):
+    pass
+
+Advance(engine.util.payment_mode.PaymentMode):
+    pass
+
+Arrear(engine.util.payment_mode.PaymentMode):
+    pass
+
+Shadow(engine.util.payment_mode.PaymentMode):
+    pass

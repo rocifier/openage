@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.formation
+
+import engine.root as root
+
+Formation(root.Object):
+    subformations : set(engine.util.formation.Subformation)
+
+Subformation(root.Object):
+    ordering_priority : int

@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.logic
+
+False(engine.util.logic.LogicElement):
+    pass
+
+True(engine.util.logic.LogicElement):
+    pass

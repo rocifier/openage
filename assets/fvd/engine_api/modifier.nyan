@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.modifier.property
+
+import engine.root as root
+
+Modifier(root.Object):
+    properties : dict(abstract(engine.modifier.property.ModifierProperty), engine.modifier.property.ModifierProperty) = {}

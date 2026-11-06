@@ -1,0 +1,8 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.logic
+import engine.util.logic.literal_scope
+
+Literal(engine.util.logic.LogicElement):
+    scope : engine.util.logic.literal_scope.LiteralScope

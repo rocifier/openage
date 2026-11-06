@@ -1,0 +1,20 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.cost
+import engine.util.game_entity
+import engine.util.logic
+import engine.util.placement_mode
+import engine.util.sound
+import engine.util.variant
+
+import engine.root as root
+
+CreatableGameEntity(root.Object):
+    game_entity : engine.util.game_entity.GameEntity
+    variants : set(engine.util.variant.Variant)
+    cost : engine.util.cost.Cost
+    creation_time : float
+    creation_sounds : set(engine.util.sound.Sound)
+    condition : set(engine.util.logic.LogicElement)
+    placement_modes : set(engine.util.placement_mode.PlacementMode)

@@ -1,0 +1,23 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.animation_override
+import engine.util.graphics
+import engine.util.progress.property
+import engine.util.state_machine
+import engine.util.terrain
+
+Animated(engine.util.progress.property.ProgressProperty):
+    overrides : set(engine.util.animation_override.AnimationOverride)
+
+AnimationOverlay(engine.util.progress.property.ProgressProperty):
+    overlays : set(engine.util.graphics.Animation)
+
+StateChange(engine.util.progress.property.ProgressProperty):
+    state_change : engine.util.state_machine.StateChanger
+
+TerrainOverlay(engine.util.progress.property.ProgressProperty):
+    terrain_overlay : engine.util.terrain.Terrain
+
+Terrain(engine.util.progress.property.ProgressProperty):
+    terrain : engine.util.terrain.Terrain

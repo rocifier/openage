@@ -1,0 +1,11 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.effect.continuous
+import engine.util.attribute
+import engine.util.attribute_change_type
+
+TimeRelativeAttributeChange(engine.effect.continuous.ContinuousEffect):
+    type : children(engine.util.attribute_change_type.AttributeChangeType)
+    total_change_time : float
+    ignore_protection : set(engine.util.attribute.ProtectingAttribute)

@@ -1,0 +1,15 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.dropoff_type
+import engine.util.game_entity
+import engine.util.game_entity_type
+
+import engine.root as root
+
+Accuracy(root.Object):
+    accuracy : float
+    accuracy_dispersion : float
+    dispersion_dropoff : engine.util.dropoff_type.DropoffType
+    target_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)

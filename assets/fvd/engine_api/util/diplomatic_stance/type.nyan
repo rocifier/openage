@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.diplomatic_stance
+
+Any(engine.util.diplomatic_stance.DiplomaticStance):
+    pass
+
+Self(engine.util.diplomatic_stance.DiplomaticStance):
+    pass

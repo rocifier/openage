@@ -1,0 +1,7 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.modifier
+
+TimeRelativeAttributeChange(engine.modifier.Modifier):
+    pass

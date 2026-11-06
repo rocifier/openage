@@ -1,0 +1,24 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.ability
+import engine.modifier
+import engine.util.state_machine
+import engine.util.transform_pool
+
+import engine.root as root
+
+StateChanger(root.Object):
+    enable_abilities : set(abstract(engine.ability.Ability))
+    disable_abilities : set(abstract(engine.ability.Ability))
+    enable_modifiers : set(abstract(engine.modifier.Modifier))
+    disable_modifiers : set(abstract(engine.modifier.Modifier))
+    transform_pool : optional(engine.util.transform_pool.TransformPool) = None
+    priority : int
+
+Reset(engine.util.state_machine.StateChanger):
+    StateChanger.enable_abilities = {}
+    StateChanger.disable_abilities = {}
+    StateChanger.enable_modifiers = {}
+    StateChanger.disable_modifiers = {}
+    StateChanger.priority = 0
