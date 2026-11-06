@@ -14,6 +14,7 @@ param([string] $Mode, [string] $Binary)
 if ($Mode -ne "/DEPENDENTS") { throw "Unexpected mock dumpbin mode" }
 Write-Output "Image has the following dependencies:"
 Write-Output ("    " + (Get-Content -LiteralPath $Binary -TotalCount 1))
+$global:LASTEXITCODE = 0
 '@
 
 function Expect-Pass {
