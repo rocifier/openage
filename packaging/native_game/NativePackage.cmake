@@ -50,4 +50,19 @@ if(FVD_NATIVE_API_ASSET_DIR)
 	install(DIRECTORY "${FVD_NATIVE_API_ASSET_DIR}/"
 		DESTINATION "${ASSET_DIR}/converted/engine"
 		COMPONENT FVDNative)
+
+	# Generate integrity hashes on the build machine, never in the player.
+	set(_fvd_manifest "${CMAKE_CURRENT_BINARY_DIR}/fvd-native-manifest.toml")
+	execute_process(
+		COMMAND "${CMAKE_COMMAND}"
+			"-DFVD_MANIFEST_SOURCE_ASSETS=${CMAKE_SOURCE_DIR}/assets"
+			"-DFVD_MANIFEST_API_ASSETS=${FVD_NATIVE_API_ASSET_DIR}"
+			"-DFVD_MANIFEST_OUTPUT=${_fvd_manifest}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/GenerateNativeManifest.cmake"
+		RESULT_VARIABLE _fvd_manifest_exit)
+	if(NOT _fvd_manifest_exit EQUAL 0)
+		message(FATAL_ERROR "FVD native release manifest generation failed")
+	endif()
+	install(FILES "${_fvd_manifest}"
+		DESTINATION "${ASSET_DIR}" COMPONENT FVDNative)
 endif()
