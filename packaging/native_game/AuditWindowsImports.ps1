@@ -35,6 +35,29 @@ if ($pythonFiles.Count -gt 0) {
     throw "Python runtime/developer files found: $($pythonFiles.FullName -join ', ')"
 }
 
+# A Python runtime can be smuggled into a package without any .py files.
+# Reject interpreter directories as well as import-library and module artifacts.
+$pythonDirectories = @(Get-ChildItem -LiteralPath $stageRoot -Directory -Recurse -Force |
+    Where-Object { $_.Name -match '^(?i:__pycache__|site-packages|dist-packages|python[0-9][0-9._-]*)
+    Where-Object { $_.Extension -match '^\.(exe|dll)$' })
+foreach ($binary in $binaries) {
+    $output = & $Dumpbin /DEPENDENTS $binary.FullName 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        throw "dumpbin failed for $($binary.FullName): $output"
+    }
+    $imports = [regex]::Matches($output, '(?im)^\s*([a-z0-9_.-]+\.dll)\s*$')
+    foreach ($import in $imports) {
+        if ($import.Groups[1].Value -match '^(?:lib)?python\d*(?:_d)?\.dll$') {
+            throw "$($binary.FullName) imports Python: $($import.Groups[1].Value)"
+        }
+    }
+}
+Write-Host "FVDNative dependency audit passed: $($binaries.Count) Windows binaries, no Python imports/files."
+ })
+if ($pythonDirectories.Count -gt 0) {
+    throw "Python runtime directories found: $($pythonDirectories.FullName -join ', ')"
+}
+
 $binaries = @(Get-ChildItem -LiteralPath $stageRoot -File -Recurse -Force |
     Where-Object { $_.Extension -match '^\.(exe|dll)$' })
 foreach ($binary in $binaries) {
