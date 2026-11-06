@@ -15,9 +15,15 @@ installed binary is already Python-free.
   minimal logging/error utilities without linking `libopenage`, Qt, nyan,
   Python or Cython. Portable command-line tests cover argument parsing and
   process startup; the standalone CMake project is release-focused.
-- Game: `libopenage/main.cpp` already exposes a C++ `run_game` function,
-  but `main_arguments` carries a `util::Path` root created by the Python
-  startup flow.
+- Game: `packaging/native_game_main.cpp` now creates native `assets/` and
+  `cfg/` mounts using `util::fslike::MountedDirectories` and calls the
+  existing C++ `run_game` directly. The separate `openage-native` executable
+  is installed alongside the existing Python launcher until end-to-end
+  graphical gameplay and ABI checks pass. `--help`, `--version`, invalid
+  options and missing-asset failures have CTest smoke cases.
+- Cvar loading: `CVarManager` accepts a native mode that parses existing
+  `set`/`load` directives and guards recursive includes, avoiding the
+  Python callback. Legacy Python startup keeps its current behavior.
 
 ## Native-library boundary still to resolve
 
@@ -29,9 +35,10 @@ installed binary is already Python-free.
   through Python callbacks. Native `fslike::Directory` already exists.
 - `libopenage/pyinterface/` is built into `libopenage`, rather than
   into a separate optional adapter library.
-- `CMakeLists.txt` globally configures Python/Cython and the generated
-  embedded runner. `packaging/CMakeLists.txt` still packages the Python
-  launcher and dependencies.
+- The full-engine CMake configuration still requires Python/Cython for
+  developer tools. The Windows package still contains the Python launcher
+  and runtime, and the game client still links the full engine/Qt.
+  Only the standalone relay currently has the verified Python/Qt-free build.
 
 ## Migration gates
 

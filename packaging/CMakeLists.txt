@@ -74,12 +74,17 @@ add_executable(openage_native_game native_game_main.cpp native_game_args.cpp)
 set_target_properties(openage_native_game PROPERTIES OUTPUT_NAME "openage-native")
 target_include_directories(openage_native_game PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
 target_link_libraries(openage_native_game PRIVATE libopenage)
+install(TARGETS openage_native_game RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 if(BUILD_TESTING)
 	add_executable(openage_native_game_args_test native_game_args_test.cpp native_game_args.cpp)
 	add_test(NAME fvd_native_game_args COMMAND openage_native_game_args_test)
 	add_test(NAME fvd_native_game_help COMMAND openage_native_game --help)
 	add_test(NAME fvd_native_game_version COMMAND openage_native_game --version)
+	add_test(NAME fvd_native_game_missing_assets COMMAND openage_native_game --asset-dir __fvd_missing_assets__)
+	set_tests_properties(fvd_native_game_missing_assets PROPERTIES WILL_FAIL TRUE)
+	add_test(NAME fvd_native_game_invalid_options COMMAND openage_native_game --network-update-interval-ms 0)
+	set_tests_properties(fvd_native_game_invalid_options PROPERTIES WILL_FAIL TRUE)
 endif()
 
 ########################################################################
