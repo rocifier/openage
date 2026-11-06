@@ -9,7 +9,11 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
+#include <QCryptographicHash>
+#include <QFile>
+#include <QString>
 #include <toml.hpp>
 
 #if defined(_WIN32)
@@ -130,6 +134,65 @@ void seed_default_config(const fs::path &exe, const fs::path &cfg) {
 	}
 }
 
+void validate_release_manifest(const fs::path &assets) {
+	const auto manifest = assets / "fvd-native-manifest.toml";
+	if (not fs::is_regular_file(manifest)) {
+		// A developer checkout may launch without a release manifest. The
+		// native install component creates this file when an exported API
+		// is supplied, and all packaged releases must include it.
+		return;
+	}
+
+	const auto definition = toml::parse(manifest.string());
+	const auto metadata = toml::find<toml::table>(definition, "fvd_native");
+	if (toml::find<int64_t>(metadata, "format") != 1 or
+	    toml::find<std::string>(metadata, "api_version") != "0.5.0") {
+		throw std::runtime_error{"Unsupported FVD release manifest: " + manifest.string()};
+	}
+
+	const auto entries = toml::find<toml::array>(definition, "file");
+	std::unordered_set<std::string> checked{};
+	for (const auto &entry : entries) {
+		const auto &item = entry.as_table();
+		const auto relative_text = toml::find<std::string>(item, "path");
+		const auto expected = toml::find<std::string>(item, "sha256");
+		const fs::path relative{relative_text};
+		if (relative.empty() or relative.is_absolute() or expected.size() != 64
+		    or not checked.insert(relative_text).second) {
+			throw std::runtime_error{"Invalid or duplicate FVD asset manifest entry: " + relative_text};
+		}
+		for (const auto &part : relative) {
+			if (part == ".." or part == ".") {
+				throw std::runtime_error{"Invalid FVD manifest traversal: " + relative_text};
+			}
+		}
+		const auto asset = assets / relative;
+#if defined(_WIN32)
+		QFile file{QString::fromStdWString(asset.wstring())};
+#else
+		QFile file{QString::fromStdString(asset.string())};
+#endif
+		if (not file.open(QIODevice::ReadOnly)) {
+			throw std::runtime_error{"Missing or unreadable FVD release asset: " + asset.string()};
+		}
+		QCryptographicHash hasher{QCryptographicHash::Sha256};
+		if (not hasher.addData(&file) or hasher.result().toHex().toStdString() != expected) {
+			throw std::runtime_error{"FVD release asset checksum mismatch: " + asset.string()};
+		}
+	}
+
+	for (const char *required : {
+	         "fvd/modpack.toml",
+	         "fvd/data/scenario.nyan",
+	         "converted/engine/modpack.toml",
+	         "converted/engine/manifest.toml"}) {
+		if (not checked.contains(required)) {
+			throw std::runtime_error{"Incomplete FVD release manifest (missing " +
+			                         std::string{required} + ")"};
+		}
+	}
+}
+
 void validate_assets(const fs::path &assets) {
 	const auto fvd = assets / "fvd" / "modpack.toml";
 	if (not fs::is_regular_file(fvd)) {
@@ -157,6 +220,7 @@ void validate_assets(const fs::path &assets) {
 			"Incompatible exported nyan API at " + engine.string()
 			+ " (expected engine version 0.5.0)"};
 	}
+	validate_release_manifest(assets);
 }
 
 void print_help() {
