@@ -2,13 +2,60 @@
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
 # Re-export a changed engine API: .\build-fvd.cmd -ReexportApi
-[CmdletBinding()]
-param(
-    [switch] $ReexportApi,
-    [switch] $SkipSmoke,
-    [ValidateRange(0, 600)][int] $ObserveSoloSeconds = 30,
-    [ValidateRange(1, 64)][int] $Jobs = 4
-)
+# Modes: package (default), test, solo, relay. Accept native options directly
+# after solo/relay, e.g. build-fvd.cmd solo --no-audio.
+# Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
+$Mode = "package"
+$ReexportApi = $false
+$SkipSmoke = $false
+$ObserveSoloSeconds = 30
+$Jobs = 4
+$NativeArgs = @()
+$tokens = @($args)
+$i = 0
+if ($tokens.Count -gt 0 -and $tokens[0] -in @("package", "test", "solo", "relay")) {
+    $Mode = $tokens[0]
+    $i = 1
+}
+while ($i -lt $tokens.Count) {
+    $token = [string] $tokens[$i]
+    switch ($token) {
+        "-ReexportApi" { $ReexportApi = $true; break }
+        "-SkipSmoke" { $SkipSmoke = $true; break }
+        "-ObserveSoloSeconds" {
+            if ($i + 1 -ge $tokens.Count) { throw "$token requires a number" }
+            $i++
+            $ObserveSoloSeconds = [int] $tokens[$i]
+            if ($ObserveSoloSeconds -lt 0 -or $ObserveSoloSeconds -gt 600) {
+                throw "-ObserveSoloSeconds must be 0..600"
+            }
+            break
+        }
+        "-Jobs" {
+            if ($i + 1 -ge $tokens.Count) { throw "$token requires a number" }
+            $i++
+            $Jobs = [int] $tokens[$i]
+            if ($Jobs -lt 1 -or $Jobs -gt 64) { throw "-Jobs must be 1..64" }
+            break
+        }
+        "--" {
+            if ($i + 1 -lt $tokens.Count) {
+                $NativeArgs += @($tokens[($i + 1)..($tokens.Count - 1)])
+            }
+            $i = $tokens.Count
+            continue
+        }
+        default {
+            if ($Mode -in @("solo", "relay")) {
+                $NativeArgs += $token
+            }
+            else {
+                throw "Unknown argument '$token'. Commands: package, test, solo, relay."
+            }
+        }
+    }
+    $i++
+}
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSCommandPath
@@ -71,8 +118,63 @@ function Find-Dumpbin {
     throw "Visual Studio dumpbin.exe not found. Install the MSVC C++ build tools."
 }
 
+function Get-LatestArchive {
+    if (-not (Test-Path -LiteralPath $dist -PathType Container)) {
+        throw "No package found. First run: .\build-fvd.cmd"
+    }
+    $archive = Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+    if (-not $archive) { throw "No native 7Z found in $dist. First run: .\build-fvd.cmd" }
+    return $archive
+}
+
+function Get-ExtractedRunStage {
+    $archive = Get-LatestArchive
+    $sevenZip = Find-SevenZip
+    $runDir = Join-Path $dist "run"
+    $stampFile = Join-Path $runDir ".archive-stamp"
+    $expectedStamp = "$($archive.FullName):$($archive.Length):$($archive.LastWriteTimeUtc.Ticks)"
+    $actualStamp = ""
+    if (Test-Path -LiteralPath $stampFile -PathType Leaf) {
+        $actualStamp = Get-Content -LiteralPath $stampFile -Raw
+    }
+    if ($actualStamp.Trim() -ne $expectedStamp) {
+        Write-Host "==> Extracting latest native archive to $runDir" -ForegroundColor Cyan
+        if (Test-Path -LiteralPath $runDir) {
+            Remove-Item -LiteralPath $runDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+        & $sevenZip x "-o$runDir" -y $archive.FullName | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "7-Zip failed to extract the archive" }
+        Set-Content -LiteralPath $stampFile -Value $expectedStamp
+    }
+    $games = @(Get-ChildItem -LiteralPath $runDir -Recurse -File -Filter "openage-native.exe" |
+        Where-Object { $_.Directory.Name -eq "bin" })
+    if ($games.Count -ne 1) { throw "Expected one packaged openage-native.exe; found $($games.Count)" }
+    return $games[0].Directory.FullName
+}
+
 Push-Location $root
 try {
+    if ($Mode -in @("solo", "relay")) {
+        # Run the actual packaged binary, not a developer launcher. No compilation.
+        $bin = Get-ExtractedRunStage
+        $name = if ($Mode -eq "solo") { "openage-native.exe" } else { "openage-relay.exe" }
+        $exe = Join-Path $bin $name
+        $runArgs = @()
+        if ($Mode -eq "solo") { $runArgs += "--solo" }
+        $runArgs += $NativeArgs
+        Write-Host "==> Running packaged $Mode. Use Ctrl+C to stop." -ForegroundColor Cyan
+        Push-Location $bin
+        try {
+            & $exe @runArgs
+            if ($LASTEXITCODE -ne 0) { throw "$Mode exited with code $LASTEXITCODE" }
+        }
+        finally { Pop-Location }
+        return
+    }
+
     # This optional local developer environment is not shipped in the release.
     $envScript = Join-Path $root "deps\msvc-env.ps1"
     if (Test-Path -LiteralPath $envScript -PathType Leaf) {
@@ -83,6 +185,28 @@ try {
     }
     if (-not (Get-Command "cpack.exe" -ErrorAction SilentlyContinue)) {
         throw "CPack not found; it is installed with CMake."
+    }
+
+    if ($Mode -eq "test") {
+        if (-not (Test-Path -LiteralPath (Join-Path $build "CMakeCache.txt") -PathType Leaf)) {
+            throw "No configured Windows build; first run: .\build-fvd.cmd"
+        }
+        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
+            "--target", "openage_native_game_args_test", "openage_native_relay_args_test",
+            "openage_native_relay_network_test", "--parallel", "$Jobs") "Build native test targets"
+        Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
+            "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
+        $archiveAvailable = (Test-Path -LiteralPath $dist -PathType Container) -and
+            (@(Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File).Count -gt 0)
+        if (-not $SkipSmoke -and $archiveAvailable) {
+            $archive = Get-LatestArchive
+            & (Join-Path $root "packaging\native_game\SmokeTestWindowsArchive.ps1") `
+                -Archive $archive.FullName -SevenZip (Find-SevenZip) -Dumpbin (Find-Dumpbin) `
+                -ObserveSoloSeconds $ObserveSoloSeconds
+            if (-not $?) { throw "Extracted archive smoke test failed" }
+        }
+        Write-Host "FVD native tests passed." -ForegroundColor Green
+        return
     }
 
     # Developer-only asset export is needed once per API version, not on
