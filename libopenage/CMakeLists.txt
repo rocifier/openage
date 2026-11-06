@@ -379,6 +379,26 @@ add_subdirectory("time")
 add_subdirectory("util")
 add_subdirectory("versions")
 
+# Do not put the Apple SDK's C headers in front of libc++'s C compatibility
+# wrappers. Some dependency finders return <SDK>/usr/include as an ordinary
+# -I directory; Homebrew Clang 23 then resolves <string.h>/<wchar.h> before
+# libc++'s own wrappers and fails in <cstring>/<cwchar>. The SDK is already
+# searched as a system root by Clang, so the explicit -I is unnecessary.
+if(APPLE)
+	get_target_property(_openage_include_dirs libopenage INCLUDE_DIRECTORIES)
+	if(_openage_include_dirs)
+		set(_openage_filtered_include_dirs "")
+		foreach(_openage_include IN LISTS _openage_include_dirs)
+			if(_openage_include MATCHES "/MacOSX[^/]*[.]sdk/usr/include$")
+				message(STATUS "Not prepending Apple SDK C headers to libc++: ${_openage_include}")
+			else()
+				list(APPEND _openage_filtered_include_dirs "${_openage_include}")
+			endif()
+		endforeach()
+		set_property(TARGET libopenage PROPERTY INCLUDE_DIRECTORIES "${_openage_filtered_include_dirs}")
+	endif()
+endif()
+
 # The player build must not compile developer test objects into libopenage.
 # In particular, texture_data_test.cpp constructs a Python-backed Path.
 # The native codegen SCU excludes the matching test dispatch table.
