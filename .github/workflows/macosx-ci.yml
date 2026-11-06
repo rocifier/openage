@@ -69,6 +69,6 @@ jobs:
           CMAKE_GENERATOR: Ninja
         run: ./configure --compiler=clang --mode=release --ccache --download-nyan
       - name: Build
-        run: make -j$(sysctl -n hw.logicalcpu) VERBOSE=1
+        run: cmake --build build --parallel $(sysctl -n hw.logicalcpu)
       - name: Test
-        run: make test
+        run: ctest --test-dir build --output-on-failure
