@@ -59,7 +59,11 @@ function Test-PackagedDependency([string] $Name, [string] $BinaryDirectory) {
         # API-set names are resolved by the Windows loader, not by DLL files.
         return $true
     }
-    if ($Name -match '^(?i:vcruntime|msvcp|concrt|vccorlib|msvcr)[0-9_]*[.]dll$') {
+    if ($Name -ieq 'msvcp_win.dll') {
+        # msvcp_win is an OS-supplied Windows Universal C Runtime component.
+        return (Test-Path -LiteralPath (Join-Path $systemRoot $Name) -PathType Leaf)
+    }
+    if ($Name -match '^(?i:vcruntime|msvcp|concrt|vccorlib|msvcr)[a-z0-9_]*[.]dll$') {
         # MSVC redistributables must ship with the package, not the builder.
         return $false
     }
