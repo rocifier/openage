@@ -65,9 +65,13 @@ jobs:
           "$(brew --prefix llvm)/bin/clang++" --version
       - name: Configure
         # New CMake module checks in nyan require Ninja, not Unix Makefiles.
+        # Homebrew Clang must see SDK C headers via -isysroot, not an
+        # ordinary -I path that can shadow libc++'s C-compatibility wrappers.
         env:
           CMAKE_GENERATOR: Ninja
-        run: ./configure --compiler=clang --mode=release --ccache --download-nyan
+        run: |
+          export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          ./configure --compiler=clang --mode=release --ccache --download-nyan -- -DCMAKE_OSX_SYSROOT="$SDKROOT"
       - name: Build
         run: cmake --build bin --parallel $(sysctl -n hw.logicalcpu)
       - name: Test
