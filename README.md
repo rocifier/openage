@@ -118,6 +118,29 @@ If you need help, maybe our [troubleshooting guide](/doc/troubleshooting.md) hel
 Quickstart
 ----------
 
+### Fast Villager Defense (FVD) native release candidate
+
+FVD's native game and relay packages **do not ship Python/Cython**. From an
+already configured Windows (MSVC/vcpkg) or Linux development checkout,
+build, package and smoke-test using one command:
+
+```powershell
+.\build-fvd.cmd
+```
+
+```bash
+bash build-fvd.sh
+```
+
+After packaging, use `test`, `solo` or `relay` after the script name to
+test the native game, play or host **without rebuilding**. The first asset
+API export may still require Python/Cython on the *developer's* machine.
+See [building FVD](/doc/building.md#fvd-native-build-quickest-path) for
+prerequisites and the complete commands. Native release candidates still
+require final graphical, multiplayer and clean-machine acceptance testing.
+
+### General openage developer build
+
 * **How do I get this to run on my box?**
     1. [Clone](https://docs.github.com/repositories/creating-and-managing-repositories/cloning-a-repository) the repo.
     2. Install dependencies. See [doc/building.md](/doc/building.md#dependency-installation) to get instructions for your favorite platform.
