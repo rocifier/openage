@@ -1,3 +1,4 @@
+if(FVD_WITH_PYTHON_ADAPTERS)
 add_sources(libopenage
 	exctranslate.cpp
 	exctranslate_tests.cpp
@@ -9,6 +10,8 @@ add_sources(libopenage
 	pyobject_tests.cpp
 	setup.cpp
 )
+
+endif()
 
 pxdgen(
 	exctranslate.h

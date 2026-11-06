@@ -47,8 +47,12 @@ void CVarManager::set(const std::string &name, const std::string &value) const {
 
 void CVarManager::load_config(const util::Path &path) {
 	if (not this->native_config) {
+#if FVD_WITH_PYTHON_ADAPTERS
 		pyx_load_config_file.call(this, path);
 		return;
+#else
+		throw Error(MSG(err) << "Python configuration loading is not available in the native FVD runtime");
+#endif
 	}
 
 	// Use the same set/load syntax as openage/cvar/config_file.py, without
@@ -96,6 +100,8 @@ void CVarManager::load_all() {
 	this->load_config(this->path["audio.oac"]);
 }
 
+#if FVD_WITH_PYTHON_ADAPTERS
 pyinterface::PyIfFunc<void, CVarManager *, const util::Path &> pyx_load_config_file;
+#endif
 
 }} // openage::cvar

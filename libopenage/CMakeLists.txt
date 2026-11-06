@@ -7,6 +7,11 @@
 option(FVD_WITH_PYTHON_ADAPTERS
 	"Include C++ adapters that call back into Python (developer mode)" ON)
 declare_binary(libopenage openage library allow_no_undefined)
+# A native FVD distribution must not build Python/Cython interface objects
+# into the runtime-linked engine.
+target_compile_definitions(libopenage PRIVATE
+	FVD_WITH_PYTHON_ADAPTERS=$<BOOL:${FVD_WITH_PYTHON_ADAPTERS}>
+)
 
 
 #################################################################
