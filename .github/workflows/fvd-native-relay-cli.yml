@@ -1,0 +1,32 @@
+name: FVD native relay CLI
+
+on:
+  push:
+    paths:
+      - "packaging/native_relay_args.*"
+      - "packaging/native_relay_args_test.cpp"
+      - "packaging/native_relay_test/**"
+      - ".github/workflows/fvd-native-relay-cli.yml"
+  pull_request:
+    paths:
+      - "packaging/native_relay_args.*"
+      - "packaging/native_relay_args_test.cpp"
+      - "packaging/native_relay_test/**"
+      - ".github/workflows/fvd-native-relay-cli.yml"
+  workflow_dispatch:
+
+jobs:
+  cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: \u0024{{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure without Python or Cython
+        run: cmake -S packaging/native_relay_test -B build-native-relay-cli
+      - name: Build
+        run: cmake --build build-native-relay-cli --config Release
+      - name: Test
+        run: ctest --test-dir build-native-relay-cli -C Release --output-on-failure
