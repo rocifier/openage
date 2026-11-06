@@ -7,6 +7,8 @@ on:
       - "packaging/native_game_args_test.cpp"
       - "packaging/native_game_test/**"
       - "packaging/native_game/*.ps1"
+      - "build-fvd.ps1"
+      - "build-fvd.cmd"
       - ".github/workflows/fvd-native-game-args.yml"
   pull_request:
     paths:
@@ -14,6 +16,8 @@ on:
       - "packaging/native_game_args_test.cpp"
       - "packaging/native_game_test/**"
       - "packaging/native_game/*.ps1"
+      - "build-fvd.ps1"
+      - "build-fvd.cmd"
       - ".github/workflows/fvd-native-game-args.yml"
   workflow_dispatch:
 
@@ -38,7 +42,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1', 'packaging/native_game/AuditWindowsImportsTest.ps1', 'packaging/native_game/NativeProcess.ps1', 'packaging/native_game/NativeProcessTest.ps1')
+          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1', 'packaging/native_game/AuditWindowsImportsTest.ps1', 'packaging/native_game/NativeProcess.ps1', 'packaging/native_game/NativeProcessTest.ps1', 'build-fvd.ps1')
           foreach ($script in $scripts) {
             $tokens = $null
             $errors = $null
