@@ -87,5 +87,6 @@ perf.data*
 
 # builds (released separately on github)
 _CPack_Packages/
+dist/
 *.7z
 *.7z.sha256

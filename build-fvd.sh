@@ -92,14 +92,18 @@ step() { printf '\n==> %s\n' "$*"; }
 # Subcommands act on the most recent archive and do not reconfigure/build.
 find_archive() {
     [[ -d "$dist" ]] || { echo "No Linux native package found; run: bash build-fvd.sh" >&2; exit 1; }
-    local file
-    file="$(find "$dist" -maxdepth 1 -type f -name '*.7z' -printf '%T@ %p\n' |
-        sort -nr | head -n 1 | cut -d' ' -f2-)"
-    [[ -n "$file" && -f "$file" ]] || {
-        echo "No Linux native 7Z found in $dist; run: bash build-fvd.sh" >&2
-        exit 1
-    }
-    printf '%s\n' "$file"
+    local candidate listing
+    while IFS= read -r candidate; do
+        candidate="${candidate#* }"
+        listing="$(cmake -E tar tf "$candidate" 2>/dev/null)" || continue
+        if grep -Eq '(^|/)bin/openage-native$' <<< "$listing"; then
+            printf '%s\n' "$candidate"
+            return
+        fi
+    done < <(find "$dist" -maxdepth 1 -type f -name '*.7z' -printf '%T@ %p\n' | sort -nr)
+
+    echo "No Linux native 7Z found in $dist; run: bash build-fvd.sh" >&2
+    exit 1
 }
 
 extract_for_play() {
@@ -145,9 +149,7 @@ if [[ "$mode" == "test" ]]; then
         --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
     step "Run native game/relay CTest suite"
     ctest --test-dir "$build" --output-on-failure -R '^fvd_native_(game|relay)_'
-    if (( ! skip_smoke )) && [[ -d "$dist" ]] &&
-        find "$dist" -maxdepth 1 -name '*.7z' -print -quit | grep -q .; then
-        archive="$(find_archive)"
+    if (( ! skip_smoke )) && archive="$(find_archive 2>/dev/null)"; then
         step "Verify latest extracted Linux native archive"
         bash "$root/packaging/native_game/SmokeTestLinuxArchive.sh" "$archive"
     fi

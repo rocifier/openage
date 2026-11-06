@@ -118,14 +118,28 @@ function Find-Dumpbin {
     throw "Visual Studio dumpbin.exe not found. Install the MSVC C++ build tools."
 }
 
-function Get-LatestArchive {
-    if (-not (Test-Path -LiteralPath $dist -PathType Container)) {
-        throw "No package found. First run: .\build-fvd.cmd"
+function Get-CompatibleWindowsArchives {
+    if (-not (Test-Path -LiteralPath $dist -PathType Container)) { return @() }
+
+    $sevenZip = Find-SevenZip
+    $compatible = @()
+    foreach ($archive in @(Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File)) {
+        $listing = & $sevenZip l -ba -slt $archive.FullName 2>$null
+        if ($LASTEXITCODE -eq 0 -and
+            $listing -match '^Path = (?:.*[\\/])?bin[\\/]openage-native[.]exe$') {
+            $compatible += $archive
+        }
     }
-    $archive = Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File |
+    return $compatible
+}
+
+function Get-LatestArchive {
+    $archive = @(Get-CompatibleWindowsArchives) |
         Sort-Object LastWriteTimeUtc -Descending |
         Select-Object -First 1
-    if (-not $archive) { throw "No native 7Z found in $dist. First run: .\build-fvd.cmd" }
+    if (-not $archive) {
+        throw "No Windows native 7Z found in $dist. First run: .\build-fvd.cmd"
+    }
     return $archive
 }
 
@@ -196,8 +210,7 @@ try {
             "openage_native_relay_network_test", "--parallel", "$Jobs") "Build native test targets"
         Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
             "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
-        $archiveAvailable = (Test-Path -LiteralPath $dist -PathType Container) -and
-            (@(Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File).Count -gt 0)
+        $archiveAvailable = @(Get-CompatibleWindowsArchives).Count -gt 0
         if (-not $SkipSmoke -and $archiveAvailable) {
             $archive = Get-LatestArchive
             & (Join-Path $root "packaging\native_game\SmokeTestWindowsArchive.ps1") `
