@@ -1,5 +1,6 @@
 // Copyright 2026-2026 the openage authors. See copying.md for legal info.
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -109,6 +110,40 @@ void fvd_audio_bank() {
 	TESTEQUALS(bank.variants(Cue::HIT), size_t{2});
 	TESTEQUALS(bank.pick(Cue::ORDER, random) == fake_order, true);
 	TESTEQUALS(bank.fill_missing(placeholders), size_t{0});
+
+	// Native executable has no Python generator: every absent effect must
+	// have an actual non-silent, playable PCM fallback.
+	auto generated = make_native_placeholder_effects();
+	TESTEQUALS(generated.variants(Cue::HIT), size_t{2});
+	TESTEQUALS(generated.total(), CUE_COUNT + size_t{1});
+	for (size_t i = 0; i < CUE_COUNT; ++i) {
+		const auto cue = static_cast<Cue>(i);
+		TESTEQUALS(generated.variants(cue) > 0, true);
+		auto clip = generated.pick(cue, random);
+		TESTEQUALS(clip != nullptr, true);
+		TESTEQUALS(clip->frames() > 100, true);
+		const bool audible = std::any_of(
+			clip->samples.begin(), clip->samples.end(), [](int16_t sample) { return sample != 0; });
+		TESTEQUALS(audible, true);
+	}
+	// Real recordings and cached placeholders must not be overridden by
+	// the native fallback, even when a generated cue has extra variants.
+	TESTEQUALS(bank.fill_missing(generated), CUE_COUNT - size_t{2});
+	TESTEQUALS(bank.variants(Cue::HIT), size_t{2});
+	TESTEQUALS(bank.variants(Cue::ORDER), size_t{1});
+	TESTEQUALS(bank.pick(Cue::ORDER, random) == fake_order, true);
+
+	// A clean native install also has playable music when no real track
+	// exists. Validate the generated in-memory WAV through the real decoder.
+	const auto music = make_native_placeholder_music();
+	for (const auto state : {MusicState::LOBBY, MusicState::MATCH}) {
+		const auto &tracks = music.at(static_cast<size_t>(state));
+		TESTEQUALS(tracks.size(), size_t{1});
+		const auto &track = tracks.front();
+		const auto decoded = decode_clip(track.second, track.first);
+		TESTEQUALS(decoded != nullptr, true);
+		TESTEQUALS(decoded->frames() > OUTPUT_RATE, true);
+	}
 }
 
 } // namespace openage::audio::tests
