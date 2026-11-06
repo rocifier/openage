@@ -36,7 +36,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1')
+          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1', 'packaging/native_game/AuditWindowsImportsTest.ps1')
           foreach ($script in $scripts) {
             $tokens = $null
             $errors = $null
@@ -46,3 +46,7 @@ jobs:
               throw "Invalid PowerShell syntax: $script"
             }
           }
+      - name: Test Windows native dependency auditor
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/native_game/AuditWindowsImportsTest.ps1
