@@ -8,7 +8,6 @@
 #include <cstring>
 #include <cstdint>
 #include <initializer_list>
-#include <numeric>
 #include <utility>
 
 #include "../log/log.h"
