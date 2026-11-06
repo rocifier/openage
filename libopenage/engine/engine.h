@@ -85,7 +85,8 @@ public:
 	       const renderer::window_settings &window_settings = {},
 	       bool fvd_lobby_enabled = false,
 	       std::chrono::milliseconds network_update_interval = std::chrono::milliseconds{50},
-	       bool audio_enabled = true);
+	       bool audio_enabled = true,
+	       bool native_config = false);
 
 	// engine should not be copied or moved
 	Engine(const Engine &) = delete;

@@ -4,18 +4,18 @@
   from the game and relay; record the required library boundary changes.
 - [ ] 1.2 Add a CI check that reports Python imports in proposed runtime binaries
   and rejects Python artifacts in the end-user package component.
-- [ ] 2.1 Add native argument structures and parsers for the packaged game and
+- [x] 2.1 Add native argument structures and parsers for the packaged game and
   relay commands, with unit tests for defaults, validation and failures.
-- [ ] 2.2 Add native executable-relative and platform user-configuration path
+- [x] 2.2 Add native executable-relative and platform user-configuration path
   discovery, preserving explicit developer overrides.
-- [ ] 2.3 Construct the engine root from native `FSLike` objects and remove
+- [x] 2.3 Construct the engine root from native `FSLike` objects and remove
   Python-backed path objects from the native startup interface.
 - [ ] 2.4 Move Python object, exception and filesystem adapters behind an optional
   adapter target so shipped runtime binaries do not import the Python ABI.
 - [x] 3.1 Add the native relay executable, signal handling and start/stop smoke
   test while preserving the existing relay option contract.
-- [ ] 3.2 Add the native graphical game executable and call `run_game` directly
-  with the packaged FVD defaults.
+- [x] 3.2 Add the native graphical game executable and call `run_game` directly
+  with the packaged FVD defaults. (Startup and real gameplay still need validation.)
 - [ ] 3.3 Preserve useful native logging, exception reporting and Windows error
   dialogs for failures before and during engine startup.
 - [ ] 4.1 Define a versioned packaged-asset manifest covering the exported nyan

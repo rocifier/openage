@@ -24,7 +24,7 @@ int run_game(const main_arguments &args) {
 	timer.start();
 
 	// read and apply the configuration files
-	auto cvar_manager = std::make_shared<cvar::CVarManager>(args.root_path["cfg"]);
+	auto cvar_manager = std::make_shared<cvar::CVarManager>(args.root_path["cfg"], args.native_runtime);
 	cvar_manager->load_all();
 
 	// set engine run_mode
@@ -55,7 +55,7 @@ int run_game(const main_arguments &args) {
 	win_settings.mode = wmode;
 	win_settings.debug = args.gl_debug;
 
-	openage::engine::Engine engine{run_mode, args.root_path, args.mods, win_settings, not args.solo and not args.headless and std::find(args.mods.begin(), args.mods.end(), "fvd") != args.mods.end(), std::chrono::milliseconds{args.network_update_interval_ms}, not args.no_audio};
+	openage::engine::Engine engine{run_mode, args.root_path, args.mods, win_settings, not args.solo and not args.headless and std::find(args.mods.begin(), args.mods.end(), "fvd") != args.mods.end(), std::chrono::milliseconds{args.network_update_interval_ms}, not args.no_audio, args.native_runtime};
 
 	engine.loop();
 

@@ -41,7 +41,7 @@ using set_func = std::function<void(std::string)>;
  */
 class OAAPI CVarManager {
 public:
-	CVarManager(const util::Path &path);
+	CVarManager(const util::Path &path, bool native_config = false);
 
 	/**
 	 * Creates a configuration entry
@@ -88,6 +88,9 @@ private:
 	 * It is set up in openage/cvar/location.py and openage/game/main.py
 	 */
 	util::Path path;
+
+	/** Do not call the Python configuration loader for native gameplay. */
+	bool native_config;
 };
 
 

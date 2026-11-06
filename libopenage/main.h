@@ -45,6 +45,7 @@ struct window_arguments {
  *     bool headless
  *     bool solo
  *     bool no_audio
+ *     bool native_runtime
  *     int network_update_interval_ms
  *     vector[string] mods
  *     window_arguments window_args
@@ -55,6 +56,7 @@ struct main_arguments {
 	bool headless;
 	bool solo;
 	bool no_audio;
+	bool native_runtime{false};
 	int network_update_interval_ms;
 	std::vector<std::string> mods;
 	window_arguments window_args;

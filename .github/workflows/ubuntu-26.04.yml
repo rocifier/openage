@@ -66,4 +66,11 @@ jobs:
         cmake --build . --parallel $(nproc) -- -k1
 
         ./run test -a
+        ctest -R fvd_native_game_ --output-on-failure
+        # The native gameplay binary may use Qt, but must never load Python.
+        ldd packaging/openage-native | tee native-game-dependencies.txt
+        if grep -Eiq 'libpython|cython' native-game-dependencies.txt; then
+          echo "The native game still imports Python"
+          exit 1
+        fi
         EOF

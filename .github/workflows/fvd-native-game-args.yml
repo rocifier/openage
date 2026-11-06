@@ -1,0 +1,32 @@
+name: FVD native game argument parsing
+
+on:
+  push:
+    paths:
+      - "packaging/native_game_args.*"
+      - "packaging/native_game_args_test.cpp"
+      - "packaging/native_game_test/**"
+      - ".github/workflows/fvd-native-game-args.yml"
+  pull_request:
+    paths:
+      - "packaging/native_game_args.*"
+      - "packaging/native_game_args_test.cpp"
+      - "packaging/native_game_test/**"
+      - ".github/workflows/fvd-native-game-args.yml"
+  workflow_dispatch:
+
+jobs:
+  args:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CLI parser without engine dependencies
+        run: cmake -S packaging/native_game_test -B build/native-game-args -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build/native-game-args --config Release
+      - name: Test
+        run: ctest --test-dir build/native-game-args -C Release --output-on-failure

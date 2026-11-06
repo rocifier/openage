@@ -25,7 +25,8 @@ Engine::Engine(mode mode,
                const renderer::window_settings &window_settings,
                bool fvd_lobby_enabled,
                std::chrono::milliseconds network_update_interval,
-               bool audio_enabled) :
+               bool audio_enabled,
+               bool native_config) :
 	running{false},
 	run_mode{mode},
 	root_dir{root_dir},
@@ -36,7 +37,7 @@ Engine::Engine(mode mode,
 	         << root_dir);
 
 	// read and apply the configuration files
-	this->cvar_manager = std::make_shared<cvar::CVarManager>(this->root_dir["cfg"]);
+	this->cvar_manager = std::make_shared<cvar::CVarManager>(this->root_dir["cfg"], native_config);
 	// Register before loading so the AUDIO_* values in audio.oac apply.
 	auto audio_settings = std::make_shared<audio::Settings>();
 	audio::register_cvars(*this->cvar_manager, audio_settings);
