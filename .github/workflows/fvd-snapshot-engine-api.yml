@@ -29,7 +29,7 @@ jobs:
           root = Path("assets/fvd/engine_api")
           modpack = create_modpack()
           for definition in [modpack.info, *modpack.get_data_files()]:
-              destination = root / definition.targetdir / definition.filename
+              destination = root / definition.targetdir.lstrip("/") / definition.filename
               destination.parent.mkdir(parents=True, exist_ok=True)
               destination.write_bytes(definition.dump().encode("utf-8"))
           modpack.manifest.set_hashing_func("sha3_256")
@@ -40,7 +40,7 @@ jobs:
           (root / "manifest.toml").write_bytes(modpack.manifest.dump().encode("utf-8"))
           (root / "LICENSE.md").write_text(
               "The engine API data is derived from openage's GPL-3.0-or-later "
-              "converter definitions. See ../../../../copying.md for the "
+              "converter definitions. See ../../../copying.md for the "
               "project licence. The nyan data is exported from "
               "openage/convert/service/read/nyan_api_loader.py at the "
               "revision that introduced this snapshot.\n", encoding="utf-8", newline="\n")
