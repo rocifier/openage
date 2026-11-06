@@ -61,6 +61,25 @@ if(MSVC)
 endif()
 
 
+# Native relay CLI bypasses the Python/Cython entry point. Its dynamic
+# dependencies must still pass the runtime ABI audit before distribution.
+add_executable(openage_native_relay
+	native_relay_main.cpp
+	native_relay_args.cpp
+)
+set_target_properties(openage_native_relay PROPERTIES OUTPUT_NAME "openage-relay")
+target_include_directories(openage_native_relay PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
+target_link_libraries(openage_native_relay PRIVATE libopenage Threads::Threads)
+install(TARGETS openage_native_relay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+if(BUILD_TESTING)
+	add_executable(openage_native_relay_args_test
+		native_relay_args_test.cpp
+		native_relay_args.cpp
+	)
+	add_test(NAME fvd_native_relay_args COMMAND openage_native_relay_args_test)
+endif()
+
 ########################################################################
 # Resource files
 
