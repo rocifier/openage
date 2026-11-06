@@ -45,7 +45,7 @@ jobs:
       - name: Install environment helpers with homebrew
         run: brew install --force ccache ninja
       - name: Install openage dependencies with homebrew
-        run: brew install --force cmake python3 libepoxy freetype fontconfig harfbuzz opus opusfile qt6 libogg libpng toml11 eigen
+        run: brew install --force cmake python3 libepoxy freetype fontconfig harfbuzz opus opusfile qt6 libogg libpng toml11 eigen llvm
       - name: Install nyan dependencies with homebrew
         run: brew install --force flex make
       - name: Install python3 packages
@@ -53,6 +53,10 @@ jobs:
         # but "cython is keg-only, which means it was not symlinked into /usr/local"
         # numpy pulls gcc as dep? and pygments doesn't work.
         run: pip3 install --upgrade --break-system-packages cython numpy mako lz4 pillow pygments setuptools toml tomli-w
+      - name: Select Homebrew LLVM for C++ module dependency scanning
+        run: |
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          "$(brew --prefix llvm)/bin/clang++" --version
       - name: Configure
         # New CMake module checks in nyan require Ninja, not Unix Makefiles.
         env:
