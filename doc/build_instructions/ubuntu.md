@@ -1,24 +1,41 @@
-# Prerequisite steps for Ubuntu users (Ubuntu >= 23.04)
+# Ubuntu dependencies
 
-Run the following commands:
-
-```bash
- sudo apt-get update
- sudo apt-get install g++ cmake cython3 libeigen3-dev libepoxy-dev libfontconfig1-dev libfreetype-dev libharfbuzz-dev libogg-dev libopus-dev libopusfile-dev libpng-dev libtoml11-dev python3-dev python3-setuptools python3-mako python3-numpy python3-lz4 python3-pil python3-pip python3-pygments python3-toml qml6-module-qtquick-controls qt6-declarative-dev qt6-multimedia-dev  qml6-module-qtquick3d-spatialaudio
- ```
-
-You will also need [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md) and its dependencies.
-
-# Additional steps for Ubuntu 22.04 LTS & 24.04 LTS
-
-The available system version of Cython is too old in Ubuntu 22.04 & 24.04. You have to get the correct version
-from pip:
+For a native FVD development build on Ubuntu, install the native compiler,
+CMake/Ninja and engine libraries first:
 
 ```bash
-pip3 install cython --break-system-packages
+sudo apt-get update
+sudo apt-get install g++ cmake ninja-build flex libeigen3-dev libepoxy-dev \
+  libfontconfig1-dev libfreetype-dev libharfbuzz-dev libogg-dev libopus-dev \
+  libopusfile-dev libpng-dev libtoml11-dev qt6-declarative-dev \
+  qt6-multimedia-dev qml6-module-qtquick-controls
 ```
 
-Please note that project requires at least **Cython 3.0.10**.
+You also need [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md);
+`bash build-fvd.sh` can ask CMake to download it for an unconfigured checkout.
 
-# Linux Mint Issue
-Linux Mint has a [problem with `toml11`](https://github.com/SFTtech/openage/issues/1601), since CMake can't find it. To solve this, download the [toml11.zip](https://github.com/SFTtech/openage/files/13401192/toml11.zip), after, put the files in the `/usr/lib/x86_64-linux-gnu/cmake/toml11` path. (if the `toml11` directory doesn't exist, create it)
+From the repository root, build, package, and smoke-test native FVD:
+
+```bash
+bash build-fvd.sh
+```
+
+Then use `bash build-fvd.sh test`, `bash build-fvd.sh solo` or
+`bash build-fvd.sh relay` to test, play or host using the native build.
+
+**Python is not required by the packaged player or standalone relay.**
+The first engine API export, general source-tree CMake setup and legacy
+conversion/tests still require Python 3.12+ and Cython 3.1+.
+For those *developer* commands, install an appropriate Python interpreter
+and development headers, then run `uv sync` in the repository root to
+obtain the packages declared in [`pyproject.toml`](../../pyproject.toml).
+Do not install individual NumPy/Pillow/lz4/Pygments/Mako packages merely
+to run the packaged native game.
+
+Note: older Ubuntu versions (including 22.04 and 24.04) may ship an
+outdated Cython or Python; use a supported Python 3.12+ developer
+environment rather than changing system-wide pip packages.
+
+If Linux Mint cannot locate toml11, see the
+[existing toml11 workaround](https://github.com/SFTtech/openage/issues/1601).
+Linux native archives are not yet guaranteed portable across distributions.
