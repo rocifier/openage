@@ -44,6 +44,14 @@ pxdgen(
 	path.h
 )
 
+# Python filesystem adapters belong to the developer/Cython build only.
+if(FVD_WITH_PYTHON_ADAPTERS)
+	add_sources(libopenage
+		path_python.cpp
+		file_python.cpp
+	)
+endif()
+
 add_subdirectory(compress)
 add_subdirectory(filelike)
 add_subdirectory(fslike)

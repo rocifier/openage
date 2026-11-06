@@ -6,9 +6,7 @@
 
 #include "../error/error.h"
 #include "compiler.h"
-#include "fslike/directory.h"
 #include "fslike/native.h"
-#include "fslike/python.h"
 #include "misc.h"
 #include "strings.h"
 
@@ -40,27 +38,6 @@ void path_normalizer(Path::parts_t &output, const Path::parts_t &input) {
 
 
 Path::Path() = default;
-
-
-Path::Path(const py::Obj &fsobj_in,
-           const std::vector<std::string> &parts) {
-	path_normalizer(this->parts, parts);
-
-	// optimization: the fsobj from python may be convertible to
-	//               a native c++ implementation.
-	//               then calls don't need to be relayed any more.
-
-	// test if fsobj is fslike.Directory
-	if (fslike::pyx_fs_is_fslike_directory.call(fsobj_in.get_ref())) {
-		this->fsobj = std::make_shared<fslike::Directory>(
-			fsobj_in.getattr("path").bytes());
-	}
-	else {
-		// we can't create a c++-variant of the path,
-		// so just wrap the python path.
-		this->fsobj = std::make_shared<fslike::Python>(fsobj_in);
-	}
-}
 
 
 Path::Path(std::shared_ptr<fslike::FSLike> fsobj,
