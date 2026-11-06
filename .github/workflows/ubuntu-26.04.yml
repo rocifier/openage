@@ -66,6 +66,5 @@ jobs:
         cmake --build . --parallel $(nproc) -- -k1
 
         ./run test -a
-        ctest -R '^fvd_native_game_(args|help|version)
- --output-on-failure
+        ctest -R fvd_native_game_ --output-on-failure
         EOF
