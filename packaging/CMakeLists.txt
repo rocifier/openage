@@ -76,6 +76,10 @@ set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
 set(CPACK_PACKAGE_CHECKSUM "SHA256")
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(CPACK_SET_DESTDIR ON)
+endif()
+
 ########################################################################
 # General package config
 
