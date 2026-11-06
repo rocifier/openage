@@ -6,6 +6,17 @@
 set(FVD_NATIVE_API_ASSET_DIR "" CACHE PATH
 	"Pre-exported engine API modpack directory; optional during development")
 
+option(FVD_NATIVE_RELEASE
+	"Require Python-free adapters and complete exported API when staging FVD" OFF)
+if(FVD_NATIVE_RELEASE)
+	if(FVD_WITH_PYTHON_ADAPTERS)
+		message(FATAL_ERROR "FVD native releases must use -DFVD_WITH_PYTHON_ADAPTERS=OFF")
+	endif()
+	if(NOT FVD_NATIVE_API_ASSET_DIR)
+		message(FATAL_ERROR "FVD native releases require -DFVD_NATIVE_API_ASSET_DIR=<exported engine>")
+	endif()
+endif()
+
 install(TARGETS openage_native_game openage_native_relay
 	RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
 install(TARGETS libopenage
@@ -50,4 +61,19 @@ if(FVD_NATIVE_API_ASSET_DIR)
 	install(DIRECTORY "${FVD_NATIVE_API_ASSET_DIR}/"
 		DESTINATION "${ASSET_DIR}/converted/engine"
 		COMPONENT FVDNative)
+
+	# Generate integrity hashes on the build machine, never in the player.
+	set(_fvd_manifest "${CMAKE_CURRENT_BINARY_DIR}/fvd-native-manifest.toml")
+	execute_process(
+		COMMAND "${CMAKE_COMMAND}"
+			"-DFVD_MANIFEST_SOURCE_ASSETS=${CMAKE_SOURCE_DIR}/assets"
+			"-DFVD_MANIFEST_API_ASSETS=${FVD_NATIVE_API_ASSET_DIR}"
+			"-DFVD_MANIFEST_OUTPUT=${_fvd_manifest}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/GenerateNativeManifest.cmake"
+		RESULT_VARIABLE _fvd_manifest_exit)
+	if(NOT _fvd_manifest_exit EQUAL 0)
+		message(FATAL_ERROR "FVD native release manifest generation failed")
+	endif()
+	install(FILES "${_fvd_manifest}"
+		DESTINATION "${ASSET_DIR}" COMPONENT FVDNative)
 endif()

@@ -23,6 +23,17 @@ foreach(_required
 	endif()
 endforeach()
 
+if(FVD_NATIVE_REQUIRE_MANIFEST)
+	foreach(_required
+		"share/openage/fvd-native-manifest.toml"
+		"share/openage/converted/engine/modpack.toml"
+		"share/openage/converted/engine/manifest.toml")
+		if(NOT EXISTS "${FVD_NATIVE_STAGE}/${_required}")
+			message(FATAL_ERROR "Strict FVD native release is missing: ${_required}")
+		endif()
+	endforeach()
+endif()
+
 file(GLOB_RECURSE _files RELATIVE "${FVD_NATIVE_STAGE}"
 	LIST_DIRECTORIES FALSE "${FVD_NATIVE_STAGE}/*")
 

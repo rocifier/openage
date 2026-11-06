@@ -15,11 +15,15 @@
 #include <optional>
 
 // pxd: from libopenage.pyinterface.pyobject cimport PyObj
-#include "../pyinterface/pyobject.h"
+// Avoid pulling the Python object implementation into native gameplay headers.
+// The complete type is included only by the developer adapter sources.
 #include "file.h"
 #include "fslike/native.h"
 
 // pxd: from libopenage.util.fslike.fslike cimport FSLike
+
+namespace openage::pyinterface { class PyObjectRef; }
+namespace openage::py { using Obj = pyinterface::PyObjectRef; }
 
 namespace openage::util {
 

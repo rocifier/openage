@@ -65,12 +65,18 @@ jobs:
 
         cmake --build . --parallel $(nproc) -- -k1
 
+        # Process-level FVD tests load the nyan API; export it with the
+        # developer tool once, never via the native game executable.
+        mkdir -p ../assets/converted
+        ./run convert-export-api ../assets/converted
         ./run test -a
         ctest -R fvd_native_game_ --output-on-failure
 
         # Rebuild just the native game with Python filesystem adapters removed.
         # The developer test suite above intentionally runs before this toggle.
-        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF .
+        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF \
+          -DFVD_NATIVE_RELEASE=ON \
+          -DFVD_NATIVE_API_ASSET_DIR="$(pwd)/../assets/converted/engine" .
         cmake --build . --target openage_native_game --parallel $(nproc)
         ctest -R fvd_native_game_ --output-on-failure
         # A source-level import check is insufficient: reject accidental
@@ -87,5 +93,5 @@ jobs:
         # Inspect the exact files selected for the distribution component.
         # CMake's normal full install still contains developer Python tools.
         cmake --install . --prefix "$(pwd)/fvd-native-stage" --component FVDNative
-        cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -P ../packaging/native_game/AuditNativePackage.cmake
+        cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -DFVD_NATIVE_REQUIRE_MANIFEST=ON -P ../packaging/native_game/AuditNativePackage.cmake
         EOF

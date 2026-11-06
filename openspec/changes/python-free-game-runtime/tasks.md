@@ -21,13 +21,19 @@
   with the packaged FVD defaults. (Startup and real gameplay still need validation.)
 - [ ] 3.3 Preserve useful native logging, exception reporting and Windows error
   dialogs for failures before and during engine startup.
-- [ ] 4.1 Define a versioned packaged-asset manifest covering the exported nyan
+- [x] 4.1 Define a versioned packaged-asset manifest covering the exported nyan
   API, FVD modpack and compatibility version.
 - [ ] 4.2 Generate and validate the manifest during release packaging; fail the
   build when required converted data is absent or stale.
-- [ ] 4.3 Validate the manifest in native startup and report a clear error without
-  invoking asset conversion.
+  Progress: strict native release mode now requires an exported compatible
+  engine API, generates SHA-256 records and stages a versioned manifest.
+  End-to-end package verification remains.
+- [x] 4.3 Validate the manifest in native startup and report a clear error without
+  invoking asset conversion. (Developer runs may omit the manifest; strict
+  release packaging must include one.)
 - [ ] 5.1 Split end-user runtime and Python developer/converter install components.
+  Progress: explicit FVDNative staging excludes Python source/bytecode;
+  existing full package remains the developer/legacy path.
 - [ ] 5.2 Switch Windows 7Z/installer, Linux and macOS packages to the native
   executables and remove embedded Python from the runtime component.
 - [ ] 5.3 Test native `--help`, `--version`, bounded headless game startup and relay

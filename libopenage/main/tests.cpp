@@ -2,6 +2,8 @@
 
 #include "tests.h"
 
+#include "error/error.h"
+
 #include "demo/interactive/interactive.h"
 #include "demo/pong/pong.h"
 #include "demo/presenter/presenter.h"
