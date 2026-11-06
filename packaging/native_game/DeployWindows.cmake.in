@@ -112,6 +112,7 @@ execute_process(
 	COMMAND "${_powershell}" -NoProfile -ExecutionPolicy Bypass
 		-File "@CMAKE_SOURCE_DIR@/packaging/native_game/AuditWindowsImports.ps1"
 		-Stage "${CMAKE_INSTALL_PREFIX}"
+		-Dumpbin "${_dumpbin}"
 	RESULT_VARIABLE _imports_rc)
 if(NOT _imports_rc EQUAL 0)
 	message(FATAL_ERROR "Windows import audit failed (${_imports_rc})")

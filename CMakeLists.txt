@@ -204,6 +204,9 @@ if(USED_GIT_VERSION)
 	STRING(REGEX REPLACE "v(([0-9]+.|[0-9]+)+)-([0-9]+)-g([a-f0-9]+)"
 			"\\1.\\3" PROJECT_VERSION "${VERSION_FULL_STRING}")
 endif()
+if(NOT VERSION_FULL_STRING)
+	set(VERSION_FULL_STRING "${PROJECT_VERSION}")
+endif()
 project(openage VERSION "${PROJECT_VERSION}")
 
 # set CI version

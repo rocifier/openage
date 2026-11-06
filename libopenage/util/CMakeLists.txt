@@ -1,7 +1,7 @@
 add_sources(libopenage
 	color.cpp
 	compiler.cpp
-	constinit_vector.cpp
+	constinit_vector_test.cpp
 	enum.cpp
 	enum_test.cpp
 	externalprofiler.cpp
@@ -13,7 +13,7 @@ add_sources(libopenage
 	fps.cpp
 	hash.cpp
 	hash_test.cpp
-	init.cpp
+	init_test.cpp
 	language.cpp
 	matrix.cpp
 	matrix_test.cpp

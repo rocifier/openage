@@ -164,6 +164,14 @@ elseif(NOT nyan_FOUND)
 ")
 endif()
 
+# Native packaging is configured in a sibling directory and stages nyan with
+# $<TARGET_FILE:nyan::nyan>. Promote package-provided imported targets so that
+# target remains visible outside libopenage's directory scope.
+get_target_property(_nyan_is_imported nyan::nyan IMPORTED)
+if(_nyan_is_imported)
+	set_property(TARGET nyan::nyan PROPERTY IMPORTED_GLOBAL TRUE)
+endif()
+
 
 ##################################################
 # optional dependencies

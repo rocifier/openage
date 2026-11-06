@@ -1,6 +1,8 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # Pass -DFVD_NATIVE_STAGE=<install prefix> for a native-only install check.
 
+file(TO_CMAKE_PATH "${FVD_NATIVE_STAGE}" FVD_NATIVE_STAGE)
+
 if(NOT DEFINED FVD_NATIVE_STAGE OR NOT IS_DIRECTORY "${FVD_NATIVE_STAGE}")
 	message(FATAL_ERROR "Specify -DFVD_NATIVE_STAGE=<existing staging directory>")
 endif()
