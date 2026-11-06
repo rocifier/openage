@@ -93,5 +93,5 @@ jobs:
         # Inspect the exact files selected for the distribution component.
         # CMake's normal full install still contains developer Python tools.
         cmake --install . --prefix "$(pwd)/fvd-native-stage" --component FVDNative
-        cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -P ../packaging/native_game/AuditNativePackage.cmake
+        cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -DFVD_NATIVE_REQUIRE_MANIFEST=ON -P ../packaging/native_game/AuditNativePackage.cmake
         EOF
