@@ -6,6 +6,7 @@
 
 #include "../error/error.h"
 #include "compiler.h"
+#include "fslike/fslike.h"
 #include "fslike/native.h"
 #include "misc.h"
 #include "strings.h"
