@@ -53,6 +53,9 @@ constexpr uint32_t MAX_PAYLOAD_SIZE = 1024 * 1024;
 /** Maximum number of participants in an FVD network session. */
 constexpr uint32_t MAX_STATE_PLAYERS = 8;
 
+/** Largest participant name in the relay directory and match handshake. */
+constexpr uint32_t MAX_PARTICIPANT_NAME_SIZE = 128;
+
 /**
  * Messages exchanged by an FVD lobby or match session.
  */

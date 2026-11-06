@@ -20,8 +20,6 @@ namespace openage::network {
 /** Byte length of the gameplay asset manifest digest. */
 constexpr size_t ASSET_DIGEST_SIZE = 32;
 
-/** Largest participant name accepted during the handshake. */
-constexpr uint32_t MAX_PARTICIPANT_NAME_SIZE = 128;
 
 /** Largest game build version accepted during the handshake. */
 constexpr uint32_t MAX_BUILD_VERSION_SIZE = 128;
