@@ -6,12 +6,14 @@ on:
       - "packaging/native_game_args.*"
       - "packaging/native_game_args_test.cpp"
       - "packaging/native_game_test/**"
+      - "packaging/native_game/*.ps1"
       - ".github/workflows/fvd-native-game-args.yml"
   pull_request:
     paths:
       - "packaging/native_game_args.*"
       - "packaging/native_game_args_test.cpp"
       - "packaging/native_game_test/**"
+      - "packaging/native_game/*.ps1"
       - ".github/workflows/fvd-native-game-args.yml"
   workflow_dispatch:
 
@@ -30,3 +32,17 @@ jobs:
         run: cmake --build build/native-game-args --config Release
       - name: Test
         run: ctest --test-dir build/native-game-args -C Release --output-on-failure
+      - name: Validate native archive PowerShell syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1')
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script).Path, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "Invalid PowerShell syntax: $script"
+            }
+          }
