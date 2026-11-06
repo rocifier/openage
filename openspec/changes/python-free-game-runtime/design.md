@@ -88,20 +88,30 @@ Linux and macOS executables report the same failure through the normal log.
 The relay is a console executable on every platform and handles process stop
 signals directly in C++.
 
-## Migration order
+## Delivery order — fastest shippable path
 
-First establish a report that lists Python ABI imports in every prospective
-runtime binary.
-Then add the native filesystem/bootstrap API and native relay executable because
-the relay has the smaller dependency surface.
-Add the native game CLI and asset manifest after the engine library can link
-without Python.
-Finally switch packaging to the native targets and delete the temporary embedded
-Python launcher and embedding scripts from the runtime component.
+Prioritize the **final end-user binary**, not intermediate adapter milestones:
 
-Keep the existing Python entry points working until native smoke tests cover the
-same arguments and error cases.
-Remove compatibility code once packages use the native route.
+1. **Native release link:** exclude Python/Cython-backed code from the shipped
+   engine's link graph. Implement native replacements only for functions
+   actually required by FVD. Preserve Python developer tools outside the
+   runtime. Treat any Python ABI import or Python module load as a blocker.
+2. **Windows portable archive:** ship the native entry point and complete
+   native dependencies (including Qt/QML), bundled exported nyan API and
+   required FVD assets. Require the generated integrity manifest.
+3. **Extracted-archive proof:** verify lobby/solo/multiplayer and inspect
+   all included DLLs plus the live process module list on Windows without
+   Python. Fix only blockers shown by these checks.
+4. **Linux/macOS:** reuse the same native library and package contents,
+   adding platform-specific deployment and import checks.
+5. **Cleanup:** switch the end-user distribution to the validated native
+   route; keep existing Python/Cython codegen, converter and developer tests.
+
+No dedicated intermediate adapter library, inventory-only checkpoint,
+dual-launcher compatibility milestone, or rewrite of conversion tooling is
+required. The already-created optional adapter switches can be used where
+helpful, but are not a deliverable on their own. Release packaging must fail
+closed when pre-exported assets or dependencies are incomplete.
 
 ## Verification
 
