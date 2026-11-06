@@ -12,6 +12,9 @@
   Python-backed path objects from the native startup interface.
 - [ ] 2.4 Move Python object, exception and filesystem adapters behind an optional
   adapter target so shipped runtime binaries do not import the Python ABI.
+  Progress: Path/File and Python filesystem implementations are optional
+  sources (`FVD_WITH_PYTHON_ADAPTERS=OFF`); pyinterface object/exception
+  scaffolding and its final library boundary are still outstanding.
 - [x] 3.1 Add the native relay executable, signal handling and start/stop smoke
   test while preserving the existing relay option contract.
 - [x] 3.2 Add the native graphical game executable and call `run_game` directly
