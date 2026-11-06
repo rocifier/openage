@@ -10,7 +10,6 @@
 #include <thread>
 
 #include "network/relay_service.h"
-#include "version.h"
 
 namespace {
 
@@ -78,7 +77,7 @@ int main(int argc, const char *argv[]) {
 			return 0;
 		}
 		if (options.version) {
-			std::cout << "openage-relay " << openage::version::version << '\n';
+			std::cout << "openage-relay " << OPENAGE_NATIVE_RELAY_VERSION << '\n';
 			return 0;
 		}
 		return run(options);

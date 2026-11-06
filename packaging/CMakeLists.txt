@@ -70,6 +70,9 @@ add_executable(openage_native_relay
 set_target_properties(openage_native_relay PROPERTIES OUTPUT_NAME "openage-relay")
 target_include_directories(openage_native_relay PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
 target_link_libraries(openage_native_relay PRIVATE libopenage Threads::Threads)
+target_compile_definitions(openage_native_relay PRIVATE
+	OPENAGE_NATIVE_RELAY_VERSION=\"${VERSION_FULL_STRING}\"
+)
 install(TARGETS openage_native_relay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 if(BUILD_TESTING)
@@ -78,6 +81,8 @@ if(BUILD_TESTING)
 		native_relay_args.cpp
 	)
 	add_test(NAME fvd_native_relay_args COMMAND openage_native_relay_args_test)
+	add_test(NAME fvd_native_relay_help COMMAND openage_native_relay --help)
+	add_test(NAME fvd_native_relay_version COMMAND openage_native_relay --version)
 endif()
 
 ########################################################################
