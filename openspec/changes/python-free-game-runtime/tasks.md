@@ -49,6 +49,14 @@ The native Windows archive has now passed its automated extracted-package audit 
 - [ ] Confirm the new convenience commands end-to-end on a real Windows and Linux developer checkout (CI syntax/argument tests alone do not prove full package portability).
 - [ ] For public Linux distribution, validate runtime portability and Python-free execution on the target clean distro(s).
 
+## Developer documentation cleanup
+
+- [x] Make `doc/building.md` a direct entry point for native Windows/Linux FVD package, test, solo and relay commands.
+- [x] Distinguish native player/relay runtime dependencies from the Python 3.12+/Cython 3.1+ requirements of asset export and legacy developer tools.
+- [x] Remove stale platform-specific manual pip package lists; use the maintained `pyproject.toml` and `uv sync` for developer dependencies.
+- [x] Update Windows, Linux distribution and macOS instructions; surface the FVD native workflow in the README and shorten the detailed FVD packaging guide.
+- [ ] Final packaging transition and public release documentation remain blocked on manual graphical, multiplayer and clean-machine acceptance.
+
 ## Windows extracted-archive verification — 2026-11-06
 
 **Reported result: automated smoke test passed after manifest/install filter fix.** The developer built and launched the Windows native executable, created the release 7Z and ran `packaging/native_game/SmokeTestWindowsArchive.ps1` against a newly extracted archive with `-KeepExtracted -ObserveSoloSeconds 30`.
