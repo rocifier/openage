@@ -67,6 +67,23 @@ jobs:
 
         ./run test -a
         ctest -R fvd_native_game_ --output-on-failure
+
+        # Rebuild just the native game with Python filesystem adapters removed.
+        # The developer test suite above intentionally runs before this toggle.
+        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF .
+        cmake --build . --target openage_native_game --parallel $(nproc)
+        ctest -R fvd_native_game_ --output-on-failure
+        # A source-level import check is insufficient: reject accidental
+        # Python-backed filesystem types in the shipped engine library.
+        if nm -DC --defined-only libopenage/libopenage.so | grep -E 'openage::util::(fslike|filelike)::Python::|openage::util::(Path|File)::(Path|File)\(openage::pyinterface::PyObjectRef'; then
+          echo "Native engine retained a developer-only Python filesystem adapter"
+          exit 1
+        fi
+        ldd packaging/openage-native | tee native-game-no-python-dependencies.txt
+        if grep -Eiq 'libpython|cython' native-game-no-python-dependencies.txt; then
+          echo "Python ABI dependency in the native game"
+          exit 1
+        fi
         # The native gameplay binary may use Qt, but must never load Python.
         ldd packaging/openage-native | tee native-game-dependencies.txt
         if grep -Eiq 'libpython|cython' native-game-dependencies.txt; then
