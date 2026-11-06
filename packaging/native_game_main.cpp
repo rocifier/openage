@@ -157,8 +157,8 @@ void validate_release_manifest(const fs::path &assets) {
 	std::unordered_set<std::string> checked{};
 	for (const auto &entry : entries) {
 		const auto &item = entry.as_table();
-		const auto relative_text = item.at("path").as_string();
-		const auto expected = item.at("sha256").as_string();
+		const auto relative_text = toml::get<std::string>(item.at("path"));
+		const auto expected = toml::get<std::string>(item.at("sha256"));
 		const fs::path relative{relative_text};
 		if (relative.empty() or relative.is_absolute() or expected.size() != 64
 		    or not checked.insert(relative_text).second) {

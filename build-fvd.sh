@@ -11,6 +11,7 @@ fi
 
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 jobs="$(nproc 2>/dev/null || echo 4)"
+nyan_version="${NYAN_CLONE_VERSION:-v0.3.1}"
 reexport_api=0
 skip_smoke=0
 mode=package
@@ -34,8 +35,8 @@ FVD Linux native release candidate
   bash build-fvd.sh --jobs 4         Limit parallel compilation
 
 Requires an existing Linux C++/Qt/CMake development setup; CMake, CPack,
-a C++ compiler and nyan development dependencies. Python is only needed
-if the build-time engine API must be exported.
+a C++ compiler and nyan development dependencies. Python, Cython and the
+declared Python modules are build-time tools and are not shipped.
 USAGE
 }
 
@@ -174,7 +175,8 @@ api_valid() {
 if ((reexport_api)) || ! api_valid; then
     step "Build developer tools to export the engine API (build-time Python only)"
     cmake -S "$root" -B "$build" "${initial[@]}" \
-        -DFVD_NATIVE_RELEASE=OFF -DFVD_WITH_PYTHON_ADAPTERS=ON
+        -DFVD_NATIVE_RELEASE=OFF -DFVD_WITH_PYTHON_ADAPTERS=ON \
+        "-DNYAN_CLONE_VERSION=$nyan_version"
     initial=()
     cmake --build "$build" --parallel "$jobs"
 
@@ -197,6 +199,7 @@ step "Configure native-only FVD release"
 cmake -S "$root" -B "$build" "${initial[@]}" \
     -DFVD_NATIVE_RELEASE=ON \
     -DFVD_WITH_PYTHON_ADAPTERS=OFF \
+    "-DNYAN_CLONE_VERSION=$nyan_version" \
     "-DFVD_NATIVE_API_ASSET_DIR=$api"
 
 step "Incrementally build native game and relay"
