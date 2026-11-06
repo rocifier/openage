@@ -137,10 +137,13 @@ void seed_default_config(const fs::path &exe, const fs::path &cfg) {
 void validate_release_manifest(const fs::path &assets) {
 	const auto manifest = assets / "fvd-native-manifest.toml";
 	if (not fs::is_regular_file(manifest)) {
-		// A developer checkout may launch without a release manifest. The
-		// native install component creates this file when an exported API
-		// is supplied, and all packaged releases must include it.
+#if FVD_NATIVE_RELEASE
+		throw std::runtime_error{
+			"Packaged FVD release integrity manifest missing: " + manifest.string()};
+#else
+		// Non-release developer checkouts can use loose converted assets.
 		return;
+#endif
 	}
 
 	const auto definition = toml::parse(manifest.string());
