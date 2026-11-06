@@ -31,6 +31,9 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/fvd/"
 	PATTERN "CMakeLists.txt" EXCLUDE
 	PATTERN "README.md" EXCLUDE
 	PATTERN "prompts.md" EXCLUDE)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/qml/"
+	DESTINATION "${ASSET_DIR}/qml"
+	COMPONENT FVDNative FILES_MATCHING PATTERN "*.qml")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/shaders/"
 	DESTINATION "${ASSET_DIR}/shaders"
 	COMPONENT FVDNative FILES_MATCHING PATTERN "*.glsl")
@@ -49,6 +52,16 @@ if(WIN32)
 else()
 	install(FILES "$<TARGET_FILE:nyan::nyan>"
 		DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT FVDNative)
+endif()
+
+# Only the standalone Windows portable game package deploys Qt binaries here.
+# The legacy all-component installer still has its separate Python deployer.
+if(WIN32)
+	configure_file(
+		"${CMAKE_CURRENT_LIST_DIR}/DeployWindows.cmake.in"
+		"${CMAKE_CURRENT_BINARY_DIR}/DeployWindows.cmake" @ONLY)
+	install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/DeployWindows.cmake"
+		COMPONENT FVDNative)
 endif()
 
 # Conversion is a development/build-time tool, never a player operation.
