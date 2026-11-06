@@ -118,5 +118,20 @@ if(NOT _imports_rc EQUAL 0)
 	message(FATAL_ERROR "Windows import audit failed (${_imports_rc})")
 endif()
 
-message(STATUS "FVDNative Windows runtime staged and audited without Python")
+# Ensure the real staged executable accepts every manifest entry before
+# CPack emits a release archive. This catches missing/misfiltered assets
+# (including nested documentation excluded by install rules) on the builder.
+execute_process(
+	COMMAND "${_game}" --verify-assets
+	WORKING_DIRECTORY "${_bin}"
+	OUTPUT_VARIABLE _verify_output
+	ERROR_VARIABLE _verify_error
+	RESULT_VARIABLE _verify_rc)
+if(NOT _verify_rc EQUAL 0)
+	message(FATAL_ERROR
+		"FVDNative staged asset verification failed (${_verify_rc}): "
+		"${_verify_output}\n${_verify_error}")
+endif()
+message(STATUS "${_verify_output}")
+message(STATUS "FVDNative Windows runtime staged, integrity-verified and audited without Python")
 
