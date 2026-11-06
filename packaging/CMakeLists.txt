@@ -81,6 +81,11 @@ install(TARGETS openage_native_game RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}
 include("${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativePackage.cmake")
 # NativePackage.cmake declares FVD_NATIVE_RELEASE; set this only after
 # the release option has been evaluated.
+# Generated from the single CMake compatibility source.
+include("${CMAKE_CURRENT_SOURCE_DIR}/native_game/EngineApiVersion.cmake")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/native_game/EngineApiVersion.h.in"
+	"${CMAKE_CURRENT_BINARY_DIR}/fvd_engine_api_version.h" @ONLY)
+target_include_directories(openage_native_game PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(openage_native_game PRIVATE
 	FVD_NATIVE_RELEASE=$<BOOL:${FVD_NATIVE_RELEASE}>)
 

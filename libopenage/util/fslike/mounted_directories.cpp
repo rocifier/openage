@@ -2,6 +2,8 @@
 
 #include "mounted_directories.h"
 
+#include <algorithm>
+#include <filesystem>
 #include <ostream>
 #include <utility>
 
@@ -16,7 +18,9 @@ MountedDirectories::MountedDirectories(const std::string &asset_directory,
 		{"assets", {std::make_shared<Directory>(asset_directory), false}},
 		{"cfg", {std::make_shared<Directory>(config_directory), true}},
 		{"fvd_placeholder_sounds", {std::make_shared<Directory>(config_directory + "/fvd_placeholder_sounds"), false}},
-	} {}
+	},
+	source_engine_api{std::filesystem::is_regular_file(
+		std::filesystem::path{asset_directory} / "fvd" / "engine_api" / "modpack.toml")} {}
 
 const MountedDirectories::Mount &MountedDirectories::get_mount(const Path::parts_t &parts) const {
 	if (parts.empty()) {
@@ -30,6 +34,14 @@ const MountedDirectories::Mount &MountedDirectories::get_mount(const Path::parts
 }
 
 Path::parts_t MountedDirectories::relative_parts(const Path::parts_t &parts) const {
+	// The developer checkout stores API data under fvd/engine_api. The
+	// runtime nyan code still requests assets/converted/engine.
+	if (this->source_engine_api and parts.size() >= 3
+	    and parts[0] == "assets" and parts[1] == "converted" and parts[2] == "engine") {
+		Path::parts_t result{"fvd", "engine_api"};
+		result.insert(result.end(), parts.begin() + 3, parts.end());
+		return result;
+	}
 	return {parts.begin() + 1, parts.end()};
 }
 
@@ -53,6 +65,10 @@ bool MountedDirectories::is_dir(const Path::parts_t &parts) {
 	if (not this->mounts.contains(parts.front())) {
 		return false;
 	}
+	if (this->source_engine_api and parts.size() == 2
+	    and parts[0] == "assets" and parts[1] == "converted") {
+		return true;
+	}
 	return this->get_mount(parts).directory->is_dir(this->relative_parts(parts));
 }
 
@@ -68,7 +84,16 @@ Path::parts_t MountedDirectories::list(const Path::parts_t &parts) {
 	if (parts.empty()) {
 		return {"assets", "cfg", "fvd_placeholder_sounds"};
 	}
-	return this->get_mount(parts).directory->list(this->relative_parts(parts));
+	if (this->source_engine_api and parts.size() == 2
+	    and parts[0] == "assets" and parts[1] == "converted") {
+		return {"engine"};
+	}
+	auto names = this->get_mount(parts).directory->list(this->relative_parts(parts));
+	if (this->source_engine_api and parts.size() == 1 and parts[0] == "assets"
+	    and std::find(names.begin(), names.end(), "converted") == names.end()) {
+		names.push_back("converted");
+	}
+	return names;
 }
 
 bool MountedDirectories::mkdirs(const Path::parts_t &parts) {

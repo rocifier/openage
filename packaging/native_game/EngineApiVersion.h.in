@@ -1,0 +1,11 @@
+// Copyright 2026 the openage authors. See copying.md for legal info.
+// Configured from EngineApiVersion.cmake; do not duplicate compatibility constants.
+#pragma once
+
+#include <cstddef>
+#include <string_view>
+
+namespace openage::native_game {
+inline constexpr std::string_view engine_api_version = "@FVD_ENGINE_API_VERSION@";
+inline constexpr std::size_t engine_api_nyan_files = @FVD_ENGINE_API_NYAN_FILES@;
+} // namespace openage::native_game

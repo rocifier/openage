@@ -26,6 +26,8 @@ foreach(_required
 endforeach()
 
 if(FVD_NATIVE_REQUIRE_MANIFEST)
+	include("${CMAKE_CURRENT_LIST_DIR}/CheckEngineApi.cmake")
+	fvd_validate_engine_api("${FVD_NATIVE_STAGE}/share/openage/converted/engine")
 	foreach(_required
 		"share/openage/fvd-native-manifest.toml"
 		"share/openage/converted/engine/modpack.toml"
