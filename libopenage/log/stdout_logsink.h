@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "../util/compiler.h"
 #include "logsink.h"
 
 namespace openage {
@@ -25,7 +26,7 @@ private:
  * Returns a reference to the global stdout logsink object;
  * Initializes the object if needed.
  */
-StdOutSink &global_stdoutsink();
+OAAPI StdOutSink &global_stdoutsink();
 
 
 } // namespace log

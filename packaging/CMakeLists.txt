@@ -70,10 +70,11 @@ install(TARGETS openage_native_relay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR
 
 # Native game startup is opt-in until the Python adapter boundary and
 # packaged-asset manifest have passed runtime verification.
+find_package(toml11 REQUIRED)
 add_executable(openage_native_game native_game_main.cpp native_game_args.cpp)
 set_target_properties(openage_native_game PROPERTIES OUTPUT_NAME "openage-native")
 target_include_directories(openage_native_game PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
-target_link_libraries(openage_native_game PRIVATE libopenage)
+target_link_libraries(openage_native_game PRIVATE libopenage toml11::toml11)
 install(TARGETS openage_native_game RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 if(BUILD_TESTING)

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 
+#include "../compiler.h"
 #include "fslike.h"
 
 namespace openage::util::fslike {
@@ -18,7 +19,7 @@ class Directory;
  * Keeping the mount table in C++ avoids importing Python's Union FSLike
  * during gameplay. Only cfg/ is writable.
  */
-class MountedDirectories final : public FSLike {
+class OAAPI MountedDirectories final : public FSLike {
 public:
 	MountedDirectories(const std::string &asset_directory,
 	                   const std::string &config_directory);

@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include "util/compiler.h"
+
 namespace openage::version {
 
-extern const char *const version;
+extern OAAPI const char *const version;
 
 } // openage::version

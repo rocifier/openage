@@ -18,7 +18,7 @@ struct message;
  *
  * Invokes general_source()->log(msg).
  */
-void log(const message &msg);
+OAAPI void log(const message &msg);
 
 
 /**
