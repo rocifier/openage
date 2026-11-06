@@ -9,6 +9,7 @@
 #include <iostream>
 #include <thread>
 
+#include "log/stdout_logsink.h"
 #include "network/relay_service.h"
 
 namespace {
@@ -80,6 +81,9 @@ int main(int argc, const char *argv[]) {
 			std::cout << "openage-relay " << OPENAGE_NATIVE_RELAY_VERSION << '\n';
 			return 0;
 		}
+		// The engine normally registers this sink during Python startup.
+		// A standalone relay must enable its own console logging.
+		(void) openage::log::global_stdoutsink();
 		return run(options);
 	}
 	catch (const std::exception &error) {
