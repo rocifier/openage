@@ -6,6 +6,17 @@
 set(FVD_NATIVE_API_ASSET_DIR "" CACHE PATH
 	"Pre-exported engine API modpack directory; optional during development")
 
+option(FVD_NATIVE_RELEASE
+	"Require Python-free adapters and complete exported API when staging FVD" OFF)
+if(FVD_NATIVE_RELEASE)
+	if(FVD_WITH_PYTHON_ADAPTERS)
+		message(FATAL_ERROR "FVD native releases must use -DFVD_WITH_PYTHON_ADAPTERS=OFF")
+	endif()
+	if(NOT FVD_NATIVE_API_ASSET_DIR)
+		message(FATAL_ERROR "FVD native releases require -DFVD_NATIVE_API_ASSET_DIR=<exported engine>")
+	endif()
+endif()
+
 install(TARGETS openage_native_game openage_native_relay
 	RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
 install(TARGETS libopenage
