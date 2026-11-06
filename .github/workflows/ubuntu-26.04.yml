@@ -31,7 +31,7 @@ jobs:
     - name: Build openage
       run: |
         # the image may come from cache, so refresh its packages before building
-        sudo docker run --rm -v "$(pwd)":/mnt/openage -w /mnt/openage openage-devenv:latest bash <<'EOF'
+        sudo docker run --rm -i -v "$(pwd)":/mnt/openage -w /mnt/openage openage-devenv:latest bash <<'EOF'
         set -e
 
         apt-get update
