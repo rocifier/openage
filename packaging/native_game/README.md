@@ -69,6 +69,29 @@ and the complete graphical/network smoke test is pending. The normal
 `cmake --install` still installs the legacy developer runtime; select
 `--component FVDNative` for Python-free staging.
 
+## Strict native release staging
+
+Use `-DFVD_NATIVE_RELEASE=ON -DFVD_WITH_PYTHON_ADAPTERS=OFF` when
+configuring a release, and pass
+`-DFVD_NATIVE_API_ASSET_DIR=<exported engine modpack directory>`.
+The developer can export the API first with
+`<build>/run convert-export-api assets/converted`. Release
+configuration generates `fvd-native-manifest.toml` with SHA-256 hashes
+for FVD media and the pre-exported nyan API. Native startup verifies
+the manifest; the player never runs the converter.
+
+For a staged release, run the CMake audit with
+`-DFVD_NATIVE_REQUIRE_MANIFEST=ON`. On Windows, source
+`deps/msvc-env.ps1` and also run:
+
+```powershell
+.\packaging\native_game\AuditWindowsImports.ps1 -Stage .\build\fvd-native-stage
+```
+
+The audit checks every staged EXE/DLL for Python imports, including Qt
+plugins when present. Full Qt DLL deployment and graphical verification
+are still outstanding.
+
 ## Before replacing the Windows launcher
 
 - Separate Python filesystem, exception and Cython adapters from the
