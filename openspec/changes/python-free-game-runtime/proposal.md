@@ -51,4 +51,8 @@ in C++ remains out of scope.
 
 ## Status
 
-Proposed (2026-10-31).
+In progress (2026-11-06). Windows native release 7Z passes the extracted-archive
+CLI, 112-binary Python/DLL dependency audit, SHA-256 integrity/tamper checks
+and 30-second Python-free live solo process smoke test. Manual full gameplay,
+host/guest replication, clean exit and clean Windows machine verification
+remain required before declaring the change complete. See `tasks.md`.
