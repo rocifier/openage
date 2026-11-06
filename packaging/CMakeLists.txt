@@ -68,6 +68,20 @@ add_fvd_native_relay()
 install(TARGETS openage_native_relay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 
+# Native game startup is opt-in until the Python adapter boundary and
+# packaged-asset manifest have passed runtime verification.
+add_executable(openage_native_game native_game_main.cpp native_game_args.cpp)
+set_target_properties(openage_native_game PROPERTIES OUTPUT_NAME "openage-native")
+target_include_directories(openage_native_game PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
+target_link_libraries(openage_native_game PRIVATE libopenage)
+
+if(BUILD_TESTING)
+	add_executable(openage_native_game_args_test native_game_args_test.cpp native_game_args.cpp)
+	add_test(NAME fvd_native_game_args COMMAND openage_native_game_args_test)
+	add_test(NAME fvd_native_game_help COMMAND openage_native_game --help)
+	add_test(NAME fvd_native_game_version COMMAND openage_native_game --version)
+endif()
+
 ########################################################################
 # Resource files
 

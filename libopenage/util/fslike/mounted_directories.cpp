@@ -15,6 +15,7 @@ MountedDirectories::MountedDirectories(const std::string &asset_directory,
 	mounts{
 		{"assets", {std::make_shared<Directory>(asset_directory), false}},
 		{"cfg", {std::make_shared<Directory>(config_directory), true}},
+		{"fvd_placeholder_sounds", {std::make_shared<Directory>(config_directory + "/fvd_placeholder_sounds"), false}},
 	} {}
 
 const MountedDirectories::Mount &MountedDirectories::get_mount(const Path::parts_t &parts) const {
@@ -65,7 +66,7 @@ bool MountedDirectories::writable(const Path::parts_t &parts) {
 
 Path::parts_t MountedDirectories::list(const Path::parts_t &parts) {
 	if (parts.empty()) {
-		return {"assets", "cfg"};
+		return {"assets", "cfg", "fvd_placeholder_sounds"};
 	}
 	return this->get_mount(parts).directory->list(this->relative_parts(parts));
 }
