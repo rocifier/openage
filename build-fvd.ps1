@@ -1,12 +1,11 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
-# Re-export a changed engine API: .\build-fvd.cmd -ReexportApi
+# Engine API is checked in under assets/fvd/engine_api; no export step.
 # Modes: package (default), build, test, legacy-test, solo, relay. Accept runtime or
 # legacy test options directly after their mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "package"
-$ReexportApi = $false
 $SkipSmoke = $false
 $ObserveSoloSeconds = 30
 $Jobs = 4
@@ -21,7 +20,6 @@ if ($tokens.Count -gt 0 -and
 while ($i -lt $tokens.Count) {
     $token = [string] $tokens[$i]
     switch ($token) {
-        "-ReexportApi" { $ReexportApi = $true; break }
         "-SkipSmoke" { $SkipSmoke = $true; break }
         "-ObserveSoloSeconds" {
             if ($i + 1 -ge $tokens.Count) { throw "$token requires a number" }
@@ -61,8 +59,7 @@ while ($i -lt $tokens.Count) {
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSCommandPath
 $build = Join-Path $root ".bin\msvc-vcpkg"
-$converted = Join-Path $root "assets\converted"
-$api = Join-Path $converted "engine"
+$api = Join-Path $root "assets\fvd\engine_api"
 $dist = Join-Path $root "dist"
 
 function Invoke-Checked([string] $Executable, [string[]] $Arguments, [string] $Description) {
@@ -237,35 +234,12 @@ try {
         return
     }
 
-    # Developer-only asset export is needed once per API version, not on
-    # every player build. The shipped game never needs a Python runtime.
-    $apiMissing = -not ((Test-Path -LiteralPath (Join-Path $api "modpack.toml") -PathType Leaf) -and
-                         (Test-Path -LiteralPath (Join-Path $api "manifest.toml") -PathType Leaf))
-    if ($apiMissing -or $ReexportApi) {
-        Write-Host "Exported engine API is missing or refresh was requested." -ForegroundColor Yellow
-        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=ON") "Configure developer API exporter"
-        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--parallel", "$Jobs") "Build developer tools for API export"
-
-        $runner = Join-Path $build "RelWithDebInfo\run.exe"
-        if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
-            throw "Developer API exporter missing: $runner"
+    # The engine API is a committed source asset. No Python/Cython export
+    # bootstrap may run in a supported native build or package command.
+    foreach ($required in @("modpack.toml", "manifest.toml", "root.nyan")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $api $required) -PathType Leaf)) {
+            throw "Tracked FVD engine API incomplete: missing $required under $api"
         }
-        Push-Location $build
-        try {
-            Invoke-Checked $runner @("convert-export-api", $converted) "Export engine nyan API"
-        }
-        finally {
-            Pop-Location
-        }
-    } else {
-        Write-Host "==> Using existing exported engine API (no Python developer rebuild)." -ForegroundColor Green
-    }
-
-    if (-not ((Test-Path -LiteralPath (Join-Path $api "modpack.toml") -PathType Leaf) -and
-               (Test-Path -LiteralPath (Join-Path $api "manifest.toml") -PathType Leaf))) {
-        throw "Engine API export is incomplete in $api"
     }
 
     $nativeRelease = if ($Mode -eq "package") { "ON" } else { "OFF" }
@@ -277,7 +251,7 @@ try {
     }
     Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
         "-DFVD_NATIVE_RELEASE=$nativeRelease", "-DFVD_WITH_PYTHON_ADAPTERS=OFF",
-        "-DFVD_NATIVE_API_ASSET_DIR=$api") $configureDescription
+        ) $configureDescription
     Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
         "--target", "openage_native_game", "openage_native_relay",
         "--parallel", "$Jobs") "Build native game and relay"

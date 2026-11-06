@@ -12,7 +12,6 @@ fi
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 jobs="$(nproc 2>/dev/null || echo 4)"
 nyan_version="${NYAN_CLONE_VERSION:-v0.3.1}"
-reexport_api=0
 skip_smoke=0
 mode=package
 forwarded=()
@@ -32,7 +31,6 @@ FVD Linux native release candidate
   bash build-fvd.sh solo --no-audio  Launch packaged native solo gameplay
   bash build-fvd.sh relay --port 32456  Start packaged native relay
   bash build-fvd.sh relay -- --help  Pass any native options after --
-  bash build-fvd.sh --reexport-api   Refresh the developer-exported nyan API
   bash build-fvd.sh --skip-smoke     Create the archive without extracting it
   bash build-fvd.sh --jobs 4         Limit parallel compilation
 
@@ -45,7 +43,6 @@ USAGE
 while (($#)); do
     case "$1" in
         --) shift; forwarded=("$@"); break ;;
-        --reexport-api) reexport_api=1; shift ;;
         --skip-smoke) skip_smoke=1; shift ;;
         --jobs)
             if (($# < 2)) || [[ ! "$2" =~ ^[1-9][0-9]*$ ]]; then
@@ -85,8 +82,7 @@ elif [[ -f "$root/build/CMakeCache.txt" ]]; then
 else
     build="$root/build"
 fi
-api="$root/assets/converted/engine"
-converted="$root/assets/converted"
+api="$root/assets/fvd/engine_api"
 dist="$root/dist"
 
 step() { printf '\n==> %s\n' "$*"; }
@@ -189,33 +185,13 @@ if [[ "$mode" == "legacy-test" ]]; then
     exit 0
 fi
 
-api_valid() {
-    [[ -f "$api/modpack.toml" && -f "$api/manifest.toml" ]] &&
-        grep -Eq '^[[:space:]]*version[[:space:]]*=[[:space:]]*"0[.]5[.]0"' "$api/modpack.toml"
-}
-
-if ((reexport_api)) || ! api_valid; then
-    step "Build developer tools to export the engine API (build-time Python only)"
-    cmake -S "$root" -B "$build" "${initial[@]}" \
-        -DFVD_NATIVE_RELEASE=OFF -DFVD_WITH_PYTHON_ADAPTERS=ON \
-        "-DNYAN_CLONE_VERSION=$nyan_version"
-    initial=()
-    cmake --build "$build" --parallel "$jobs"
-
-    if [[ ! -x "$build/run" ]]; then
-        echo "Cannot locate developer launcher at $build/run" >&2
+# The tracked source snapshot replaces the ignored converter output.
+for required in modpack.toml manifest.toml root.nyan; do
+    if [[ ! -f "$api/$required" ]]; then
+        echo "Tracked FVD engine API incomplete: missing $api/$required" >&2
         exit 1
     fi
-    mkdir -p "$converted"
-    step "Export compatible engine nyan API"
-    (cd "$build" && ./run convert-export-api "$converted")
-else
-    step "Reuse existing engine API; skipping the developer/Cython rebuild"
-fi
-if ! api_valid; then
-    echo "Missing/incompatible engine API in $api after export (requires version 0.5.0)" >&2
-    exit 1
-fi
+done
 
 native_release=ON
 configure_description="Configure native-only FVD release"
@@ -227,8 +203,7 @@ step "$configure_description"
 cmake -S "$root" -B "$build" "${initial[@]}" \
     "-DFVD_NATIVE_RELEASE=$native_release" \
     -DFVD_WITH_PYTHON_ADAPTERS=OFF \
-    "-DNYAN_CLONE_VERSION=$nyan_version" \
-    "-DFVD_NATIVE_API_ASSET_DIR=$api"
+    "-DNYAN_CLONE_VERSION=$nyan_version"
 
 step "Incrementally build native game and relay"
 cmake --build "$build" --config Release --parallel "$jobs" \

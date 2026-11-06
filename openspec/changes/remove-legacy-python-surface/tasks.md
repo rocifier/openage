@@ -2,10 +2,10 @@
 
 ## 1. Make runtime data independent of conversion
 
-- [ ] 1.1 Copy the currently accepted engine API into a tracked FVD-owned source directory, preserving LF endings, API metadata and licence information.
-- [ ] 1.2 Replace `FVD_NATIVE_API_ASSET_DIR` bootstrap/export logic with the tracked source directory as the default build and package input.
-- [ ] 1.3 Centralize the expected engine API version and validate the tracked snapshot during configuration, package staging and native startup.
-- [ ] 1.4 Add regressions for missing, incomplete and version-incompatible tracked API data and for its installed runtime path.
+- [x] 1.1 Copy the currently accepted engine API into a tracked FVD-owned source directory, preserving LF endings, API metadata and licence information.
+- [x] 1.2 Replace `FVD_NATIVE_API_ASSET_DIR` bootstrap/export logic with the tracked source directory as the default build and package input.
+- [x] 1.3 Centralize the expected engine API version and validate the tracked snapshot during configuration, package staging and native startup.
+- [x] 1.4 Add regressions for missing, incomplete and version-incompatible tracked API data and for its installed runtime path.
 - [ ] 1.5 Build and smoke-test a Windows and Linux native archive before deleting the exporter.
 
 ## 2. Replace Python-generated C++ and the Cython test bridge

@@ -22,9 +22,10 @@ From an existing configured C++/Qt/CMake development checkout:
 bash build-fvd.sh
 ```
 
-Both wrappers reuse a compatible previously exported engine API. If it is
-missing, they first configure/build the developer exporter and generate
-the API, then switch to the native-only build. They incrementally compile
+Both wrappers use the tracked engine API snapshot in
+`assets/fvd/engine_api/` (version 0.5.0); they never invoke the converter
+or create `assets/converted/engine` as a build cache. An absent, incomplete,
+outdated or modified API fails validation instead. They incrementally compile
 the C++ game and relay, create a **native-only 7Z archive under `dist/`**,
 and smoke-test an extracted copy.
 
@@ -81,8 +82,9 @@ live graphical-process observation.
 
 The **build machine** needs compiler/Qt/nyan and the other native
 dependencies described in [building.md](../../doc/building.md).
-An initial engine API export may also need a Python 3.12+ developer
-environment, installed with `uv sync` using
+Until subsequent source-tree cleanup tasks land, top-level CMake can still
+need the existing Python/Cython developer environment for legacy code
+generation and tests, installed with `uv sync` using
 [pyproject.toml](../../pyproject.toml). The **shipped native game** does
 not need Python, pip, setuptools, or Cython; the standalone native relay
 does not even require Qt, nyan or game assets.
@@ -98,8 +100,9 @@ full game engine or building Python tools.
 ## Advanced/manual release steps
 
 These commands are for diagnosing the wrappers, not the normal workflow.
-The pre-exported engine API must contain `modpack.toml` and
-`manifest.toml` under `assets/converted/engine` (engine version 0.5.0).
+The tracked engine API contains `modpack.toml`, `manifest.toml`,
+and 153 nyan files under `assets/fvd/engine_api` (engine version 0.5.0).
+The installed runtime mount remains `assets/converted/engine`.
 The release manifest is created **during CMake configuration**, and
 the player validates every asset SHA-256 before opening the game.
 
@@ -111,25 +114,14 @@ cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_ga
 cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z -B dist
 ```
 
-If the engine API is missing, the **developer-only** export must run from
-the build directory (not the repository root), for example:
-
-```powershell
-Push-Location .\.bin\msvc-vcpkg
-.\RelWithDebInfo\run.exe convert-export-api ..\..\assets\converted
-Pop-Location
-```
-
-That requires the Python/Cython developer configuration. The one-command
-wrapper handles it automatically if the exported API does not exist.
-
-On Linux use a configured CMake directory (`build/` or `bin/`), a
-Python-enabled developer runner for asset export if needed, then
-`-DFVD_WITH_PYTHON_ADAPTERS=OFF` and
-`-DFVD_NATIVE_RELEASE=ON` for the release. The wrapper does this for you.
+If the tracked API changes, update the snapshot and its SHA3-256 manifest as a
+reviewed source change. CMake configuration checks those hashes and the API
+version; packaging checks the staged files, and native startup validates the
+release manifest. The legacy API exporter remains temporarily in the tree
+for other workflows but is no longer called by either FVD build wrapper.
 
 The FVDNative CMake install component stages the native game/relay, C++
-engine libraries, Qt/QML runtime, FVD data, shaders, config and exported
+engine libraries, Qt/QML runtime, FVD data, shaders, config and tracked
 API. Its content audit rejects Python runtime files. Windows packaging
 also checks all shipped imports and verifies the actual staged game
 assets **before** CPack produces the archive.
