@@ -10,6 +10,7 @@ namespace openage::native_game {
 struct Options {
 	bool help = false;
 	bool version = false;
+	bool verify_assets = false;
 	bool gl_debug = false;
 	bool headless = false;
 	bool solo = false;
