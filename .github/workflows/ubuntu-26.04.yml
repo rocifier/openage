@@ -84,10 +84,8 @@ jobs:
           echo "Python ABI dependency in the native game"
           exit 1
         fi
-        # The native gameplay binary may use Qt, but must never load Python.
-        ldd packaging/openage-native | tee native-game-dependencies.txt
-        if grep -Eiq 'libpython|cython' native-game-dependencies.txt; then
-          echo "The native game still imports Python"
-          exit 1
-        fi
+        # Inspect the exact files selected for the distribution component.
+        # CMake's normal full install still contains developer Python tools.
+        cmake --install . --prefix "$(pwd)/fvd-native-stage" --component FVDNative
+        cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -P ../packaging/native_game/AuditNativePackage.cmake
         EOF
