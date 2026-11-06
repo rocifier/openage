@@ -7,6 +7,11 @@
 option(FVD_WITH_PYTHON_ADAPTERS
 	"Include C++ adapters that call back into Python (developer mode)" ON)
 declare_binary(libopenage openage library allow_no_undefined)
+# A native FVD distribution must not build Python/Cython interface objects
+# into the runtime-linked engine.
+target_compile_definitions(libopenage PRIVATE
+	FVD_WITH_PYTHON_ADAPTERS=$<BOOL:${FVD_WITH_PYTHON_ADAPTERS}>
+)
 
 
 #################################################################
@@ -320,6 +325,9 @@ endif()
 ##################################################
 # source file definitions
 get_codegen_scu_file()
+if(NOT FVD_WITH_PYTHON_ADAPTERS)
+	set(CODEGEN_SCU_FILE "${CMAKE_BINARY_DIR}/libopenage/codegen_scu_native.gen.cpp")
+endif()
 
 # add new sources here, dependencies for linking and including
 # are specified above the source file list.
@@ -362,3 +370,20 @@ add_subdirectory("testing")
 add_subdirectory("time")
 add_subdirectory("util")
 add_subdirectory("versions")
+
+# The player build must not compile developer test objects into libopenage.
+# In particular, texture_data_test.cpp constructs a Python-backed Path.
+# The native codegen SCU excludes the matching test dispatch table.
+if(NOT FVD_WITH_PYTHON_ADAPTERS)
+	get_target_property(_all_engine_sources libopenage SOURCES)
+	set(_native_engine_sources "")
+	foreach(_source IN LISTS _all_engine_sources)
+		get_filename_component(_filename "${_source}" NAME)
+		if(_filename MATCHES "(^test|_test)[A-Za-z0-9_-]*[.]cpp$")
+			continue()
+		endif()
+		list(APPEND _native_engine_sources "${_source}")
+	endforeach()
+	set_property(TARGET libopenage PROPERTY SOURCES "${_native_engine_sources}")
+endif()
+

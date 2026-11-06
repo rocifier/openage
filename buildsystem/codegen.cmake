@@ -75,4 +75,16 @@ function(codegen_run)
 	endforeach()
 
 	write_on_change(${CODEGEN_SCU_FILE} "${CODEGEN_SCU_CONTENT}")
+
+	# Native FVD has no C++ test suite in the runtime DLL, so don't
+	# reference test methods from the generated test dispatcher either.
+	set(CODEGEN_NATIVE_SCU_CONTENT "// Generated C++ source list for the native FVD player.\n\n")
+	foreach(target ${CODEGEN_TARGET_FILES})
+		if("${target}" MATCHES "\\.cpp$" AND NOT "${target}" MATCHES "testlist\\.gen\\.cpp$")
+			file(RELATIVE_PATH target_rel ${CODEGEN_SCU_DIR} ${target})
+			string(APPEND CODEGEN_NATIVE_SCU_CONTENT "#include \"${target_rel}\"\n")
+		endif()
+	endforeach()
+	write_on_change("${CODEGEN_SCU_DIR}/codegen_scu_native.gen.cpp"
+		"${CODEGEN_NATIVE_SCU_CONTENT}")
 endfunction()

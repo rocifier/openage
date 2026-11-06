@@ -1,0 +1,96 @@
+# Copyright 2026 the openage authors. See copying.md for legal info.
+# FVDNative install component only: packaging-time tools, not runtime.
+# Never include EmbedWinDependencies.cmake here: it embeds Python.
+
+set(_bin "${CMAKE_INSTALL_PREFIX}/@CMAKE_INSTALL_BINDIR@")
+set(_assets "${CMAKE_INSTALL_PREFIX}/@ASSET_DIR@")
+set(_vcpkg "@vcpkg_dir@")
+set(_windeployqt "@windeployqt@")
+set(_python "@PYTHON@")
+set(_buildsystem "@BUILDSYSTEM_DIR@")
+set(_game "${_bin}/openage-native.exe")
+set(_relay "${_bin}/openage-relay.exe")
+
+if(NOT EXISTS "${_game}" OR NOT EXISTS "${_relay}")
+	message(FATAL_ERROR "FVDNative game/relay executables are missing from ${_bin}")
+endif()
+
+# Exported FVD QML needs Qt's plugin and QML module deployment.
+if(EXISTS "${_windeployqt}")
+	execute_process(
+		COMMAND "${CMAKE_COMMAND}" -E env "PATH=${_vcpkg}/bin;$ENV{PATH}"
+			"${_windeployqt}"
+			--qmldir "${_assets}"
+			--dir "${_bin}"
+			--plugindir "${_bin}/plugins"
+			--libdir "${_bin}"
+			"${_game}"
+		RESULT_VARIABLE _deploy_rc)
+	if(NOT _deploy_rc EQUAL 0)
+		message(FATAL_ERROR "windeployqt could not deploy FVD's Qt runtime (${_deploy_rc})")
+	endif()
+else()
+	set(_qmlscanner "${_vcpkg}/tools/Qt6/bin/qmlimportscanner.exe")
+	if(NOT EXISTS "${_qmlscanner}" OR NOT EXISTS "${_python}")
+		message(FATAL_ERROR "FVDNative needs windeployqt or developer-only Qt import scanner")
+	endif()
+	execute_process(
+		COMMAND "${_python}" "${_buildsystem}/scripts/deploy_qt.py"
+			"${_qmlscanner}"
+			"${_assets}"
+			"${_vcpkg}/Qt6"
+			"${_bin}"
+		RESULT_VARIABLE _deploy_rc)
+	if(NOT _deploy_rc EQUAL 0)
+		message(FATAL_ERROR "FVD native Qt deployment failed (${_deploy_rc})")
+	endif()
+endif()
+
+# Native openage is directly inside bin/, not in python/.
+file(WRITE "${_bin}/qt.conf" "[Paths]\nPlugins = plugins\nQml2Imports = qml\n")
+
+# Resolve vcpkg DLL imports recursively, including the Qt plugins.
+get_filename_component(_linker_dir "@CMAKE_LINKER@" DIRECTORY)
+find_program(_dumpbin dumpbin.exe HINTS "${_linker_dir}")
+if(NOT _dumpbin)
+	message(FATAL_ERROR "dumpbin.exe was not found; cannot audit FVDNative dependencies")
+endif()
+
+function(_copy_imports _binary)
+	execute_process(COMMAND "${_dumpbin}" /DEPENDENTS "${_binary}"
+		OUTPUT_VARIABLE _text RESULT_VARIABLE _rc)
+	if(NOT _rc EQUAL 0)
+		message(FATAL_ERROR "dumpbin failed for ${_binary}")
+	endif()
+	string(REGEX MATCHALL "[^\r\n]*[.][dD][lL][lL]" _rows "${_text}")
+	foreach(_row IN LISTS _rows)
+		string(STRIP "${_row}" _name)
+		if(NOT _name MATCHES "^[A-Za-z0-9_.+-]+[.][dD][lL][lL]$")
+			continue()
+		endif()
+		if(_name MATCHES "^[Pp][Yy][Tt][Hh][Oo][Nn][0-9]*([_]d)?[.]")
+			message(FATAL_ERROR "Python ABI import in FVDNative: ${_binary} -> ${_name}")
+		endif()
+		if(EXISTS "${_bin}/${_name}")
+			continue()
+		endif()
+		if(EXISTS "${_vcpkg}/bin/${_name}")
+			file(COPY "${_vcpkg}/bin/${_name}" DESTINATION "${_bin}")
+			_copy_imports("${_bin}/${_name}")
+		endif()
+	endforeach()
+endfunction()
+
+file(GLOB_RECURSE _native_binaries "${_bin}/*.dll" "${_bin}/*.exe")
+foreach(_native IN LISTS _native_binaries)
+	_copy_imports("${_native}")
+endforeach()
+
+# Fontconfig configuration is relative to native executable, not python.exe.
+if(EXISTS "${_vcpkg}/etc/fonts")
+	file(COPY "${_vcpkg}/etc/fonts" DESTINATION "${_bin}")
+elseif(EXISTS "${_vcpkg}/tools/fontconfig/fonts")
+	file(COPY "${_vcpkg}/tools/fontconfig/fonts" DESTINATION "${_bin}")
+endif()
+
+message(STATUS "FVDNative Windows runtime staged with Qt and vcpkg DLLs (without Python)")

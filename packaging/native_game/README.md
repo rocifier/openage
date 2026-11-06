@@ -92,6 +92,38 @@ The audit checks every staged EXE/DLL for Python imports, including Qt
 plugins when present. Full Qt DLL deployment and graphical verification
 are still outstanding.
 
+## Windows 7Z release candidate (native-only)
+
+From an existing configured Windows MSVC/vcpkg development checkout, export the
+engine nyan API **once** using your developer runner (this step may use Python):
+
+```powershell
+. .\deps\msvc-env.ps1
+.\.bin\msvc-vcpkg\RelWithDebInfo\run.exe convert-export-api .\assets\converted
+```
+
+Then reconfigure the same CMake build for the native player, rebuild the
+native targets and ask CPack for **only** the `FVDNative` component:
+
+```powershell
+cmake -S . -B .bin\msvc-vcpkg -DFVD_NATIVE_RELEASE=ON -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_API_ASSET_DIR="$((Resolve-Path .\assets\converted\engine).Path)"
+cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_game openage_native_relay
+cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z
+```
+
+The Windows `FVDNative` install component stages Qt/QML plugins, vcpkg
+and MSVC runtime DLLs, native FVD game/relay, graphics/audio/config and the
+pre-exported API, without calling the legacy embedded-Python installer.
+The archive still needs extraction and real Windows solo/network testing
+before it can replace the current public package.
+
+To inspect the staged component separately, run:
+
+```powershell
+cmake --install .bin\msvc-vcpkg --config RelWithDebInfo --component FVDNative --prefix .bin\fvd-native-stage
+.\packaging\native_game\AuditWindowsImports.ps1 -Stage .bin\fvd-native-stage
+```
+
 ## Before replacing the Windows launcher
 
 - Separate Python filesystem, exception and Cython adapters from the

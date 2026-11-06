@@ -113,7 +113,15 @@ endif()
 ########################################################################
 # General package config
 
-set(CPACK_GENERATOR "NSIS" "7Z")
+if(FVD_NATIVE_RELEASE)
+	# A direct player archive, not the developer or embedded-Python bundle.
+	set(CPACK_GENERATOR "7Z")
+	set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+	set(CPACK_COMPONENTS_ALL FVDNative)
+	set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+else()
+	set(CPACK_GENERATOR "NSIS" "7Z")
+endif()
 
 
 include(CPack)

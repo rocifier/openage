@@ -145,8 +145,8 @@ void validate_release_manifest(const fs::path &assets) {
 
 	const auto definition = toml::parse(manifest.string());
 	const auto metadata = toml::find<toml::table>(definition, "fvd_native");
-	if (toml::find<int64_t>(metadata, "format") != 1 or
-	    toml::find<std::string>(metadata, "api_version") != "0.5.0") {
+	if (metadata.at("format").as_integer() != 1 or
+	    metadata.at("api_version").as_string() != "0.5.0") {
 		throw std::runtime_error{"Unsupported FVD release manifest: " + manifest.string()};
 	}
 
@@ -154,8 +154,8 @@ void validate_release_manifest(const fs::path &assets) {
 	std::unordered_set<std::string> checked{};
 	for (const auto &entry : entries) {
 		const auto &item = entry.as_table();
-		const auto relative_text = toml::find<std::string>(item, "path");
-		const auto expected = toml::find<std::string>(item, "sha256");
+		const auto relative_text = item.at("path").as_string();
+		const auto expected = item.at("sha256").as_string();
 		const fs::path relative{relative_text};
 		if (relative.empty() or relative.is_absolute() or expected.size() != 64
 		    or not checked.insert(relative_text).second) {
