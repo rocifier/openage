@@ -100,4 +100,24 @@ jobs:
         # CMake's normal full install still contains developer Python tools.
         cmake --install . --prefix "$(pwd)/fvd-native-stage" --component FVDNative
         cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -DFVD_NATIVE_REQUIRE_MANIFEST=ON -P ../packaging/native_game/AuditNativePackage.cmake
+
+        # Prove that the *staged* Python-free game loads its release manifest,
+        # native mounts and real simulation. A timed-out loop is expected;
+        # dying early or never reaching initialized threads is not.
+        set +e
+        timeout --signal=TERM --kill-after=3s 12s \
+          env LD_LIBRARY_PATH="$(pwd)/fvd-native-stage/lib:$LD_LIBRARY_PATH" \
+          ./fvd-native-stage/bin/openage-native --headless --solo --no-audio \
+          --cfg-dir "$(pwd)/fvd-native-smoke-cfg" > native-game-startup.log 2>&1
+        _startup_rc=$?
+        set -e
+        cat native-game-startup.log
+        if [ "$_startup_rc" -ne 0 ] && [ "$_startup_rc" -ne 124 ]; then
+          echo "Staged FVD native game failed initialization (exit $_startup_rc)"
+          exit 1
+        fi
+        if ! grep -Eq 'Using [0-9]+ threads' native-game-startup.log; then
+          echo "Staged FVD native game did not reach engine initialization"
+          exit 1
+        fi
         EOF
