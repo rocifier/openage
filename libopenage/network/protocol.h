@@ -50,6 +50,9 @@ constexpr size_t FRAME_HEADER_SIZE = 32;
  */
 constexpr uint32_t MAX_PAYLOAD_SIZE = 1024 * 1024;
 
+/** Maximum number of participants in an FVD network session. */
+constexpr uint32_t MAX_STATE_PLAYERS = 8;
+
 /**
  * Messages exchanged by an FVD lobby or match session.
  */

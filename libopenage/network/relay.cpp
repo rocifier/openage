@@ -14,7 +14,6 @@
 #include "error/error.h"
 #include "log/log.h"
 #include "log/message.h"
-#include "network/messages.h"
 #include "network/serialization.h"
 
 namespace openage::network {

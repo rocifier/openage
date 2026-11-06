@@ -36,7 +36,6 @@ constexpr uint32_t MAX_COMMAND_ENTITIES = 1024;
 constexpr uint32_t MAX_ENTITY_DEFINITION_SIZE = 256;
 
 /** Defensive collection limits for one world state payload. */
-constexpr uint32_t MAX_STATE_PLAYERS = 8;
 constexpr uint32_t MAX_STATE_ENTITIES = 16384;
 constexpr uint32_t MAX_STATE_RESERVATIONS = 16384;
 constexpr uint32_t MAX_STATE_CONSTRUCTIONS = 1024;
