@@ -43,6 +43,10 @@ Options parse_arguments(int argc, const char *const argv[]) {
 	Options options{};
 	for (int index = 1; index < argc; ++index) {
 		std::string_view arg{argv[index]};
+		if (arg == "--verify-assets") {
+			options.verify_assets = true;
+			continue;
+		}
 		if (arg == "--help" or arg == "-h") {
 			options.help = true;
 			return options;
