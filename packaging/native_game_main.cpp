@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include <toml.hpp>
+
 #if defined(_WIN32)
 	#define NOMINMAX
 	#include <windows.h>
@@ -129,14 +131,31 @@ void seed_default_config(const fs::path &exe, const fs::path &cfg) {
 }
 
 void validate_assets(const fs::path &assets) {
-	if (not fs::is_regular_file(assets / "fvd" / "modpack.toml")) {
+	const auto fvd = assets / "fvd" / "modpack.toml";
+	if (not fs::is_regular_file(fvd)) {
 		throw std::runtime_error{"FVD modpack missing from " + assets.string()};
 	}
-	const auto engine = assets / "converted" / "engine" / "modpack.toml";
-	if (not fs::is_regular_file(engine)) {
+	const auto fvd_info = toml::find<toml::table>(toml::parse(fvd.string()), "info");
+	if (fvd_info.at("name").as_string() != "fvd") {
+		throw std::runtime_error{"FVD modpack has an incompatible identity: " + fvd.string()};
+	}
+
+	const auto engine_dir = assets / "converted" / "engine";
+	const auto engine = engine_dir / "modpack.toml";
+	if (not fs::is_regular_file(engine) or
+	    not fs::is_regular_file(engine_dir / "manifest.toml")) {
 		throw std::runtime_error{
-			"Exported nyan API is missing at " + engine.string()
+			"Exported nyan API or manifest is missing from " + engine_dir.string()
 			+ "; export assets during release preparation, not at runtime"};
+	}
+	const auto api = toml::find<toml::table>(toml::parse(engine.string()), "info");
+	// Keep in sync with CURRENT_API_VERSION in api_export_required.py until
+	// the release pipeline generates a versioned compatibility manifest.
+	if (api.at("name").as_string() != "engine" or
+	    api.at("version").as_string() != "0.5.0") {
+		throw std::runtime_error{
+			"Incompatible exported nyan API at " + engine.string()
+			+ " (expected engine version 0.5.0)"};
 	}
 }
 
