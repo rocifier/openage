@@ -1,222 +1,202 @@
 # Building the project
 
-This file should assist you in compiling and running the game.
+There are two workflows in this repository: the **native Fast Villager Defense
+(FVD) game/relay release**, and the **general openage developer build**. They
+have different Python requirements. Choose the one you need instead of
+installing all developer tools just to play or host FVD.
 
-Note the [troubleshooting](#troubleshooting) and [FAQ](#faq) sections.
+## FVD native build: quickest path
 
+The shipped native FVD game and relay contain **no Python interpreter, Python
+modules, or Cython extensions**. Python/Cython can still be used *on the build
+machine* for CMake code generation, the first engine API export and the legacy
+developer tools. A release candidate does not automatically mean that all
+graphical/multiplayer or clean-machine acceptance tests have passed.
 
-## Buildsystem Design
+### Windows
 
-*openage* consists of a pure C++ library, `libopenage`, and the `openage` python package.
+Prerequisites: an existing configured MSVC/vcpkg checkout, CMake and
+[7-Zip](https://www.7-zip.org/), plus the native libraries described in the
+[Windows setup instructions](build_instructions/windows_msvc.md). The script
+automatically loads `deps/msvc-env.ps1` if it exists.
 
-We use `CMake` for all our building needs.
-We wrap `CMake` with an optional `configure` wrapper script.
-You can build the project like a regular `CMake` project.
+From the repository root:
 
-For more build system internals, see [doc/buildsystem.md](/doc/buildsystem.md).
+```powershell
+.\build-fvd.cmd
+```
 
-## Dependencies
+The command reuses a compatible exported engine API (or exports it once using
+developer tools), incrementally builds the Python-free game and relay, creates
+`dist\*.7z` and audits an extracted archive. The Windows archive has passed its
+CLI, asset-integrity, DLL-import and bounded solo-process smoke tests. Manual
+graphical/multiplayer and Python-free clean-machine tests are still required
+before replacing the public distribution.
 
-Dependencies are needed for:
+### Linux
 
-* C = compiling
-* R = running
-* A = asset conversion
-* S = sanity checks (make checkall)
-* O = optional, we can continue without it
+Install CMake, Ninja, a C++20 compiler, native Qt/nyan/audio/render development
+libraries and the dependencies applicable to your distribution below. A fresh
+build may use Python/Cython *during compilation/API export*, but those are not
+shipped with the native game.
 
-Dependency list:
+```bash
+bash build-fvd.sh
+```
 
-    C     gcc >=10 or clang >=10
-    CRA   python >=3.12
-    C     cython >=3.1
-    C     setuptools
-    C     cmake >=3.16
-      A   numpy
-      A   lz4
-      A   python imaging library (PIL) -> pillow
-      A   tomli_w
-    CR    opengl >=3.3
-    CR    libepoxy
-    CR    libpng
-       S  clang-tidy
-     R    dejavu font
-    CR    eigen >=3
-    CR    freetype2
-    CR    fontconfig
-    CR    harfbuzz
-    C   O include-what-you-use
-    CR    nyan  (https://github.com/SFTtech/nyan)
-    CR  O ncurses
-    C     mako
-    CR    opusfile
-    CRA   opus
-    CRA   ogg
-       S  ruff
-    C     pygments
-    CRA   pyreadline3 (Windows only)
-       S  ty
-    CR    qt6 >=6.2 (Core, Quick, QuickControls, Multimedia modules)
-    CR    toml11
-    CR  O vulkan
+The command generates a Linux native release candidate in `dist/` and runs
+extracted-archive and headless startup checks. **Linux packages currently
+depend on compatible host-provided libraries**; they are not yet a tested
+universal portable distribution.
 
-      A   An installed version of any of the following (wine is your friend).
-          Other versions _might_ work:
+### Build, test, play or host
 
-     - Age of Empires I: Rise of Rome Patch 1.0a
-     - Age of Empires I: Definitive Edition
-     - Age of Empires II: The Conquerors Patch 1.0c
-     - Age of Empires II: Forgotten Empires
-     - Age of Empires II: HD (now also called: Age of Empires II (2013))
-     - Age of Empires II: Definitive Edition
-     - Star Wars: Galactic Battlegrounds: Clone Campaigns
+The same four commands work on both systems:
 
+| Purpose | Windows | Linux |
+| --- | --- | --- |
+| Build, package and smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
+| Run native tests + archive smoke | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
+| Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
-### Dependency installation
+Game/relay options can follow the mode and are forwarded to the executable:
 
-There are some prerequisite steps that need to be performed so *openage* can be
-built successfully. Those steps vary from platform to platform, and are
-described below for some of the most common ones:
+```powershell
+.\build-fvd.cmd solo --no-audio --window-mode fullscreen
+.\build-fvd.cmd relay --listen 0.0.0.0 --port 32456
+```
+
+```bash
+bash build-fvd.sh solo --no-audio
+bash build-fvd.sh relay --listen 0.0.0.0 --port 32456
+```
+
+The `solo` and `relay` commands reuse the latest archive in `dist/` without
+rebuilding. The `test` command runs the native game/relay CTest cases and the
+latest archive smoke check, when available. The *full legacy developer test
+suite* is separate and needs the Python-enabled developer build.
+
+Optional developer switches include `-ReexportApi` on Windows or
+`--reexport-api` on Linux to refresh a changed API, and `-SkipSmoke` /
+`--skip-smoke` to package without smoke testing.
+
+For details and advanced/manual commands, see
+[the native FVD build instructions](../packaging/native_game/README.md).
+For volunteer relay-only hosts, the
+[standalone relay instructions](../packaging/native_relay/README.md)
+build with **CMake and C++20 only**: no Python, Qt, nyan or game assets.
+
+## Dependencies and development tools
+
+### Needed to build the native game
+
+- **Compiler and build tools:** a C++20-capable compiler, CMake (3.16 or
+  newer), and a suitable build generator (Ninja on fresh Linux builds).
+  On Windows use Visual Studio C++ build tools and vcpkg.
+- **Native engine libraries:** Qt 6.2+ (Core, Quick, QuickControls,
+  Multimedia), nyan, Eigen3, libepoxy, OpenGL 3.3+, libpng, FreeType,
+  Fontconfig, HarfBuzz, Opus, Ogg, opusfile and toml11. System fonts and
+  platform-native runtime libraries are also required. Vulkan, ncurses,
+  backtrace/profiling helpers and other features may be optional.
+- **nyan:** build it separately or let CMake fetch it
+  (`-DDOWNLOAD_NYAN=YES`); see [nyan](https://github.com/SFTtech/nyan).
+  Its build prerequisites may include Flex.
+- **FVD assets:** the release needs the FVD modpack and the exported
+  version-compatible engine nyan API; the one-command scripts prepare this
+  automatically when developer tools are available.
+
+A running, properly packaged **native FVD player or relay does not require
+Python, Cython or any pip-installed packages**.
+
+### Only needed for Python-backed developer/build-time workflows
+
+The legacy openage Python entry point, conversion/codegen and the first FVD
+API export still use **Python 3.12+ and Cython 3.1+** plus Python packages.
+The authoritative, platform-aware package list is maintained in
+[`pyproject.toml`](../pyproject.toml), including Mako, setuptools, NumPy,
+Pillow, lz4, Pygments and tomli-w, with Windows-only pyreadline3.
+Do not install the whole list separately just to run a native FVD archive.
+
+For this developer workflow, create the environment once:
+
+```bash
+uv sync
+```
+
+On Unix, point the legacy developer CMake configuration at
+`.venv/bin/python` when required:
+
+```bash
+./configure --download-nyan -- -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
+```
+
+On Windows the virtual environment interpreter is `.venv\Scripts\python.exe`.
+Tools such as Ruff, ty, clang-tidy and documentation generators are for
+developer checks and are **not** native player runtime dependencies.
+
+### Platform dependency installation
+
+These pages describe how to install compiler and native libraries.
+Their Python package instructions, where present, apply to **developer and
+conversion workflows**, not the shipped native player.
 
 - [Ubuntu](build_instructions/ubuntu.md)
 - [Debian](build_instructions/debian.md)
 - [Fedora](build_instructions/fedora.md)
 - [openSUSE](build_instructions/opensuse.md)
-- [macOS](build_instructions/macos.md)
+- [macOS (general openage development)](build_instructions/macos.md)
 - [Arch Linux](build_instructions/arch_linux.md)
 - [FreeBSD](build_instructions/freebsd.md)
 - [Gentoo](build_instructions/gentoo.md)
 - [Nix/NixOS](build_instructions/nix.md)
 - [Microsoft Windows](build_instructions/windows_msvc.md)
 
-#### Python environment via uv
+## General openage source-tree development
 
-The python dependencies are declared in [pyproject.toml](/pyproject.toml), so
-[`uv`](https://docs.astral.sh/uv/) can set up a Python environment for you:
+The broader openage project still consists of the C++ engine, Python
+developer package and Cython bindings. Its traditional build remains
+available, independently of the FVD native release:
 
-```
-uv sync
-```
-
-This creates a `.venv/` with all required Python modules, and the CMake build
-will pick it up when you point it at the interpreter:
-
-```
-./configure -- -DPython3_EXECUTABLE=$PWD/.venv/bin/python
+```bash
+./configure --download-nyan
+make
+make test
 ```
 
-If you manage python packages with the system package manager instead, that
-works too: the linters are then taken from the system PATH. In that case just
-ignore the pyproject.toml.
+Use `make run` or `cd bin && ./run` to launch the traditional developer
+entry point. Conversion and tests through `run` still depend on the
+Python-enabled developer configuration. For details of CMake internals see
+[`doc/buildsystem.md`](buildsystem.md).
 
-### nyan installation
+### Packaging and release acceptance
 
-`openage` depends on [`nyan`](https://github.com/SFTtech/nyan), which is the
-engine configuration language.
+The default `build-fvd` scripts create *native FVD release candidates* and
+do not publish or replace the project's existing package. Verify actual
+graphics, solo play, lobby/relay multiplayer and clean exit on an environment
+without Python before declaring the native player release complete.
 
+For generic openage distribution packagers, the traditional CMake install
+path still exists. Use `cmake --install` and your package manager's staging
+mechanism when deliberately packaging the generic developer build. The
+`FVDNative` CMake component is distinct and excludes Python.
 
-* For development, `nyan` can be built and used **without installation**
-  (-> no "`make install`", since it can be found using [`cmake` user package registry](https://cmake.org/cmake/help/latest/manual/cmake-packages.7.html#user-package-registry)).
-  Just clone the repo somewhere and [follow the `nyan` build instructions](https://github.com/SFTtech/nyan/blob/master/doc/building.md)).
-  Then `./configure ... -- -Dnyan_DIR=/directory/where/nyanConfig/is/in/`.
+## Troubleshooting
 
-* Alternatively, `openage` can download `nyan` automatically. This is
-  activated with `./configure --download-nyan ...` or `cmake
-  -DDOWNLOAD_NYAN=YES ...`.
+- **Missing native library/header:** install the corresponding platform
+  development package and reconfigure. On Linux, a 7Z produced on one
+  distribution is not guaranteed ABI-compatible with a different one.
+- **Python/Cython import error during build:** this concerns the
+  Python-enabled developer/asset-export step. It does not indicate that
+  the finished FVD game needs Python. Run a compatible Python developer
+  build or reuse an already exported engine API.
+- **CMake cannot find a dependency:** inspect the cache with `ccmake` /
+  `cmake-gui` and set the appropriate package path.
+- **Changed native-release flags:** CMake may need to recompile part of
+  `libopenage` when toggling between developer adapters and native mode.
+  The one-command scripts handle the configuration automatically.
+- **Tests fail:** run `build-fvd ... test` for native game/relay tests;
+  run the Python-enabled developer test suite separately if that is what
+  you're diagnosing.
 
-`cmake` looks for `nyan` in the user package registry (`~/.cmake/packages/nyan/`)
-and the system package registry (`/usr/lib/cmake/nyan/`) for `nyanConfig.cmake`.
-
-If `nyan` cannot be found but you know where it is, you can hint the location of the `nyanConfig.cmake` with:
-```
--Dnyan_DIR=/directory/where/nyanConfig/is/in/
-```
-
-
-## Build procedure
-
-Make sure you have all the dependencies installed.
-
-### Development
-
-- (Obviously) clone this repo or acquire the sources some other way
-- Make sure you have everything from the [dependency list](#dependencies)
-- Select the compiler and mode: see `./configure --help`
-  - Linux etc: `./configure`
-  - macOS: see the [macOS instructions](build_instructions/macos.md)
-- `make` generates and builds everything
-- `make run` or `bin/run` launches the game. Try `bin/run --help`!
-- `make test` runs the built-in tests.
-
-
-### Release
-
-Disclaimer: Use your distribution package of `openage` instead!
-Your distro package maintainers do all the nasty work for you,
-and will provide you with updates!
-Also, you don't need to `make install`, you can run `openage` within its git repo.
-
- - Set build mode: `./configure --mode=release --compiler=clang --prefix=/usr/local`
- - `make`
- - `make install` install the game to `/usr/local`
-   - beware, this will add *untracked* files to your drive
-   - please use your distribution package instead!
- - launch `openage`, it's in `/usr/local/bin/openage`
-
-
-### For packagers
-
-The reference package is [created for Gentoo](https://github.com/SFTtech/gentoo-overlay/blob/master/games-strategy/openage/).
-
-- Don't use `./configure`; instead, handle openage like a regular
-  `cmake` project. In doubt, have a look at `./configure`'s cmake
-  invocation.
-- To specify the to-be-used python version (or rather, executable),
-  pass `-DPython3_EXECUTABLE=...` or `-DPython3_ROOT_DIR=...` to `cmake`
-- Use `make install DESTDIR=/tmp/your_temporary_packaging_dir`,
-  which will then be packed/installed by your package manager.
-
-### Troubleshooting
-
-- I wanna see compiler invocations
-  - `make VERBOSE=1`
-- My `Qt`/`Python`/whatever is installed somewhere, but `cmake` can't find it!
-  - Run `ccmake` or `cmake-gui` in the build directory to see and change config variables.
-  - You can manually tell `cmake` where to look. Try something along the lines of
-    - `./configure -- -DPYTHON_INCLUDE_DIRS=/wherever/python/include/`
-    - `-DPython3_EXECUTABLE=/your/py3/directory/`
-
-- I get compiler errors about missing header files
-  - Make sure to install the developer version (including header files) of the library in question.
-- I get nonsensical cmake errors like `unable to execute /home/user/git/openage/clang++`
-  - This is an issue with `cmake`, or rather, your usage of it. You probably invoked `cmake` directly,
-    and defined a compiler even though the build directory has already been initialized.
-    `cmake` is a bit "special" in this regard. Simply omit the compiler definitions,
-    or purge the build directory with `rm -rf build bin .bin`.
-
-
-## FAQ
-
-* Help, it doesn't work!
-
-  * Have a look at [Troubleshooting](#troubleshooting) above.
-    Maybe you've found a bug... [Contact us!](/README.md#contact)
-
-* Why did you make the simple task of invoking a compiler so incredibly
-  complicated? Seriously. I've been trying to get this pile of utter
-  crap you call a 'build system' to simply do its job for half an hour
-  now, but all it does is sputter unreadable error messages. I hate
-  CMake. I'm fed up with you. Why are you doing this to me? I thought we
-  were friends. I'm the most massive collection of wisdom that has ever
-  existed, and now **I HATE YOU**. It can't be for no reason. You
-  **MUST** deserve it.
-
-  - Coincidentally, the exact same question crosses my mind whenever I
-    have to build an `automake` project, so I can sympathize.
-  - Unfortunately, it's not as simple as invoking a compiler. Building
-    `openage` involves code generation and the building of Cython
-    extension modules.
-
-* Why don't you `$proposition`? Your `$component` is crap
-  and would be much better then!
-  - Cool, we totally missed that! [Tell us more](/README.md#contact) and [submit your ideas!](/doc/contributing.md)
+For additional help see [troubleshooting](troubleshooting.md).
