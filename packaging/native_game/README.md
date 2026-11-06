@@ -26,7 +26,10 @@ bin/packaging/openage-native --asset-dir ./assets --cfg-dir ./cfg --solo
 
 For a network lobby, omit `--solo`. `--help` lists available native
 options. `--headless` is useful for diagnostics, but is not yet a bounded
-startup smoke test.
+startup smoke test. `--verify-assets` validates the installed FVD modpack,
+exported engine API and every SHA-256 entry in the native release manifest,
+then exits **without opening the renderer or writing user configuration**.
+Strict-release builds reject a missing manifest.
 
 Before launching, the asset directory must include the FVD modpack at
 `fvd/modpack.toml` and the exported nyan API with `converted/engine/modpack.toml`
@@ -63,11 +66,12 @@ be supplied at CMake configuration using
 That directory must contain `modpack.toml` and `manifest.toml`. Python
 may be used to **generate** the assets, but is not used to load them.
 
-**Not yet a distributable portable release:** this component does not yet
-deploy every native Qt/platform DLL or recursively audit Windows imports,
-and the complete graphical/network smoke test is pending. The normal
-`cmake --install` still installs the legacy developer runtime; select
-`--component FVDNative` for Python-free staging.
+**Not yet a proven portable release:** the Windows component now deploys
+Qt/platform and native dependency DLLs and audits all staged imports,
+but the **extracted** archive and graphical/network runtime have not been
+verified on a clean Windows installation. The normal `cmake --install`
+still installs the legacy developer runtime; select `--component FVDNative`
+for Python-free staging.
 
 ## Strict native release staging
 
@@ -88,9 +92,9 @@ For a staged release, run the CMake audit with
 .\packaging\native_game\AuditWindowsImports.ps1 -Stage .\build\fvd-native-stage
 ```
 
-The audit checks every staged EXE/DLL for Python imports, including Qt
-plugins when present. Full Qt DLL deployment and graphical verification
-are still outstanding.
+The audit checks every staged EXE/DLL for Python imports and verifies
+that all non-system DLL dependencies are supplied inside the package,
+including Qt plugins. Graphical verification remains outstanding.
 
 ## Windows 7Z release candidate (native-only)
 
@@ -116,6 +120,31 @@ and MSVC runtime DLLs, native FVD game/relay, graphics/audio/config and the
 pre-exported API, without calling the legacy embedded-Python installer.
 The archive still needs extraction and real Windows solo/network testing
 before it can replace the current public package.
+
+### Check the extracted archive (not just the install directory)
+
+The test script needs 7-Zip and a Visual Studio developer PowerShell for
+`dumpbin.exe`. Supply the actual 7Z built by CPack:
+
+```powershell
+. .\deps\msvc-env.ps1
+.\packaging\native_game\SmokeTestWindowsArchive.ps1 -Archive "<path-to-native-7z>" -KeepExtracted
+```
+
+It extracts the release to a fresh temporary directory, finds the native
+launcher, audits **every shipped EXE/DLL and its non-system DLL dependencies**
+and rejects Python files/directories. Then it runs `--help`, `--version`,
+invalid-input, missing-asset, and successful `--verify-assets` smoke tests.
+It also deliberately corrupts a packaged asset, checks for checksum rejection
+and restores it. `-KeepExtracted` prints the extracted folder for manual
+playtesting; omit it to remove the temporary files.
+
+**Still manual:** on a machine without Python installed, launch
+`bin/openage-native.exe --solo`, start actual gameplay, test a hosted lobby
+and a guest through `bin/openage-relay.exe`, exercise replication and exit
+cleanly. Observe the running process modules for Python DLLs, not just
+static DLL imports. Do not mark OpenSpec acceptance complete until these
+passes are recorded.
 
 To inspect the staged component separately, run:
 
