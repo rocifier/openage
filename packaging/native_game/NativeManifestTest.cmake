@@ -24,7 +24,20 @@ file(WRITE "${_root}/assets/shaders/identity.vert.glsl" "test shader")
 file(WRITE "${_root}/assets/qml/main.qml" "import QtQuick\nItem {}\n")
 file(WRITE "${_root}/api/modpack.toml"
 	"[info]\nname = \"engine\"\nversion = \"0.5.0\"\n")
-file(WRITE "${_root}/api/manifest.toml" "# exported engine manifest\n")
+# Construct a complete miniature (content-wise) API snapshot with the same
+# file count, original SHA3-256 manifest and installed layout as production.
+file(WRITE "${_root}/api/root.nyan" "# NYAN FILE\n!version 0.2.0\n\nObject():\n    pass\n")
+foreach(_index RANGE 1 152)
+	file(WRITE "${_root}/api/test_${_index}.nyan" "Test_${_index}():\n    pass\n")
+endforeach()
+set(_api_manifest "[info]\nhash = \"sha3_256\"\n\n[hash-values]\n")
+file(GLOB_RECURSE _api_input_files RELATIVE "${_root}/api" "${_root}/api/*")
+list(SORT _api_input_files)
+foreach(_path IN LISTS _api_input_files)
+	file(SHA3_256 "${_root}/api/${_path}" _hash)
+	string(APPEND _api_manifest "${_hash} = \"${_path}\"\n")
+endforeach()
+file(WRITE "${_root}/api/manifest.toml" "${_api_manifest}")
 
 set(_manifest "${_root}/fvd-native-manifest.toml")
 set(_generator "${CMAKE_CURRENT_LIST_DIR}/GenerateNativeManifest.cmake")
@@ -41,8 +54,8 @@ endif()
 file(READ "${_manifest}" _text)
 string(REGEX MATCHALL "\\[\\[file\\]\\]" _records "${_text}")
 list(LENGTH _records _count)
-if(NOT _count EQUAL 6)
-	message(FATAL_ERROR "Expected 6 hashed FVD release records; got ${_count}")
+if(NOT _count EQUAL 159)
+	message(FATAL_ERROR "Expected 159 hashed FVD release records; got ${_count}")
 endif()
 foreach(_excluded
 	"fvd/README.md"
@@ -68,6 +81,38 @@ string(FIND "${_text}" "converted/engine/manifest.toml" _position)
 if(_position LESS 0)
 	message(FATAL_ERROR "Manifest omitted the exported engine manifest")
 endif()
+
+# Both the checked-in path and the installed runtime path use the same
+# validator. Assert the installed layout is viable before negative cases.
+file(MAKE_DIRECTORY "${_root}/stage/share/openage/converted/engine")
+file(COPY "${_root}/api/" DESTINATION "${_root}/stage/share/openage/converted/engine")
+set(_validator "${CMAKE_CURRENT_LIST_DIR}/CheckEngineApi.cmake")
+function(_check_api _path _should_pass _label)
+	execute_process(COMMAND "${CMAKE_COMMAND}" "-DFVD_ENGINE_API_ROOT=${_path}"
+		-P "${_validator}"
+		RESULT_VARIABLE _exit OUTPUT_QUIET ERROR_QUIET)
+	if(_should_pass AND NOT _exit EQUAL 0)
+		message(FATAL_ERROR "${_label}: valid API unexpectedly rejected")
+	endif()
+	if(NOT _should_pass AND _exit EQUAL 0)
+		message(FATAL_ERROR "${_label}: invalid API unexpectedly accepted")
+	endif()
+endfunction()
+_check_api("${_root}/api" TRUE "tracked source")
+_check_api("${_root}/stage/share/openage/converted/engine" TRUE "installed runtime path")
+_check_api("${_root}/api-nonexistent" FALSE "missing snapshot")
+file(REMOVE "${_root}/api/root.nyan")
+_check_api("${_root}/api" FALSE "incomplete nyan snapshot")
+file(WRITE "${_root}/api/root.nyan" "# NYAN FILE\n!version 0.2.0\n\nObject():\n    pass\n")
+file(APPEND "${_root}/api/root.nyan" "# corrupted")
+_check_api("${_root}/api" FALSE "checksum mismatch")
+file(WRITE "${_root}/api/root.nyan" "# NYAN FILE\n!version 0.2.0\n\nObject():\n    pass\n")
+file(REMOVE "${_root}/api/manifest.toml")
+_check_api("${_root}/api" FALSE "missing manifest")
+file(WRITE "${_root}/api/manifest.toml" "${_api_manifest}")
+file(WRITE "${_root}/api/modpack.toml"
+	"[info]\nname = \"engine\"\nversion = \"0.4.0\"\n")
+_check_api("${_root}/api" FALSE "incompatible API version")
 
 # Asset content/format changes require a different hash.
 file(WRITE "${_root}/api/modpack.toml"
