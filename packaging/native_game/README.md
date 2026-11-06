@@ -28,6 +28,45 @@ Useful optional switches:
 
 **Manual acceptance remains:** test actual graphical solo gameplay, native relay host/guest replication and clean exits on a Windows installation with no Python. The 30-second smoke check proves the process survives and has no Python DLLs; it is not a substitute for gameplay testing.
 
+## Linux: one-command native release
+
+From an existing Linux C++/Qt/CMake development checkout, run:
+
+```bash
+bash build-fvd.sh
+```
+
+This reuses a compatible engine API export, or creates it using developer-only Python tools when missing. It incrementally builds the native game and relay, creates a 7Z in `dist/` and checks the extracted Linux package with CLI, asset, ELF dependency and bounded headless-solo tests.
+
+Linux builds currently depend on compatible distribution-provided libraries. The package is **not yet verified portable across clean Linux distributions**.
+
+## Run, test, and host with one command
+
+All four modes work on both platforms:
+
+| Mode | Windows (PowerShell) | Linux (bash) |
+| --- | --- | --- |
+| Build/package/smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
+| Native CTest + archive smoke | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
+| Play solo | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
+| Start native relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
+
+Pass game and relay options directly after the mode (or after `--` to separate them explicitly):
+
+```powershell
+.\build-fvd.cmd solo --no-audio --window-mode fullscreen
+.\build-fvd.cmd relay --listen 127.0.0.1 --port 32456
+.\build-fvd.cmd relay -- --help
+```
+
+```bash
+bash build-fvd.sh solo --no-audio --window-mode fullscreen
+bash build-fvd.sh relay --listen 127.0.0.1 --port 32456
+bash build-fvd.sh relay -- --help
+```
+
+The `solo` and `relay` modes launch the **latest packaged** executables via a reusable `dist/run/` extraction; neither mode recompiles anything. The `test` mode incrementally builds native test targets, runs native game/relay CTest cases, and checks the latest archive if available. Use the developer runner separately for the full Python-powered source-tree test suite.
+
 ## Developer/advanced commands
 
 The `openage-native` client is a C++ entry point that calls `run_game`
