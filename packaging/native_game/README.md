@@ -35,9 +35,9 @@ directly, with native filesystem mounts and configuration. The **native
 release runtime** needs Qt and the engine, but does **not** ship Python or
 Cython; developer builds can continue using them.
 
-The current Windows portable release still starts through the embedded
-Python launcher. Do not replace that launcher or remove Python from the
-client package before the adapter split and GUI/online smoke tests pass.
+The public Windows distribution remains on its legacy launcher until
+manual graphical, multiplayer and clean-machine acceptance passes. This
+does not affect the verified native-only 7Z release candidate.
 
 ## Build and test
 
