@@ -4,13 +4,17 @@
 
 #include "../log/log.h"
 
+#include <functional>
+#include <sstream>
+#include <unordered_set>
+
 
 namespace openage {
 namespace cvar {
 
-CVarManager::CVarManager(const util::Path &path)
-	:
-	path{path} {}
+CVarManager::CVarManager(const util::Path &path, bool native_config) :
+	path{path},
+	native_config{native_config} {}
 
 
 bool CVarManager::create(const std::string &name,
@@ -42,7 +46,47 @@ void CVarManager::set(const std::string &name, const std::string &value) const {
 
 
 void CVarManager::load_config(const util::Path &path) {
-	pyx_load_config_file.call(this, path);
+	if (not this->native_config) {
+		pyx_load_config_file.call(this, path);
+		return;
+	}
+
+	// Use the same set/load syntax as openage/cvar/config_file.py, without
+	// requiring Cython to register a callback before gameplay can start.
+	std::unordered_set<std::string> loaded{};
+	std::function<void(const util::Path &)> load = [&](const util::Path &file) {
+		if (not file.is_file()) {
+			log::log(INFO << "config file " << file << " not found.");
+			return;
+		}
+		if (not loaded.insert(file.resolve_native_path_r()).second) {
+			return;
+		}
+		log::log(INFO << "loading config file " << file << "...");
+		for (const auto &line : file.open_r().get_lines()) {
+			std::istringstream words{line};
+			std::string action;
+			words >> action;
+			if (action == "set") {
+				std::string key;
+				std::string value;
+				if (words >> key >> value) {
+					std::string word;
+					while (words >> word) {
+						value += " " + word;
+					}
+					this->set(key, value);
+				}
+			}
+			else if (action == "load") {
+				std::string name;
+				while (words >> name) {
+					load(file.get_parent() / name);
+				}
+			}
+		}
+	};
+	load(path);
 }
 
 
