@@ -12,9 +12,7 @@ function(add_fvd_native_relay)
 	configure_file("${_root}/packaging/native_relay/config.h.in"
 		"${_generated}/config.h" @ONLY)
 
-	add_executable(openage_native_relay
-		"${_root}/packaging/native_relay_main.cpp"
-		"${_root}/packaging/native_relay_args.cpp"
+	add_library(fvd_native_relay_core STATIC
 		"${_root}/libopenage/network/relay_service.cpp"
 		"${_root}/libopenage/network/relay.cpp"
 		"${_root}/libopenage/network/transport.cpp"
@@ -38,24 +36,33 @@ function(add_fvd_native_relay)
 		"${_root}/libopenage/util/thread_id.cpp"
 		"${_root}/libopenage/util/timing.cpp"
 	)
-	set_target_properties(openage_native_relay PROPERTIES OUTPUT_NAME "openage-relay")
-	target_compile_features(openage_native_relay PRIVATE cxx_std_20)
-	target_include_directories(openage_native_relay PRIVATE
+	target_compile_features(fvd_native_relay_core PUBLIC cxx_std_20)
+	target_include_directories(fvd_native_relay_core PUBLIC
 		"${_root}/libopenage"
 		"${_generated}")
-	target_compile_definitions(openage_native_relay PRIVATE
-		OPENAGE_STANDALONE_RELAY
-		OPENAGE_NATIVE_RELAY_VERSION=\"${VERSION_FULL_STRING}\")
-	target_link_libraries(openage_native_relay PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+	target_compile_definitions(fvd_native_relay_core PUBLIC OPENAGE_STANDALONE_RELAY)
+	target_link_libraries(fvd_native_relay_core PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 	if(WIN32)
-		target_link_libraries(openage_native_relay PRIVATE ws2_32 dbghelp)
+		target_link_libraries(fvd_native_relay_core PUBLIC ws2_32 dbghelp)
 	endif()
+
+	add_executable(openage_native_relay
+		"${_root}/packaging/native_relay_main.cpp"
+		"${_root}/packaging/native_relay_args.cpp")
+	set_target_properties(openage_native_relay PROPERTIES OUTPUT_NAME "openage-relay")
+	target_compile_definitions(openage_native_relay PRIVATE
+		OPENAGE_NATIVE_RELAY_VERSION=\"${VERSION_FULL_STRING}\")
+	target_link_libraries(openage_native_relay PRIVATE fvd_native_relay_core)
 
 	if(BUILD_TESTING)
 		add_executable(openage_native_relay_args_test
 			"${_root}/packaging/native_relay_args.cpp"
 			"${_root}/packaging/native_relay_args_test.cpp")
 		target_compile_features(openage_native_relay_args_test PRIVATE cxx_std_20)
+		add_executable(openage_native_relay_network_test
+			"${_root}/packaging/native_relay/relay_network_test.cpp")
+		target_link_libraries(openage_native_relay_network_test PRIVATE fvd_native_relay_core)
+		add_test(NAME fvd_native_relay_network COMMAND openage_native_relay_network_test)
 		add_test(NAME fvd_native_relay_args COMMAND openage_native_relay_args_test)
 		add_test(NAME fvd_native_relay_help COMMAND openage_native_relay --help)
 		add_test(NAME fvd_native_relay_version COMMAND openage_native_relay --version)
