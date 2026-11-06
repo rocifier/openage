@@ -230,6 +230,7 @@ void print_help() {
 	std::cout
 		<< "Usage: openage-native [options]\n"
 		<< "  --asset-dir PATH                  Packaged FVD assets override\n"
+		<< "  --verify-assets                   Validate package integrity, then exit\n"
 		<< "  --cfg-dir PATH                    Writable configuration override\n"
 		<< "  --solo, --single-player           Skip the online lobby\n"
 		<< "  --headless                        Run without graphics\n"
@@ -258,6 +259,10 @@ int run(const openage::native_game::Options &options) {
 		? installed_asset_dir(exe)
 		: fs::absolute(options.asset_dir).lexically_normal();
 	validate_assets(assets);
+	if (options.verify_assets) {
+		std::cout << "FVD native release assets verified: " << assets.string() << '\n';
+		return 0;
+	}
 
 	const auto cfg = options.cfg_dir.empty()
 		? user_config_dir()
