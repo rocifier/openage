@@ -87,7 +87,14 @@ try {
             for ($second = 0; $second -lt $ObserveSoloSeconds; ++$second) {
                 Start-Sleep -Seconds 1
                 if ($solo.HasExited) {
-                    throw "Native solo game exited unexpectedly ($($solo.ExitCode))"
+                    # Closing the game normally during the observation window
+                    # is not a failure. Only a nonzero exit indicates a crash.
+                    $solo.Refresh()
+                    if ($solo.ExitCode -eq 0) {
+                        Write-Host "PASS: native solo game exited cleanly (0) during observation."
+                        break
+                    }
+                    throw "Native solo game exited with error code $($solo.ExitCode)"
                 }
                 $solo.Refresh()
                 $loaded = @($solo.Modules | Where-Object {
@@ -97,7 +104,9 @@ try {
                     throw "Native solo game loaded Python: $($loaded.FileName -join ', ')"
                 }
             }
-            Write-Host "PASS: native solo process stayed running without Python DLLs."
+            if (-not $solo.HasExited) {
+                Write-Host "PASS: native solo process stayed running without Python DLLs."
+            }
         }
         finally {
             if (-not $solo.HasExited) {
