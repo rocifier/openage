@@ -83,6 +83,7 @@ def tests_cpp():
     If no description is required, just the name may be yielded.
     """
 
+    yield "openage::cvar::tests::native_config", "Native C++ configuration loader and filesystem mounts"
     yield "openage::coord::tests::coord"
     yield "openage::datastructure::tests::concurrent_queue"
     yield "openage::datastructure::tests::constexpr_map"

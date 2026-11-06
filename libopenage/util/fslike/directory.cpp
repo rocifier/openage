@@ -110,7 +110,7 @@ bool Directory::writable(const Path::parts_t &parts) {
 	}
 	const std::string path = this->resolve(parts_test);
 
-	return access(path.c_str(), W_OK);
+	return access(path.c_str(), W_OK) == 0;
 }
 
 
