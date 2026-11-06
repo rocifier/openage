@@ -49,6 +49,13 @@ The native Windows archive has now passed its automated extracted-package audit 
 - [ ] Confirm the new convenience commands end-to-end on a real Windows and Linux developer checkout (CI syntax/argument tests alone do not prove full package portability).
 - [ ] For public Linux distribution, validate runtime portability and Python-free execution on the target clean distro(s).
 
+## Native audio regression
+
+- [x] Restore missing FVD effect cues after removal of the Python game launcher: synthesize placeholder PCM entirely in C++ when no real recording or developer cache entry is present.
+- [x] Preserve existing recording/cached-sound priority and provide native fallback lobby/match music on clean installs.
+- [x] Add C++ regression coverage for all effect cues, playable PCM, decoded WAV music and sound-file precedence; document placeholder behavior.
+- [ ] Confirm end-to-end with a fresh native Windows 7Z, checking orders, hits, construction and death cues during solo and multiplayer play.
+
 ## Developer documentation cleanup
 
 - [x] Make `doc/building.md` a direct entry point for native Windows/Linux FVD package, test, solo and relay commands.

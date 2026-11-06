@@ -6,6 +6,9 @@
 #include <cmath>
 #include <cctype>
 #include <cstring>
+#include <cstdint>
+#include <initializer_list>
+#include <utility>
 
 #include "../log/log.h"
 #include "../util/file.h"
@@ -171,6 +174,208 @@ size_t SoundBank::total() const {
 
 namespace {
 
+// The old Python developer launcher synthesised these cues into a cache folder.
+// The native launcher does not run Python, so provide equivalent temporary
+// samples directly in memory. Real recordings and existing cached placeholders
+// remain higher priority; no files are created or modified at runtime.
+using mono_t = std::vector<float>;
+constexpr float TAU = 6.2831853071795864769f;
+
+float envelope(size_t i, size_t count, float attack, float decay) {
+	const size_t rise = std::max<size_t>(1, static_cast<size_t>(attack * OUTPUT_RATE));
+	if (i < rise) {
+		return static_cast<float>(i) / static_cast<float>(rise);
+	}
+	if (decay > 0.0f) {
+		return std::exp(-static_cast<float>(i - rise) / (decay * OUTPUT_RATE));
+	}
+	return 1.0f - static_cast<float>(i - rise)
+	             / static_cast<float>(std::max<size_t>(1, count - rise));
+}
+
+mono_t tone(float start, float end, float seconds,
+            std::initializer_list<float> harmonics = {1.0f}, float decay = 0.0f) {
+	const size_t count = static_cast<size_t>(seconds * OUTPUT_RATE);
+	mono_t out(count);
+	double phase = 0.0;
+	for (size_t i = 0; i < count; ++i) {
+		const float frequency = start + (end - start) * static_cast<float>(i) / count;
+		phase += static_cast<double>(TAU) * frequency / OUTPUT_RATE;
+		float value = 0.0f;
+		size_t harmonic = 1;
+		for (const float amplitude : harmonics) {
+			value += amplitude * static_cast<float>(std::sin(phase * harmonic++));
+		}
+		out[i] = value * envelope(i, count, 0.005f, decay);
+	}
+	return out;
+}
+
+mono_t noise(float seconds, float lowpass, float decay, unsigned seed) {
+	const size_t count = static_cast<size_t>(seconds * OUTPUT_RATE);
+	mono_t out(count);
+	std::minstd_rand random{seed};
+	std::uniform_real_distribution<float> uniform{-1.0f, 1.0f};
+	float level = 0.0f;
+	for (size_t i = 0; i < count; ++i) {
+		level += lowpass * (uniform(random) - level);
+		out[i] = level * envelope(i, count, 0.002f, decay);
+	}
+	return out;
+}
+
+mono_t mix(std::initializer_list<mono_t> parts) {
+	size_t frames = 0;
+	for (const auto &part : parts) {
+		frames = std::max(frames, part.size());
+	}
+	mono_t out(frames, 0.0f);
+	for (const auto &part : parts) {
+		for (size_t i = 0; i < part.size(); ++i) {
+			out[i] += part[i];
+		}
+	}
+	return out;
+}
+
+mono_t concat(mono_t first, const mono_t &second) {
+	first.insert(first.end(), second.begin(), second.end());
+	return first;
+}
+
+mono_t silence(float seconds) {
+	return mono_t(static_cast<size_t>(seconds * OUTPUT_RATE), 0.0f);
+}
+
+mono_t note(float frequency, float seconds) {
+	return tone(frequency, frequency, seconds, {1.0f, 0.3f, 0.1f}, seconds / 3.0f);
+}
+
+mono_t sequence(std::initializer_list<float> frequencies, int repetitions, float step) {
+	mono_t result{};
+	for (int repeat = 0; repeat < repetitions; ++repeat) {
+		for (const float frequency : frequencies) {
+			const auto part = frequency > 0.0f ? note(frequency, step) : silence(step);
+			result.insert(result.end(), part.begin(), part.end());
+		}
+	}
+	return result;
+}
+
+std::vector<int16_t> normalise_mono(const mono_t &mono) {
+	float peak = 1e-9f;
+	for (const float value : mono) {
+		peak = std::max(peak, std::abs(value));
+	}
+	const float scale = 0.8f / peak;
+	std::vector<int16_t> samples{};
+	samples.reserve(mono.size());
+	for (const float value : mono) {
+		samples.push_back(static_cast<int16_t>(
+			std::clamp(value * scale, -1.0f, 1.0f) * 32767.0f));
+	}
+	return samples;
+}
+
+std::shared_ptr<const PcmClip> effect_clip(const mono_t &mono) {
+	auto clip = std::make_shared<PcmClip>();
+	auto samples = normalise_mono(mono);
+	clip->samples.reserve(samples.size() * OUTPUT_CHANNELS);
+	for (const int16_t sample : samples) {
+		clip->samples.push_back(sample);
+		clip->samples.push_back(sample);
+	}
+	return clip;
+}
+
+void add_u16(std::string &bytes, uint16_t value) {
+	bytes.push_back(static_cast<char>(value & 0xff));
+	bytes.push_back(static_cast<char>((value >> 8) & 0xff));
+}
+
+void add_u32(std::string &bytes, uint32_t value) {
+	add_u16(bytes, static_cast<uint16_t>(value & 0xffff));
+	add_u16(bytes, static_cast<uint16_t>(value >> 16));
+}
+
+std::string music_wav(const mono_t &mono) {
+	// A tiny standard mono PCM WAV held in memory for the existing music
+	// decoder. This is used only when no real or cached music file exists.
+	const auto samples = normalise_mono(mono);
+	const auto data_size = static_cast<uint32_t>(samples.size() * sizeof(int16_t));
+	std::string bytes{};
+	bytes.reserve(44 + data_size);
+	bytes.append("RIFF", 4);
+	add_u32(bytes, 36 + data_size);
+	bytes.append("WAVEfmt ", 8);
+	add_u32(bytes, 16);
+	add_u16(bytes, 1);  // PCM
+	add_u16(bytes, 1);  // mono
+	add_u32(bytes, OUTPUT_RATE);
+	add_u32(bytes, OUTPUT_RATE * sizeof(int16_t));
+	add_u16(bytes, sizeof(int16_t));
+	add_u16(bytes, 16);
+	bytes.append("data", 4);
+	add_u32(bytes, data_size);
+	for (const int16_t sample : samples) {
+		add_u16(bytes, static_cast<uint16_t>(sample));
+	}
+	return bytes;
+}
+
+} // namespace
+
+SoundBank make_native_placeholder_effects() {
+	SoundBank bank{};
+	auto add = [&bank](Cue cue, mono_t samples) {
+		bank.add(cue, effect_clip(samples));
+	};
+	add(Cue::HIT, mix({noise(0.12f, 0.5f, 0.025f, 1),
+	                    tone(180, 120, 0.12f, {1.0f}, 0.03f)}));
+	add(Cue::HIT, mix({noise(0.12f, 0.4f, 0.03f, 2),
+	                    tone(220, 140, 0.12f, {1.0f}, 0.03f)}));
+	add(Cue::DEATH_HORSE, mix({tone(520, 160, 0.6f, {1, 0.5f, 0.25f}, 0.2f),
+	                           noise(0.6f, 0.1f, 0.15f, 3)}));
+	add(Cue::DEATH_BUILDER, mix({tone(300, 90, 0.5f, {1, 0.4f}, 0.15f),
+	                             noise(0.3f, 0.3f, 0.05f, 4)}));
+	add(Cue::DEATH_TOWER, mix({noise(1.2f, 0.04f, 0.35f, 5),
+	                           tone(70, 40, 1.2f, {1.0f}, 0.4f)}));
+	add(Cue::FOUNDATION_PLACED, mix({noise(0.08f, 0.6f, 0.01f, 6),
+	                                 tone(400, 400, 0.08f, {1.0f}, 0.015f)}));
+	add(Cue::TOWER_BUILT, concat(note(523, 0.15f), note(784, 0.35f)));
+	add(Cue::ORDER, tone(880, 1100, 0.07f, {1.0f}, 0.02f));
+	const auto horn = concat(tone(146.8f, 146.8f, 0.5f, {1, 0.6f, 0.4f, 0.25f}, 0.6f),
+	                         tone(110, 98, 1.1f, {1, 0.6f, 0.4f, 0.25f}, 0.5f));
+	add(Cue::HUNTER_UNLEASHED, mix({horn,
+	                               concat(silence(0.4f), noise(1.2f, 0.05f, 0.4f, 7))}));
+	add(Cue::FLARE, mix({tone(1568, 1568, 0.6f, {1, 0.3f, 0.15f}, 0.18f),
+	                     concat(silence(0.07f), tone(2093, 2093, 0.55f, {1, 0.3f}, 0.16f))}));
+	return bank;
+}
+
+MusicTracks make_native_placeholder_music() {
+	MusicTracks tracks{};
+	auto lobby = sequence({220.0f, 261.6f, 329.6f, 392.0f, 329.6f, 261.6f}, 4, 0.35f);
+	for (auto &sample : lobby) {
+		sample *= 0.5f;
+	}
+	tracks.at(static_cast<size_t>(MusicState::LOBBY)).emplace_back(
+		"lobby.wav", music_wav(lobby));
+	auto pulse = sequence({110.0f, 0.0f, 110.0f, 110.0f, 146.85f, 0.0f, 130.8f, 0.0f}, 4, 0.25f);
+	auto drone = tone(55.0f, 55.0f, 8.0f, {1, 0.5f, 0.3f}, 1000.0f);
+	for (auto &sample : pulse) {
+		sample *= 0.6f;
+	}
+	for (auto &sample : drone) {
+		sample *= 0.25f;
+	}
+	tracks.at(static_cast<size_t>(MusicState::MATCH)).emplace_back(
+		"match.wav", music_wav(mix({pulse, drone})));
+	return tracks;
+}
+
+namespace {
+
 size_t music_count(const MusicTracks &music) {
 	size_t count = 0;
 	for (const auto &tracks : music) {
@@ -245,6 +450,26 @@ FvdAudio::FvdAudio(const util::Path &sound_dir,
 			log::log(INFO << "Audio: using placeholder sounds from " << *fallback_dir
 			              << " for " << filled << " cues without a real file");
 		}
+	}
+
+	// A native player cannot rely on the Python launcher's cached
+	// placeholder generator. Fill only missing cues/music entirely in C++.
+	const size_t generated_effects = this->bank.fill_missing(make_native_placeholder_effects());
+	size_t generated_music = 0;
+	if (this->music.at(static_cast<size_t>(MusicState::LOBBY)).empty()
+	    or this->music.at(static_cast<size_t>(MusicState::MATCH)).empty()) {
+		auto fallback_music = make_native_placeholder_music();
+		for (auto state : {MusicState::LOBBY, MusicState::MATCH}) {
+			const auto index = static_cast<size_t>(state);
+			if (this->music[index].empty()) {
+				this->music[index] = std::move(fallback_music[index]);
+				++generated_music;
+			}
+		}
+	}
+	if (generated_effects > 0 or generated_music > 0) {
+		log::log(INFO << "Audio: synthesised " << generated_effects << " missing effect cues and "
+		              << generated_music << " missing music states in C++ (no Python)");
 	}
 
 	const size_t music_files = music_count(this->music);

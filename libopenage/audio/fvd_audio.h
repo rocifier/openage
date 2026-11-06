@@ -105,6 +105,12 @@ private:
 	std::array<std::vector<std::shared_ptr<const PcmClip>>, CUE_COUNT> clips{};
 };
 
+/** Synthesised temporary FVD effects; real recordings always win. */
+SoundBank make_native_placeholder_effects();
+
+/** Native fallbacks for lobby/match music when neither recording nor cache exists. */
+MusicTracks make_native_placeholder_music();
+
 /**
  * Which cue a file name belongs to: "<cue>.<ext>" or "<cue>_<n>.<ext>".
  */
