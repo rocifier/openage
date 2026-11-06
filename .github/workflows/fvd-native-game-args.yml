@@ -32,6 +32,8 @@ jobs:
         run: cmake --build build/native-game-args --config Release
       - name: Test
         run: ctest --test-dir build/native-game-args -C Release --output-on-failure
+      - name: Test native release manifest asset filters
+        run: cmake -P packaging/native_game/NativeManifestTest.cmake
       - name: Validate native archive PowerShell syntax
         if: runner.os == 'Windows'
         shell: pwsh
