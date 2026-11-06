@@ -71,19 +71,18 @@ function Find-Dumpbin {
     throw "Visual Studio dumpbin.exe not found. Install the MSVC C++ build tools."
 }
 
-if (-not (Get-Command "cmake.exe" -ErrorAction SilentlyContinue)) {
-    throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
-}
-if (-not (Get-Command "cpack.exe" -ErrorAction SilentlyContinue)) {
-    throw "CPack not found; it is installed with CMake."
-}
-
 Push-Location $root
 try {
     # This optional local developer environment is not shipped in the release.
     $envScript = Join-Path $root "deps\msvc-env.ps1"
     if (Test-Path -LiteralPath $envScript -PathType Leaf) {
         . $envScript
+    }
+    if (-not (Get-Command "cmake.exe" -ErrorAction SilentlyContinue)) {
+        throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
+    }
+    if (-not (Get-Command "cpack.exe" -ErrorAction SilentlyContinue)) {
+        throw "CPack not found; it is installed with CMake."
     }
 
     # Developer-only asset export is needed once per API version, not on
