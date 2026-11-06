@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Linux FVD native candidate: build, package and smoke-test.
-# Usage: bash build-fvd.sh [--reexport-api] [--skip-smoke] [--jobs N]
+# Usage: bash build-fvd.sh [package|test|solo|relay] [options] [-- native-options]
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -13,12 +13,22 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 jobs="$(nproc 2>/dev/null || echo 4)"
 reexport_api=0
 skip_smoke=0
+mode=package
+forwarded=()
+if (($#)) && [[ "$1" =~ ^(package|test|solo|relay)$ ]]; then
+    mode="$1"
+    shift
+fi
 
 usage() {
     cat <<'USAGE'
 FVD Linux native release candidate
 
   bash build-fvd.sh                  Build, package and verify
+  bash build-fvd.sh test             Run native CTest + archive smoke checks
+  bash build-fvd.sh solo --no-audio  Launch packaged native solo gameplay
+  bash build-fvd.sh relay --port 32456  Start packaged native relay
+  bash build-fvd.sh relay -- --help  Pass any native options after --
   bash build-fvd.sh --reexport-api   Refresh the developer-exported nyan API
   bash build-fvd.sh --skip-smoke     Create the archive without extracting it
   bash build-fvd.sh --jobs 4         Limit parallel compilation
@@ -31,6 +41,7 @@ USAGE
 
 while (($#)); do
     case "$1" in
+        --) shift; forwarded=("$@"); break ;;
         --reexport-api) reexport_api=1; shift ;;
         --skip-smoke) skip_smoke=1; shift ;;
         --jobs)
@@ -42,7 +53,16 @@ while (($#)); do
             shift 2
             ;;
         -h|--help) usage; exit 0 ;;
-        *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
+        *)
+            if [[ "$mode" == "solo" || "$mode" == "relay" ]]; then
+                forwarded+=("$1")
+                shift
+            else
+                echo "Unknown argument: $1" >&2
+                usage >&2
+                exit 2
+            fi
+            ;;
     esac
 done
 
@@ -67,6 +87,73 @@ converted="$root/assets/converted"
 dist="$root/dist"
 
 step() { printf '\n==> %s\n' "$*"; }
+
+# Subcommands act on the most recent archive and do not reconfigure/build.
+find_archive() {
+    [[ -d "$dist" ]] || { echo "No Linux native package found; run: bash build-fvd.sh" >&2; exit 1; }
+    local file
+    file="$(find "$dist" -maxdepth 1 -type f -name '*.7z' -printf '%T@ %p\n' |
+        sort -nr | head -n 1 | cut -d' ' -f2-)"
+    [[ -n "$file" && -f "$file" ]] || {
+        echo "No Linux native 7Z found in $dist; run: bash build-fvd.sh" >&2
+        exit 1
+    }
+    printf '%s\n' "$file"
+}
+
+extract_for_play() {
+    local archive="$1" stamp expected
+    local run_dir="$dist/run"
+    expected="$(stat -c '%s:%Y' "$archive"):$archive"
+    stamp=""
+    [[ -f "$run_dir/.archive-stamp" ]] && stamp="$(cat "$run_dir/.archive-stamp")"
+    if [[ "$stamp" != "$expected" ]]; then
+        step "Extract native Linux package to $run_dir"
+        rm -rf -- "$run_dir"
+        mkdir -p "$run_dir"
+        (cd "$run_dir" && cmake -E tar xf "$archive")
+        printf '%s\n' "$expected" > "$run_dir/.archive-stamp"
+    fi
+    mapfile -d '' -t game_paths < <(find "$run_dir" -type f -name openage-native -path '*/bin/*' -print0)
+    if ((${#game_paths[@]} != 1)); then
+        echo "Expected one native game in $run_dir, found ${#game_paths[@]}" >&2
+        exit 1
+    fi
+    bin_dir="$(dirname "${game_paths[0]}")"
+    stage_dir="$(dirname "$bin_dir")"
+    export LD_LIBRARY_PATH="$stage_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+}
+
+if [[ "$mode" == "solo" || "$mode" == "relay" ]]; then
+    archive="$(find_archive)"
+    extract_for_play "$archive"
+    if [[ "$mode" == "solo" ]]; then
+        step "Launch native FVD solo (Ctrl+C to stop)"
+        (cd "$bin_dir" && exec ./openage-native --solo "${forwarded[@]}")
+    else
+        step "Launch native FVD relay (Ctrl+C to stop)"
+        (cd "$bin_dir" && exec ./openage-relay "${forwarded[@]}")
+    fi
+    exit 0
+fi
+
+if [[ "$mode" == "test" ]]; then
+    [[ -f "$build/CMakeCache.txt" ]] || { echo "No configured build. First run: bash build-fvd.sh" >&2; exit 1; }
+    step "Build native test targets (incremental)"
+    cmake --build "$build" --parallel "$jobs" \
+        --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
+    step "Run native game/relay CTest suite"
+    ctest --test-dir "$build" --output-on-failure -R '^fvd_native_(game|relay)_'
+    if (( ! skip_smoke )) && [[ -d "$dist" ]] &&
+        find "$dist" -maxdepth 1 -name '*.7z' -print -quit | grep -q .; then
+        archive="$(find_archive)"
+        step "Verify latest extracted Linux native archive"
+        bash "$root/packaging/native_game/SmokeTestLinuxArchive.sh" "$archive"
+    fi
+    echo "Native Linux tests passed."
+    exit 0
+fi
+
 
 # For a fresh checkout only, initialize Ninja and download the nyan source.
 # Existing generators and toolchain settings remain untouched.
@@ -121,8 +208,7 @@ step "Create native 7Z archive (no shipped Python/Cython)"
 cpack --config "$build/CPackConfig.cmake" -C Release -G 7Z -B "$dist"
 
 # -printf is available on the GNU find used by the supported Linux build.
-archive="$(find "$dist" -maxdepth 1 -type f -name '*.7z' -printf '%T@ %p\n' |
-    sort -nr | head -n 1 | cut -d' ' -f2-)"
+archive="$(find_archive)"
 if [[ -z "$archive" || ! -f "$archive" ]]; then
     echo "CPack produced no 7Z archive in $dist" >&2
     exit 1
