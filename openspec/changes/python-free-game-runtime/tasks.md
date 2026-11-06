@@ -12,7 +12,7 @@
   Python-backed path objects from the native startup interface.
 - [ ] 2.4 Move Python object, exception and filesystem adapters behind an optional
   adapter target so shipped runtime binaries do not import the Python ABI.
-- [ ] 3.1 Add the native relay executable, signal handling and start/stop smoke
+- [x] 3.1 Add the native relay executable, signal handling and start/stop smoke
   test while preserving the existing relay option contract.
 - [ ] 3.2 Add the native graphical game executable and call `run_game` directly
   with the packaged FVD defaults.
@@ -29,6 +29,11 @@
   executables and remove embedded Python from the runtime component.
 - [ ] 5.3 Test native `--help`, `--version`, bounded headless game startup and relay
   startup/shutdown in package CI on Windows, Linux and macOS.
+- [x] 3.4 Add an independent CMake entry point for the relay that requires only
+  a C++20 compiler, CMake and OS networking primitives (no Python, Cython,
+  Qt, nyan or game assets), and automated cross-platform build/test coverage.
+- [ ] 3.5 Verify a live relay host/guest pair and deployed ABI on the volunteer
+  host before replacing the hosted Python/Cython service.
 - [ ] 5.4 Verify the final package contains no Python executable, library, standard
   library, source/bytecode module or Cython extension and that no runtime binary
   imports the Python ABI.

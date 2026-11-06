@@ -69,7 +69,13 @@ The end-user game SHALL validate packaged data without running conversion.
 
 The FVD relay distribution SHALL provide a native console executable that
 validates its options, runs the existing C++ relay service and handles a normal
-stop request without Python.
+stop request without Python. The relay build and deployed executable SHALL NOT require
+Qt, nyan, the full game-engine library or converted game assets.
+
+#### Scenario: Volunteer host builds only the relay
+- **WHEN** an operator configures the standalone relay CMake project on a machine with a C++20 compiler and no Python, Qt, Cython or game assets
+- **THEN** the relay builds without configuring or linking the full game engine
+- **AND** the installed relay distribution contains only a native console executable
 
 #### Scenario: Relay starts without Python
 - **WHEN** an operator starts the packaged relay on a machine without Python

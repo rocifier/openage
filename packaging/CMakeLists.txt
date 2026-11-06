@@ -61,6 +61,13 @@ if(MSVC)
 endif()
 
 
+# The relay is intentionally linked only against the native network core.
+# No Python/Cython, game engine, Qt or nyan dependencies are required.
+include("${CMAKE_CURRENT_SOURCE_DIR}/native_relay/NativeRelay.cmake")
+add_fvd_native_relay()
+install(TARGETS openage_native_relay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+
+
 ########################################################################
 # Resource files
 

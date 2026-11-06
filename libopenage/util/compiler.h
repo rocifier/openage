@@ -20,7 +20,9 @@
  */
 // clang-format off
 // otherwise clang-format removes indentation
-#if defined(_WIN32)
+#if defined(OPENAGE_STANDALONE_RELAY)
+	#define OAAPI
+#elif defined(_WIN32)
 	#if defined(libopenage_EXPORTS)
 		#define OAAPI __declspec(dllexport)
 	#else

@@ -1,0 +1,94 @@
+name: FVD native relay standalone
+
+on:
+  push:
+    paths:
+      - "libopenage/network/relay*"
+      - "libopenage/network/transport.*"
+      - "libopenage/network/protocol.*"
+      - "libopenage/network/serialization.*"
+      - "libopenage/network/messages.h"
+      - "libopenage/error/**"
+      - "libopenage/log/**"
+      - "libopenage/util/**"
+      - "packaging/native_relay_*"
+      - "packaging/native_relay/**"
+      - ".github/workflows/fvd-native-relay-cli.yml"
+  pull_request:
+    paths:
+      - "libopenage/network/relay*"
+      - "libopenage/network/transport.*"
+      - "libopenage/network/protocol.*"
+      - "libopenage/network/serialization.*"
+      - "libopenage/network/messages.h"
+      - "libopenage/error/**"
+      - "libopenage/log/**"
+      - "libopenage/util/**"
+      - "packaging/native_relay_*"
+      - "packaging/native_relay/**"
+      - ".github/workflows/fvd-native-relay-cli.yml"
+  workflow_dispatch:
+
+jobs:
+  standalone:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure without Python or Qt
+        run: cmake -S packaging/native_relay -B build/native-relay -DCMAKE_BUILD_TYPE=Release
+      - name: Build native relay
+        run: cmake --build build/native-relay --config Release
+      - name: Test CLI
+        run: ctest --test-dir build/native-relay -C Release --output-on-failure
+
+      - name: Smoke-test relay startup and graceful shutdown
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          build/native-relay/openage-relay --listen 127.0.0.1 --port 32651 > relay.log 2>&1 &
+          pid=$!
+          trap 'kill -TERM "$pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if grep -q 'FVD relay listening' relay.log; then break; fi
+            if ! kill -0 "$pid" 2>/dev/null; then cat relay.log; exit 1; fi
+            sleep 0.1
+          done
+          grep -q 'FVD relay listening' relay.log
+          kill -TERM "$pid"
+          wait "$pid"
+          trap - EXIT
+      - name: Audit runtime dependencies (Linux and macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            deps="$(ldd build/native-relay/openage-relay)"
+          else
+            deps="$(otool -L build/native-relay/openage-relay)"
+          fi
+          echo "$deps"
+          if grep -Eiq '(libQt[0-9]|libpython|libopenage|libnyan|cython)' <<< "$deps"; then
+            echo "An unwanted runtime dependency was found"
+            exit 1
+          fi
+      - name: Install minimal server distribution
+        run: cmake --install build/native-relay --prefix relay-package --config Release
+      - name: Audit package contents
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem relay-package -File -Recurse)
+          if ($files.Count -ne 1 -or $files[0].BaseName -ne 'openage-relay') {
+            $files | ForEach-Object { Write-Host $_.FullName }
+            throw 'Relay distribution must contain only the native executable'
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fvd-native-relay-${{ matrix.os }}
+          path: relay-package/bin/*
+          if-no-files-found: error
