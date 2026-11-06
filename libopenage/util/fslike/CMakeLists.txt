@@ -3,10 +3,13 @@ add_sources(libopenage
 	mounted_directories.cpp
 	fslike.cpp
 	native.cpp
-	python.cpp
 )
 
 pxdgen(
 	fslike.h
 	python.h
 )
+
+if(FVD_WITH_PYTHON_ADAPTERS)
+	add_sources(libopenage python.cpp)
+endif()

@@ -13,7 +13,6 @@
 #include "log/log.h"
 
 #include "util/filelike/native.h"
-#include "util/filelike/python.h"
 #include "util/fslike/directory.h"
 #include "util/path.h"
 #include "util/strings.h"
@@ -37,11 +36,6 @@ File::File(const std::string &path, mode_t mode) {
 
 File::File(std::shared_ptr<filelike::FileLike> filelike) :
 	filelike{filelike} {}
-
-
-File::File(const py::Obj &filelike) {
-	this->filelike = std::make_shared<filelike::Python>(filelike);
-}
 
 
 std::string File::read(ssize_t max) {

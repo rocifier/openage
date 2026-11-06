@@ -35,6 +35,14 @@ installed binary is already Python-free.
   through Python callbacks. Native `fslike::Directory` already exists.
 - `libopenage/pyinterface/` is built into `libopenage`, rather than
   into a separate optional adapter library.
+- Python-owned `Path`/`File` constructors and Python filesystem adapter
+  implementations are now isolated in dedicated sources. CMake option
+  `FVD_WITH_PYTHON_ADAPTERS=OFF` excludes them from `libopenage`; the normal
+  default stays ON for the developer/Cython test harness. Linux CI rebuilds
+  the game in both modes and checks native symbols/dependencies.
+- `FVDNative` is an explicit install component containing C++ binaries,
+  FVD resources, nyan and configs, with a Python-file audit. It does not yet
+  deploy native Qt DLLs or guarantee complete pre-converted API assets.
 - The full-engine CMake configuration still requires Python/Cython for
   developer tools. The Windows package still contains the Python launcher
   and runtime, and the game client still links the full engine/Qt.

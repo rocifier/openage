@@ -40,6 +40,35 @@ layout unless `--asset-dir` overrides that location. It writes configuration
 to the platform user configuration directory (or `--cfg-dir`) and copies
 packaged default `audio.oac` and `keybinds.oac` if missing.
 
+## Native-only build and package-content audit
+
+The developer configuration has `FVD_WITH_PYTHON_ADAPTERS=ON` by default.
+Release staging can exclude Python-backed filesystem implementations:
+
+```sh
+cmake -S . -B build -DFVD_WITH_PYTHON_ADAPTERS=OFF
+cmake --build build --target openage_native_game openage_native_relay
+cmake --install build --component FVDNative --prefix build/fvd-native-stage
+cmake -DFVD_NATIVE_STAGE=build/fvd-native-stage -P packaging/native_game/AuditNativePackage.cmake
+```
+
+This installs only a selected C++ game/relay, engine, nyan, FVD media,
+shaders, and default config; it rejects Python executables/libraries and
+`.py`/`.pyc`/`.pyd` files in the resulting stage. It does **not**
+package conversion tools or the embedded Windows Python launcher.
+
+A playable release stage also needs an exported engine nyan API, which can
+be supplied at CMake configuration using
+`-DFVD_NATIVE_API_ASSET_DIR=<path-to-exported-engine-modpack>`.
+That directory must contain `modpack.toml` and `manifest.toml`. Python
+may be used to **generate** the assets, but is not used to load them.
+
+**Not yet a distributable portable release:** this component does not yet
+deploy every native Qt/platform DLL or recursively audit Windows imports,
+and the complete graphical/network smoke test is pending. The normal
+`cmake --install` still installs the legacy developer runtime; select
+`--component FVDNative` for Python-free staging.
+
 ## Before replacing the Windows launcher
 
 - Separate Python filesystem, exception and Cython adapters from the

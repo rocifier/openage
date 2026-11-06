@@ -2,6 +2,10 @@
 
 # main C++ library definitions.
 # dependency and source file setup for the resulting library.
+# The interpreter is still useful for development, Cython bindings and
+# conversion, but FVD binaries must be linkable without those adapters.
+option(FVD_WITH_PYTHON_ADAPTERS
+	"Include C++ adapters that call back into Python (developer mode)" ON)
 declare_binary(libopenage openage library allow_no_undefined)
 
 
