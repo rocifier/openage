@@ -26,17 +26,17 @@ foreach ($required in @($gameExe, $relayExe)) {
     }
 }
 
-$pythonFiles = @(Get-ChildItem -LiteralPath $stageRoot -File -Recurse |
+$pythonFiles = @(Get-ChildItem -LiteralPath $stageRoot -File -Recurse -Force |
     Where-Object {
-        $_.Extension -match '^(?i)\.(py|pyc|pyo|pyd|whl)$' -or
-        $_.Name -match '^(?i)(lib)?python\d*(?:_d)?\.(dll|exe|lib)$'
+        $_.Extension -match '^\.(py|pyc|pyo|pyd|whl)$' -or
+        $_.Name -match '^(lib)?python\d*(?:_d)?\.(dll|exe|lib)$'
     })
 if ($pythonFiles.Count -gt 0) {
     throw "Python runtime/developer files found: $($pythonFiles.FullName -join ', ')"
 }
 
-$binaries = @(Get-ChildItem -LiteralPath $stageRoot -File -Recurse |
-    Where-Object { $_.Extension -match '^(?i)\.(exe|dll)$' })
+$binaries = @(Get-ChildItem -LiteralPath $stageRoot -File -Recurse -Force |
+    Where-Object { $_.Extension -match '^\.(exe|dll)$' })
 foreach ($binary in $binaries) {
     $output = & $Dumpbin /DEPENDENTS $binary.FullName 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) {
@@ -44,7 +44,7 @@ foreach ($binary in $binaries) {
     }
     $imports = [regex]::Matches($output, '(?im)^\s*([a-z0-9_.-]+\.dll)\s*$')
     foreach ($import in $imports) {
-        if ($import.Groups[1].Value -match '^(?i)(?:lib)?python\d*(?:_d)?\.dll$') {
+        if ($import.Groups[1].Value -match '^(?:lib)?python\d*(?:_d)?\.dll$') {
             throw "$($binary.FullName) imports Python: $($import.Groups[1].Value)"
         }
     }
