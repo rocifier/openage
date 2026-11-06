@@ -40,6 +40,15 @@ The native Windows archive has now passed its automated extracted-package audit 
 - [x] Document the one-command path as the default, with manual CMake/CPack arguments reserved for diagnostics.
 - [ ] Validate the complete wrapper on a fresh configured Windows developer checkout. Automated script syntax validation is wired into Windows CI; the actual end-to-end wrapper still requires a developer run.
 
+## Unified Linux/Windows developer commands
+
+- [x] Add zero-argument `bash build-fvd.sh` for Linux: reuse/export the engine API, incrementally compile the native game and relay, generate the strict native-only 7Z, and smoke-test the extracted package (ELF closure, Python-free contents, asset integrity and headless solo bootstrap).
+- [x] Add shared `package`, `test`, `solo` and `relay` modes to the Windows and Linux scripts, including forwarded native arguments after the mode or `--`.
+- [x] Make `solo` and `relay` reuse the latest packaged archive via a stable `dist/run/` extraction without invoking CMake or recompiling; let `test` run native CTest targets and package smoke verification independently.
+- [x] Document the commands with no required CMake/CPack flags; add Linux shell syntax/usage tests and Windows PowerShell syntax checks in CI.
+- [ ] Confirm the new convenience commands end-to-end on a real Windows and Linux developer checkout (CI syntax/argument tests alone do not prove full package portability).
+- [ ] For public Linux distribution, validate runtime portability and Python-free execution on the target clean distro(s).
+
 ## Windows extracted-archive verification — 2026-11-06
 
 **Reported result: automated smoke test passed after manifest/install filter fix.** The developer built and launched the Windows native executable, created the release 7Z and ran `packaging/native_game/SmokeTestWindowsArchive.ps1` against a newly extracted archive with `-KeepExtracted -ObserveSoloSeconds 30`.
