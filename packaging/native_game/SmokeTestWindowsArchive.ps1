@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "NativeProcess.ps1")
 if (-not (Test-Path -LiteralPath $Archive -PathType Leaf)) {
     throw "FVD native archive does not exist: $Archive"
 }
@@ -46,27 +47,9 @@ try {
     function Invoke-GameCheck([string] $Name, [string[]] $Arguments,
                               [bool] $ShouldSucceed, [string] $ExpectedText,
                               [int] $TimeoutMs = 15000) {
-        $stdout = Join-Path $temp "$Name.stdout"
-        $stderr = Join-Path $temp "$Name.stderr"
-        $argumentsQuoted = @($Arguments | ForEach-Object {
-            if ($_.Contains(" ")) { '"' + $_ + '"' } else { $_ }
-        })
-        $process = Start-Process -FilePath $game -ArgumentList $argumentsQuoted -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-        try {
-            if (-not $process.WaitForExit($TimeoutMs)) {
-                throw "$Name timed out (native launcher did not exit)"
-            }
-            $exitCode = $process.ExitCode
-        }
-        finally {
-            if (-not $process.HasExited) {
-                $process.Kill()
-                $process.WaitForExit()
-            }
-            $process.Dispose()
-        }
-        $output = (Get-Content -LiteralPath $stdout -Raw) +
-                  (Get-Content -LiteralPath $stderr -Raw)
+        $result = Invoke-FVDNativeProcess -Executable $game -Arguments $Arguments -TimeoutMs $TimeoutMs -WorkingDirectory (Join-Path $stage "bin")
+        $exitCode = $result.ExitCode
+        $output = $result.Output
         if (($exitCode -eq 0) -ne $ShouldSucceed) {
             throw "$Name unexpected exit $exitCode : $output"
         }
