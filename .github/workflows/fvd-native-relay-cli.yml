@@ -1,22 +1,36 @@
-name: FVD native relay CLI
+name: FVD native relay standalone
 
 on:
   push:
     paths:
-      - "packaging/native_relay_args.*"
-      - "packaging/native_relay_args_test.cpp"
-      - "packaging/native_relay_test/**"
+      - "libopenage/network/relay*"
+      - "libopenage/network/transport.*"
+      - "libopenage/network/protocol.*"
+      - "libopenage/network/serialization.*"
+      - "libopenage/network/messages.h"
+      - "libopenage/error/**"
+      - "libopenage/log/**"
+      - "libopenage/util/**"
+      - "packaging/native_relay_*"
+      - "packaging/native_relay/**"
       - ".github/workflows/fvd-native-relay-cli.yml"
   pull_request:
     paths:
-      - "packaging/native_relay_args.*"
-      - "packaging/native_relay_args_test.cpp"
-      - "packaging/native_relay_test/**"
+      - "libopenage/network/relay*"
+      - "libopenage/network/transport.*"
+      - "libopenage/network/protocol.*"
+      - "libopenage/network/serialization.*"
+      - "libopenage/network/messages.h"
+      - "libopenage/error/**"
+      - "libopenage/log/**"
+      - "libopenage/util/**"
+      - "packaging/native_relay_*"
+      - "packaging/native_relay/**"
       - ".github/workflows/fvd-native-relay-cli.yml"
   workflow_dispatch:
 
 jobs:
-  cli:
+  standalone:
     strategy:
       fail-fast: false
       matrix:
@@ -24,9 +38,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Configure without Python or Cython
-        run: cmake -S packaging/native_relay_test -B build-native-relay-cli
-      - name: Build
-        run: cmake --build build-native-relay-cli --config Release
-      - name: Test
-        run: ctest --test-dir build-native-relay-cli -C Release --output-on-failure
+      - name: Configure without Python or Qt
+        run: cmake -S packaging/native_relay -B build/native-relay -DCMAKE_BUILD_TYPE=Release
+      - name: Build native relay
+        run: cmake --build build/native-relay --config Release
+      - name: Test CLI
+        run: ctest --test-dir build/native-relay -C Release --output-on-failure
