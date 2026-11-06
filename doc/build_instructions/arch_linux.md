@@ -1,20 +1,33 @@
-# Prerequisite steps for Arch Linux users
+# Arch Linux dependencies
 
-> NOTE: `openage` is packaged in the [AUR](https://aur.archlinux.org/packages/openage-git/)!
+The general openage developer project is also available in the
+[AUR](https://aur.archlinux.org/packages/openage-git/).
 
-This command should provide required packages from the Arch Linux repositories:
+For native FVD, install a compiler, CMake/Ninja, and the underlying
+engine libraries:
 
-`sudo pacman -S --needed eigen python python-setuptools python-mako python-pillow python-numpy python-lz4 python-pygments cython libepoxy libogg libpng ttf-dejavu freetype2 fontconfig harfbuzz cmake opusfile opus uv python-toml qt6-declarative qt6-multimedia`
+```bash
+sudo pacman -S --needed gcc cmake ninja flex eigen libepoxy libogg libpng \
+  ttf-dejavu freetype2 fontconfig harfbuzz opusfile opus \
+  qt6-declarative qt6-multimedia
+```
 
-Additionally, you have to install [`toml11`](https://aur.archlinux.org/packages/toml11) from the AUR.
-If you have `yay`, you can run this command:
+Install [toml11 from the AUR](https://aur.archlinux.org/packages/toml11)
+(e.g., `yay -S toml11`) and
+[nyan](https://github.com/SFTtech/nyan), or configure CMake to
+download nyan.
 
-`yay -S toml11`
+Build, package and verify native FVD from the repository root:
 
-If you don't have a compiler installed, you can select between these commands to install it:
- - `sudo pacman -S --needed gcc`
- - `sudo pacman -S --needed clang`
+```bash
+bash build-fvd.sh
+```
 
-You can install both compilers and select the one to be used by `./configure`.
+Use `bash build-fvd.sh test`, `solo` or `relay` afterwards.
 
-You will also need [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md) and its dependencies.
+**The packaged native FVD game and relay do not need Python/Cython.**
+For the first engine API export or generic openage development you still
+need Python 3.12+, Cython 3.1+ and development headers. Run `uv sync`
+to install the Python modules declared in
+[`pyproject.toml`](../../pyproject.toml), rather than separately
+installing Python modules listed in older instructions.
