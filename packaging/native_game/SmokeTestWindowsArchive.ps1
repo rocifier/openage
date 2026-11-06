@@ -6,7 +6,8 @@ param(
     [Parameter(Mandatory = $true)][string] $Archive,
     [string] $SevenZip = "7z.exe",
     [string] $Dumpbin = "dumpbin.exe",
-    [switch] $KeepExtracted
+    [switch] $KeepExtracted,
+    [ValidateRange(0, 600)][int] $ObserveSoloSeconds = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,6 +94,36 @@ try {
         [IO.File]::WriteAllBytes($modpack, $original)
     }
     Invoke-GameCheck "restored-assets" @("--verify-assets") $true "assets verified" 120000
+
+    # Optional live Windows process audit. GUI/multiplayer interaction still
+    # needs a human, but every loaded module is inspected during the interval.
+    if ($ObserveSoloSeconds -gt 0) {
+        Write-Host "Launching a native solo game for $ObserveSoloSeconds seconds; inspect its graphical window."
+        $solo = Start-Process -FilePath $game -ArgumentList @("--solo", "--no-audio") -WorkingDirectory (Join-Path $stage "bin") -PassThru
+        try {
+            for ($second = 0; $second -lt $ObserveSoloSeconds; ++$second) {
+                Start-Sleep -Seconds 1
+                if ($solo.HasExited) {
+                    throw "Native solo game exited unexpectedly ($($solo.ExitCode))"
+                }
+                $solo.Refresh()
+                $loaded = @($solo.Modules | Where-Object {
+                    $_.ModuleName -match '^(?i:(?:lib)?python[0-9._-]*)[.]dll$'
+                })
+                if ($loaded.Count -gt 0) {
+                    throw "Native solo game loaded Python: $($loaded.FileName -join ', ')"
+                }
+            }
+            Write-Host "PASS: native solo process stayed running without Python DLLs."
+        }
+        finally {
+            if (-not $solo.HasExited) {
+                $solo.Kill()
+                $solo.WaitForExit()
+            }
+            $solo.Dispose()
+        }
+    }
     Write-Host "FVD native extracted archive CLI/integrity/DLL checks passed."
     Write-Host "Manual graphical solo, lobby, two-player and clean-exit checks remain required."
 }
