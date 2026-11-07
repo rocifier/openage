@@ -17,10 +17,6 @@ For the Python-free **FVD runtime package**, run `bash build-fvd.sh` from
 the repository root. It packages and smoke-tests the game and relay.
 Use `bash build-fvd.sh test`, `solo` or `relay` for subsequent checks.
 
-Python and Cython are not required to *run* the native FVD distribution.
-The first build-time engine API export and traditional openage developer
-workflow still use Python 3.12+, Cython 3.1+ and Python development
-headers. Install the developer environment via `uv sync` using
-[`pyproject.toml`](../../pyproject.toml).
+**The native FVD build and distribution require no Python, Cython, Mako or converter.** Optional pure-Python network tests run separately with `bash build-fvd.sh python-test` (Python 3.12+). `uv sync` installs only optional lint/type-check tools.
 
 See [building.md](../building.md) for details.

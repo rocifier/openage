@@ -23,18 +23,7 @@ bash build-fvd.sh
 Then use `bash build-fvd.sh test`, `bash build-fvd.sh solo` or
 `bash build-fvd.sh relay` to test, play or host using the native build.
 
-**Python is not required by the packaged player or standalone relay.**
-The first engine API export, general source-tree CMake setup and legacy
-conversion/tests still require Python 3.12+ and Cython 3.1+.
-For those *developer* commands, install an appropriate Python interpreter
-and development headers, then run `uv sync` in the repository root to
-obtain the packages declared in [`pyproject.toml`](../../pyproject.toml).
-Do not install individual NumPy/Pillow/lz4/Pygments/Mako packages merely
-to run the packaged native game.
-
-Note: older Ubuntu versions (including 22.04 and 24.04) may ship an
-outdated Cython or Python; use a supported Python 3.12+ developer
-environment rather than changing system-wide pip packages.
+**The native FVD build and distribution require no Python, Cython, Mako or converter.** Optional pure-Python network tests run separately with `bash build-fvd.sh python-test` (Python 3.12+). `uv sync` installs only optional lint/type-check tools.
 
 If Linux Mint cannot locate toml11, see the
 [existing toml11 workaround](https://github.com/SFTtech/openage/issues/1601).

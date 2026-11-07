@@ -20,10 +20,6 @@ bash build-fvd.sh
 `bash build-fvd.sh test`, `solo` and `relay` also run the native tools
 without rebuilding the entire project.
 
-**The distributed FVD game and relay do not need Python.** The first
-nyan API export and traditional openage developer build still require
-Python 3.12+, Cython 3.1+ and Python development headers. Use `uv sync`
-for packages in [`pyproject.toml`](../../pyproject.toml) rather than a
-long distro-specific list of individual Python packages.
+**The native FVD build and distribution require no Python, Cython, Mako or converter.** Optional pure-Python network tests run separately with `bash build-fvd.sh python-test` (Python 3.12+). `uv sync` installs only optional lint/type-check tools.
 
-See [building.md](../building.md) for the native-vs-developer distinction.
+See [building.md](../building.md) for details.
