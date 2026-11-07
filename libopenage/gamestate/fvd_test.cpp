@@ -74,8 +74,8 @@ namespace openage::gamestate::tests {
 void fvd_network_builder_count() {
 	auto root = util::Path{
 		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	for (size_t admitted : {size_t{2}, size_t{3}, size_t{8}}) {
@@ -450,8 +450,8 @@ void fvd_scenario() {
 		TESTEQUALS(texture.get_info().get_size().first, info->get_size().first);
 		TESTEQUALS(texture.get_info().get_size().second, info->get_size().second);
 	}
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -477,7 +477,7 @@ void fvd_scenario() {
 		const auto animations = api::APIAbilityProperty::get_animations(animated);
 		const auto paths = api::APIAnimation::get_animation_paths(animations);
 		TESTEQUALS(paths.size(), size_t{1});
-		const auto sprite = root / "assets" / "converted" / paths.front();
+		const auto sprite = root / "assets" / paths.front();
 		TESTEQUALS(sprite.is_file(), true);
 		const auto parsed = renderer::resources::parser::parse_sprite_file(sprite);
 		TESTEQUALS(parsed.get_texture_count(), texture_count);
@@ -492,7 +492,7 @@ void fvd_scenario() {
 		builder_move_animations);
 	TESTEQUALS(builder_move_paths.size(), size_t{1});
 	TESTEQUALS(builder_move_paths.front().ends_with("builder_walk.sprite"), true);
-	const auto builder_move_sprite = root / "assets" / "converted" / builder_move_paths.front();
+	const auto builder_move_sprite = root / "assets" / builder_move_paths.front();
 	TESTEQUALS(builder_move_sprite.is_file(), true);
 	const auto parsed_builder_move = renderer::resources::parser::parse_sprite_file(
 		builder_move_sprite);
@@ -512,11 +512,11 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle_paths[0].ends_with("ethereal-hunter-horse-idle1.sprite"), true);
 	TESTEQUALS(horse_idle_paths[1].ends_with("ethereal-hunter-horse-idle2.sprite"), true);
 	TESTEQUALS(renderer::resources::parser::parse_sprite_file(
-		           root / "assets" / "converted" / horse_idle_paths[0])
+		           root / "assets" / horse_idle_paths[0])
 	             .get_texture_count(),
 	           size_t{2});
 	TESTEQUALS(renderer::resources::parser::parse_sprite_file(
-		           root / "assets" / "converted" / horse_idle_paths[1])
+		           root / "assets" / horse_idle_paths[1])
 	             .get_texture_count(),
 	           size_t{1});
 	const auto horse_move = state->get_db_view()->get_object(
@@ -528,7 +528,7 @@ void fvd_scenario() {
 	const auto horse_move_paths = api::APIAnimation::get_animation_paths(
 		horse_move_animations);
 	TESTEQUALS(horse_move_paths.size(), size_t{1});
-	const auto horse_move_sprite = root / "assets" / "converted" / horse_move_paths.front();
+	const auto horse_move_sprite = root / "assets" / horse_move_paths.front();
 	TESTEQUALS(horse_move_sprite.is_file(), true);
 	const auto parsed_horse_move = renderer::resources::parser::parse_sprite_file(
 		horse_move_sprite);
@@ -572,7 +572,7 @@ void fvd_scenario() {
 		for (const auto &tile : chunk->get_tiles()) {
 			TESTEQUALS(tile.elevation, terrain_elevation_t::zero());
 			TESTEQUALS(tile.terrain.get_name(), "fvd.data.terrain.Plains");
-			if (not (root / "assets" / "converted" / tile.terrain_asset_path).is_file()) {
+			if (not (root / "assets" / tile.terrain_asset_path).is_file()) {
 				TESTFAILMSG("Plains graphics cannot be resolved");
 			}
 			++tile_count;
@@ -839,8 +839,8 @@ void fvd_scenario() {
 /** A real authoritative Builder shelters inside a completed tower and exits unharmed. */
 void fvd_garrison() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1035,8 +1035,8 @@ void fvd_garrison() {
  * Builder to their owner. The public flag is the occupant's player colour. */
 void fvd_allied_garrison() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1135,8 +1135,8 @@ void fvd_allied_garrison() {
 /** Garrisoning between touching towers never exposes the Builder to combat. */
 void fvd_garrison_hop() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1205,8 +1205,8 @@ void fvd_garrison_hop() {
  * to a fixed isometric bottom-right entrance. */
 void fvd_garrison_all_sides() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1267,8 +1267,8 @@ void fvd_garrison_all_sides() {
 
 void fvd_construction() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1500,8 +1500,8 @@ void fvd_construction() {
 void fvd_builder_demolition() {
 	auto root = util::Path{
 		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1625,8 +1625,8 @@ void fvd_builder_demolition() {
 
 void fvd_builder_delete_foundation() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1705,8 +1705,8 @@ void fvd_builder_delete_foundation() {
 // "Delete all foundations" for one Builder (OpenSpec builder-delete-all-foundations).
 void fvd_builder_delete_all_foundations() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1838,8 +1838,8 @@ void fvd_match_outcome_rules() {
 	// requiring mutation of game entities or destruction of their towers.
 	auto root = util::Path{
 		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1886,8 +1886,8 @@ void fvd_match_outcome_rules() {
 // no horses spawn and the Hunter tower never fires.
 void fvd_match_end_garrison_and_hunter_stop() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -1956,8 +1956,8 @@ void fvd_match_end_garrison_and_hunter_stop() {
 // sent to every Builder and never to the Hunter.
 void fvd_builder_flare() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2018,8 +2018,8 @@ void fvd_builder_flare() {
 
 void fvd_hunter_spawning() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2172,8 +2172,8 @@ void fvd_hunter_spawning() {
 
 void fvd_horse_spawn_blocked() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2222,8 +2222,8 @@ void fvd_horse_spawn_blocked() {
 
 void fvd_hunter_combat() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2390,8 +2390,8 @@ void fvd_hunter_combat() {
  */
 void fvd_combat_balance() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2487,8 +2487,8 @@ void fvd_combat_balance() {
 
 void fvd_hunter_attack_move_regressions() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2658,8 +2658,8 @@ void fvd_hunter_attack_move_regressions() {
 
 void fvd_hunter_builder_aggro() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2776,8 +2776,8 @@ void fvd_hunter_builder_aggro() {
 
 void fvd_hunter_focus_attack() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -2990,8 +2990,8 @@ void fvd_presentation_snapshot() {
  * foundation is removed; the following queued job still starts. */
 void fvd_foundation_push_and_timeout() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3092,8 +3092,8 @@ void fvd_foundation_push_and_timeout() {
 
 void fvd_build_queue() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3280,8 +3280,8 @@ void fvd_animation_phase() {
 
 void fvd_build_line_order() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3374,8 +3374,8 @@ void fvd_build_line_order() {
 // and leaving orphaned foundations.
 void fvd_build_double_row() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3444,8 +3444,8 @@ void fvd_build_double_row() {
 
 void fvd_retask_foundation() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3572,8 +3572,8 @@ void fvd_retask_foundation() {
 
 void fvd_hunter_stances() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3735,8 +3735,8 @@ void fvd_hunter_stances() {
 
 void fvd_hunter_patrol_stances() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3843,8 +3843,8 @@ void fvd_hunter_patrol_stances() {
 
 void fvd_fog_of_war() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -3979,8 +3979,8 @@ void fvd_fog_of_war() {
 
 void fvd_hunter_tower() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();
@@ -4111,8 +4111,8 @@ void fvd_hunter_tower() {
 
 void fvd_hunter_rally_point() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<openage::event::EventLoop>();

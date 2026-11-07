@@ -110,8 +110,8 @@ size_t count_owned_entities(const WorldState &state,
 void run_host(TcpListener &listener, bool test_hunter_session) {
 	auto root = util::Path{
 		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
-	auto mods = std::make_shared<assets::ModManager>(root / "assets" / "converted");
-	mods->register_modpack(root / "assets" / "converted" / "engine" / "modpack.toml");
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
 	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
 	mods->activate_modpacks({"engine", "fvd"});
 	auto loop = std::make_shared<event::EventLoop>();
