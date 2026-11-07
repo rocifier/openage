@@ -44,15 +44,15 @@ int run(const Test &test) {
 	std::cout << "[ RUN      ] " << test.name << std::endl;
 	try {
 		test.function();
-		std::cout << "[       OK ] " << test.name << '\\n';
+		std::cout << "[       OK ] " << test.name << '\n';
 		return 0;
 	}
 	catch (const openage::error::Error &error) {
-		std::cerr << "[  FAILED  ] " << test.name << ": " << error.what() << '\\n';
-		std::cerr << error << '\\n'; // preserved C++ exception and source location
+		std::cerr << "[  FAILED  ] " << test.name << ": " << error.what() << '\n';
+		std::cerr << error << '\n'; // preserved C++ exception and source location
 	}
 	catch (const std::exception &error) {
-		std::cerr << "[  FAILED  ] " << test.name << ": " << error.what() << '\\n';
+		std::cerr << "[  FAILED  ] " << test.name << ": " << error.what() << '\n';
 	}
 	catch (...) {
 		std::cerr << "[  FAILED  ] " << test.name << ": unknown C++ exception\n";
@@ -68,7 +68,7 @@ int main(int argc, char **argv) {
 	}
 	if (argc == 2 && std::string_view{argv[1]} == "--list") {
 		for (const auto &test : tests) {
-			std::cout << test.name << '\\n';
+			std::cout << test.name << '\n';
 		}
 		return 0;
 	}
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
 		failed += run(test);
 	}
 	if (matched == 0) {
-		std::cerr << "No registered native C++ test matched: " << wanted << '\\n';
+		std::cerr << "No registered native C++ test matched: " << wanted << '\n';
 		return 2;
 	}
 	std::cout << "Native C++ tests: " << matched - failed << "/" << matched
