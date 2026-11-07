@@ -14,14 +14,22 @@
 - [x] 2.2 Compile the committed coordinate `.cpp` files directly and remove their Mako templates and generated single-compilation-unit wrapper.
 - [x] 2.3 Add a native C++ test executable that lists tests, runs one exact or prefixed name and runs all registered C++ tests.
 - [x] 2.4 Report the active test name, source failure location and uncaught C++ exception details without Python exception translation.
-- [ ] 2.5 Move C++ test registration out of the Python test list and generated dispatcher into a C++-owned source of truth.
-- [ ] 2.6 Port retained tests that use Python-backed paths or callbacks to native fixtures.
-- [ ] 2.7 Update `build-fvd` and editor tasks to run native C++ tests and pure Python tests as separate commands.
+- [x] 2.5 Move C++ test registration out of the Python test list and generated dispatcher into a C++-owned source of truth.
+- [x] 2.6 Port retained tests that use Python-backed paths or callbacks to native fixtures.
+- [x] 2.7 Update `build-fvd` and editor tasks to run native C++ tests and pure Python tests as separate commands.
 
-Task 2 migration note: the C++-owned runner now registers nine native tests,
-including texture metadata on a native FSLike fixture. The remaining legacy
-C++ registrations and Python-dependent tests still need to move before
-2.5–2.7 can be checked. Windows/Linux full native builds remain a gate.
+Task 2 migration note: the Python-generated C++ dispatcher, coordinate Mako
+generation and the `cpp_testing.pyx` bridge are no longer compiled or used.
+The native C++-owned registry includes 113 retained tests, six opt-in demos and
+one opt-in benchmark. Four tests/demos solely exercising the removed Python
+C++ bridge are retired. C++ texture tests now use a native filesystem fixture;
+FVD scenario and network tests load the tracked engine API, not the conversion
+cache. Asset-dependent tests require `--all --have-assets`, while process
+workers and slow benchmarks are opt-in. The `build-fvd test` and `python-test`
+commands and VS Code tasks run independent native and pure-Python suites.
+The remaining Python/Cython application adapters and codegen framework are
+removed in Task 3. Full Windows/Linux archive release smoke tests are still
+tracked separately under 1.5/6.3.
 
 ## 3. Remove Python code generation, Cython and Python adapters
 
