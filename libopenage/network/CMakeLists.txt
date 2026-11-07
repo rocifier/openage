@@ -48,6 +48,4 @@ add_sources(libopenage
 	world_delta_test.cpp
 )
 
-pxdgen(
-	relay_service.h
-)
+

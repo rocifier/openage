@@ -10,10 +10,4 @@ add_sources(libopenage
 	test.cpp
 )
 
-pxdgen(
-	level.h
-	log.h
-	logsource.h
-	named_logsource.h
-	message.h
-)
+
