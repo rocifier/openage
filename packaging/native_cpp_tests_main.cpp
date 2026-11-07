@@ -13,6 +13,7 @@ namespace openage::coord::tests { void coord(); }
 namespace openage::cvar::tests { void native_config(); }
 namespace openage::network::tests { void messages(); }
 namespace openage::testing::tests { void comparison(); }
+namespace openage::renderer::resources::tests { void alpha_mask(); void texture_metadata(); void palette_colors(); }
 namespace openage::util::tests { void fixed_point(); void matrix(); }
 
 namespace {
@@ -28,6 +29,9 @@ constexpr Test tests[] = {
 	{"openage::cvar::tests::native_config", &openage::cvar::tests::native_config},
 	{"openage::network::tests::messages", &openage::network::tests::messages},
 	{"openage::testing::tests::comparison", &openage::testing::tests::comparison},
+	{"openage::renderer::resources::tests::alpha_mask", &openage::renderer::resources::tests::alpha_mask},
+	{"openage::renderer::resources::tests::texture_metadata", &openage::renderer::resources::tests::texture_metadata},
+	{"openage::renderer::resources::tests::palette_colors", &openage::renderer::resources::tests::palette_colors},
 	{"openage::util::tests::fixed_point", &openage::util::tests::fixed_point},
 	{"openage::util::tests::matrix", &openage::util::tests::matrix},
 };

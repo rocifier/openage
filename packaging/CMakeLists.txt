@@ -109,6 +109,7 @@ if(BUILD_TESTING)
 		"${CMAKE_SOURCE_DIR}/libopenage/coord/coord_test.cpp"
 		"${CMAKE_SOURCE_DIR}/libopenage/cvar/cvar_test.cpp"
 		"${CMAKE_SOURCE_DIR}/libopenage/network/messages_test.cpp"
+		"${CMAKE_SOURCE_DIR}/libopenage/renderer/resources/texture_data_test.cpp"
 		"${CMAKE_SOURCE_DIR}/libopenage/testing/testing_test.cpp"
 		"${CMAKE_SOURCE_DIR}/libopenage/util/fixed_point_test.cpp"
 		"${CMAKE_SOURCE_DIR}/libopenage/util/matrix_test.cpp")
