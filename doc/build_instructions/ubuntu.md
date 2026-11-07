@@ -14,14 +14,14 @@ sudo apt-get install g++ cmake ninja-build flex libeigen3-dev libepoxy-dev \
 You also need [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md);
 `bash build-fvd.sh` can ask CMake to download it for an unconfigured checkout.
 
-From the repository root, build, package, and smoke-test native FVD:
+From the repository root, incrementally build native FVD:
 
 ```bash
 bash build-fvd.sh
 ```
 
-Then use `bash build-fvd.sh test`, `bash build-fvd.sh game` (multiplayer lobby),
-`bash build-fvd.sh solo` or `bash build-fvd.sh relay` to test, play or host.
+Use `bash build-fvd.sh test`, `bash build-fvd.sh game` (multiplayer lobby),
+`bash build-fvd.sh solo` or `bash build-fvd.sh relay` to build and immediately test, play or host directly from the local build tree. No release archive is needed. Only `bash build-fvd.sh package` explicitly creates a 7Z in `dist/`; it does not extract or launch the archive.
 
 **The native FVD build and distribution require no Python, Cython, Mako or converter.** Optional pure-Python network tests run separately with `bash build-fvd.sh python-test` (Python 3.12+). `uv sync` installs only optional lint/type-check tools.
 
