@@ -66,9 +66,6 @@ void Error::trim_backtrace() {
 }
 
 
-Error::Error() :
-	std::runtime_error{runtime_error_message} {}
-
 
 const char *Error::what() const noexcept {
 	return this->msg.text.c_str();

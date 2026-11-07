@@ -26,9 +26,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "== Python-interface references remaining in native C++ =="
-          git grep -nE '#include.*pyinterface|#include.*Python[.]h|PyIfFunc|py::Obj|pyinterface::|FVD_WITH_PYTHON_ADAPTERS' -- libopenage CMakeLists.txt || true
+          if git grep -nE '#include.*pyinterface|#include.*Python[.]h|PyIfFunc|py::Obj|pyinterface::|FVD_WITH_PYTHON_ADAPTERS' -- libopenage CMakeLists.txt; then
+            echo "::error::Native C++ still contains Python/Cython adapter references"
+            exit 1
+          fi
           echo "== Python/Cython CMake integration references =="
-          git grep -nE 'pxdgen\\(|add_cython_modules\\(|python_finalize\\(|include\\(python\\)|find_package\\(Python' -- CMakeLists.txt libopenage buildsystem || true
+          if git grep -nF -e 'pxdgen(' -e 'add_cython_modules(' -e 'python_finalize(' -e 'include(python)' -e 'find_package(Python' -- CMakeLists.txt libopenage buildsystem; then
+            echo "::error::Native build still contains Python/Cython generation"
+            exit 1
+          fi
           echo "== Any surviving Cython source files =="
           find openage -type f \\( -name '*.pyx' -o -name '*.pxd' \\) -print
           echo "== Any surviving generator content =="

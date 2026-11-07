@@ -23,13 +23,6 @@ class Backtrace;
 } // namespace error
 } // namespace openage
 
-namespace openage {
-namespace pyinterface {
-// forward-declaration for use in the 'friend' declaration below.
-class PyException;
-} // namespace pyinterface
-} // namespace openage
-
 
 namespace openage {
 namespace error {
@@ -84,7 +77,7 @@ public:
 	 * unneeded symbols from program init upwards.
 	 *
 	 * Automatically called for cause exceptions, and when storing cause exceptions,
-	 * and by the to_py converter.
+	 * and by native exception reporting.
 	 */
 	void trim_backtrace();
 
@@ -129,14 +122,6 @@ public:
 	static void debug_break_on_create(bool state);
 
 private:
-	friend pyinterface::PyException;
-
-
-	/**
-	 * Constructs an empty error.
-	 * For use by our friend, pyinterface::PyException.
-	 */
-	Error();
 
 
 	/**
