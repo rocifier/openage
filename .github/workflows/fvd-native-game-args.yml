@@ -7,6 +7,9 @@ on:
       - "packaging/native_game_args_test.cpp"
       - "packaging/native_game_test/**"
       - "packaging/native_game/*.ps1"
+      - "packaging/native_game/*.cmake"
+      - "packaging/native_game/*.h.in"
+      - "assets/fvd/engine_api/**"
       - "build-fvd.ps1"
       - "build-fvd.cmd"
       - "build-fvd.sh"
@@ -42,6 +45,8 @@ jobs:
         run: ctest --test-dir build/native-game-args -C Release --output-on-failure
       - name: Test native release manifest asset filters
         run: cmake -P packaging/native_game/NativeManifestTest.cmake
+      - name: Validate tracked nyan engine API and hashes
+        run: cmake -DFVD_ENGINE_API_ROOT="${{ github.workspace }}/assets/fvd/engine_api" -P packaging/native_game/CheckEngineApi.cmake
       - name: Validate Linux release shell syntax and CLI help
         if: runner.os == 'Linux'
         shell: bash
