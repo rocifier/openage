@@ -8,13 +8,6 @@ set(_fvd_api_source "${CMAKE_SOURCE_DIR}/assets/fvd/engine_api")
 # Fail at configure time, including developer builds. No conversion bootstrap.
 fvd_validate_engine_api("${_fvd_api_source}")
 
-option(FVD_NATIVE_RELEASE
-	"Require Python-free adapters and verified tracked API when staging FVD" OFF)
-if(FVD_NATIVE_RELEASE)
-	if(FVD_WITH_PYTHON_ADAPTERS)
-		message(FATAL_ERROR "FVD native releases must use -DFVD_WITH_PYTHON_ADAPTERS=OFF")
-	endif()
-endif()
 
 install(TARGETS openage_native_game openage_native_relay
 	RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)

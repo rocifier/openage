@@ -243,7 +243,7 @@ try {
             throw "No configured Windows build; first run: .\build-fvd.cmd build"
         }
         Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=OFF") "Configure native-only C++ tests"
+            "-DFVD_NATIVE_RELEASE=OFF") "Configure native-only C++ tests"
         Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
             "--target", "openage_native_game_args_test", "openage_native_relay_args_test",
             "openage_native_relay_network_test", "openage_native_cpp_tests", "--parallel", "$Jobs") "Build native test targets"
@@ -276,7 +276,7 @@ try {
         "Configure Python-free native developer build"
     }
     Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-        "-DFVD_NATIVE_RELEASE=$nativeRelease", "-DFVD_WITH_PYTHON_ADAPTERS=OFF") $configureDescription
+        "-DFVD_NATIVE_RELEASE=$nativeRelease") $configureDescription
     Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
         "--target", "openage_native_game", "openage_native_relay",
         "--parallel", "$Jobs") "Build native game and relay"

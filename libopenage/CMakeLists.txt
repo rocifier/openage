@@ -2,16 +2,7 @@
 
 # main C++ library definitions.
 # dependency and source file setup for the resulting library.
-# The interpreter is still useful for development, Cython bindings and
-# conversion, but FVD binaries must be linkable without those adapters.
-option(FVD_WITH_PYTHON_ADAPTERS
-	"Include C++ adapters that call back into Python (developer mode)" ON)
 declare_binary(libopenage openage library allow_no_undefined)
-# A native FVD distribution must not build Python/Cython interface objects
-# into the runtime-linked engine.
-target_compile_definitions(libopenage PRIVATE
-	FVD_WITH_PYTHON_ADAPTERS=$<BOOL:${FVD_WITH_PYTHON_ADAPTERS}>
-)
 
 
 #################################################################
@@ -269,10 +260,6 @@ configure_file(config.cpp.in config.cpp)
 configure_file(version.h.in version.h)
 configure_file(version.cpp.in version.cpp)
 
-configure_file(
-	"${CMAKE_SOURCE_DIR}/openage/config.py.in"
-	"${CMAKE_BINARY_DIR}/openage/config.py"
-)
 
 ##################################################
 # directories for header inclusion
@@ -344,9 +331,6 @@ add_sources(libopenage
 	${CMAKE_CURRENT_BINARY_DIR}/version.cpp
 )
 
-pxdgen(
-	main.h
-)
 
 # add subsystem folders
 add_subdirectory("assets")
@@ -367,7 +351,6 @@ add_subdirectory("main")
 add_subdirectory("network")
 add_subdirectory("pathfinding")
 add_subdirectory("presenter")
-add_subdirectory("pyinterface")
 add_subdirectory("renderer")
 add_subdirectory("rng")
 add_subdirectory("testing")
@@ -463,8 +446,7 @@ set(_fvd_native_cpp_test_sources
 
 # The player build must not compile developer test objects into libopenage.
 # C++ test bodies live only in the developer library, not the release DLL.
-if(NOT FVD_WITH_PYTHON_ADAPTERS)
-	get_target_property(_all_engine_sources libopenage SOURCES)
+get_target_property(_all_engine_sources libopenage SOURCES)
 	set(_native_engine_sources "")
 	foreach(_source IN LISTS _all_engine_sources)
 		get_filename_component(_filename "${_source}" NAME)
@@ -480,5 +462,3 @@ if(NOT FVD_WITH_PYTHON_ADAPTERS)
 		list(APPEND _native_engine_sources "${_source}")
 	endforeach()
 	set_property(TARGET libopenage PROPERTY SOURCES "${_native_engine_sources}")
-endif()
-

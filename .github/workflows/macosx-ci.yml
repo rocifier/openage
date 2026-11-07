@@ -54,25 +54,17 @@ jobs:
         run: brew install --force cmake python3 libepoxy freetype fontconfig harfbuzz opus opusfile qt6 libogg libpng toml11 eigen llvm
       - name: Install nyan dependencies with homebrew
         run: brew install --force flex make
-      - name: Install python3 packages
-        # cython, numpy and pygments are in homebrew,
-        # but "cython is keg-only, which means it was not symlinked into /usr/local"
-        # numpy pulls gcc as dep? and pygments doesn't work.
-        run: pip3 install --upgrade --break-system-packages cython numpy mako lz4 pillow pygments setuptools toml tomli-w
       - name: Select Homebrew LLVM for C++ module dependency scanning
         run: |
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
           "$(brew --prefix llvm)/bin/clang++" --version
-      - name: Configure
-        # New CMake module checks in nyan require Ninja, not Unix Makefiles.
-        # Homebrew Clang must see SDK C headers via -isysroot, not an
-        # ordinary -I path that can shadow libc++'s C-compatibility wrappers.
+      - name: Configure native C++ build
         env:
           CMAKE_GENERATOR: Ninja
         run: |
           export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
-          ./configure --compiler=clang --mode=release --ccache --download-nyan -- -DCMAKE_OSX_SYSROOT="$SDKROOT"
-      - name: Build
-        run: cmake --build bin --parallel $(sysctl -n hw.logicalcpu)
+          cmake -S . -B bin -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES -DFVD_NATIVE_RELEASE=OFF -DCMAKE_OSX_SYSROOT="$SDKROOT"
+      - name: Build native game relay and tests
+        run: cmake --build bin --parallel $(sysctl -n hw.logicalcpu) --target openage_native_game openage_native_relay openage_native_cpp_tests
       - name: Test
-        run: ctest --test-dir bin --output-on-failure
+        run: ctest --test-dir bin -R '^fvd_native_(game|relay)_' --output-on-failure

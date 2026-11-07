@@ -83,9 +83,8 @@ jobs:
         python3 -m unittest -v openage.testing.test_fvd_network_benchmark
         cd build
 
-        # Rebuild native release with Python filesystem adapters removed.
-        # The tracked engine API is already committed to assets/fvd/engine_api.
-        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_RELEASE=ON .
+        # Rebuild native release from the committed engine API: no Python/Cython configuration.
+        cmake -DFVD_NATIVE_RELEASE=ON .
         cmake --build . --target openage_native_game --parallel $(nproc)
         ctest -R fvd_native_game_ --output-on-failure
         # A source-level import check is insufficient: reject accidental
