@@ -46,7 +46,7 @@ struct Test {
 // All retained C++ tests, demos and benchmarks live in this C++ table.
 // No Python testlist, Cython bridge, dispatcher or generated C++ source.
 // Asset-bound and explicit worker/slow/interactive tests are opt-in.
-constexpr Test tests[] = {
+constexpr Test native_test_entries[] = {
 	{"openage::cvar::tests::native_config", &openage::cvar::tests::native_config, false, false},
 	{"openage::coord::tests::coord", &openage::coord::tests::coord, false, false},
 	{"openage::datastructure::tests::concurrent_queue", &openage::datastructure::tests::concurrent_queue, false, false},
@@ -212,7 +212,7 @@ int openage::testing::native_test_main(int argc, char **argv) {
 		return 0;
 	}
 	if (argc == 2 && std::string_view{argv[1]} == "--list") {
-		for (const auto &test : tests) {
+		for (const auto &test : native_test_entries) {
 			std::cout << test.name << '\n';
 		}
 		return 0;
@@ -234,7 +234,7 @@ int openage::testing::native_test_main(int argc, char **argv) {
 		: std::string{wanted};
 	int failed = 0;
 	int matched = 0;
-	for (const auto &test : tests) {
+	for (const auto &test : native_test_entries) {
 		const bool selected = (all && !test.opt_in &&
 			(have_assets || !test.requires_assets)) ||
 			(exact && test.name == normalized) ||
