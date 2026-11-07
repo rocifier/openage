@@ -150,7 +150,7 @@ void validate_release_manifest(const fs::path &assets) {
 	const auto definition = toml::parse(manifest.string());
 	const auto metadata = toml::find<toml::table>(definition, "fvd_native");
 	if (metadata.at("format").as_integer() != 1 or
-	    metadata.at("api_version").as_string() != openage::native_game::engine_api_version) {
+	    toml::get<std::string>(metadata.at("api_version")) != openage::native_game::engine_api_version) {
 		throw std::runtime_error{"Unsupported FVD release manifest: " + manifest.string()};
 	}
 
@@ -220,12 +220,13 @@ void validate_assets(const fs::path &assets) {
 			+ "; restore the tracked source snapshot or package files"};
 	}
 	const auto api = toml::find<toml::table>(toml::parse(engine.string()), "info");
+	const auto actual_version = toml::get<std::string>(api.at("version"));
 	if (api.at("name").as_string() != "engine" or
-	    api.at("version").as_string() != openage::native_game::engine_api_version) {
+	    actual_version != openage::native_game::engine_api_version) {
 		throw std::runtime_error{
 			"Incompatible tracked nyan API at " + engine.string()
 			+ " (expected engine version " + std::string{openage::native_game::engine_api_version}
-			+ ", found " + api.at("version").as_string() + ")"};
+			+ ", found " + actual_version + ")"};
 	}
 	std::size_t nyan_count = 0;
 	for (const auto &entry : fs::recursive_directory_iterator(engine_dir)) {
