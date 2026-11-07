@@ -41,12 +41,11 @@ def parse_args():
         action="store_true",
         help=(
             "Check the C++ code with clang-tidy. Make sure you have build the "
-            "project with ./configure --clang-tidy or have set "
+            "project with CMake and set "
             "CMAKE_CXX_CLANG_TIDY for your CMake build."
         ),
     )
     cli.add_argument("--cppstyle", action="store_true", help="check the cpp code style")
-    cli.add_argument("--cython", action="store_true", help="check if cython is turned off")
     cli.add_argument("--headerguards", action="store_true", help="check all header guards")
     cli.add_argument("--legal", action="store_true", help="check whether all sourcefiles have legal headers")
     cli.add_argument(
@@ -84,7 +83,6 @@ def process_args(args, error):
         # enable "fast" tests
         args.authors = True
         args.cppstyle = True
-        args.cython = True
         args.headerguards = True
         args.legal = True
         args.filemodes = True
@@ -106,7 +104,6 @@ def process_args(args, error):
             args.authors,
             args.ruff,
             args.cppstyle,
-            args.cython,
             args.ty,
             args.filemodes,
             args.textfiles,
@@ -243,11 +240,6 @@ def find_all_issues(args, check_files=None):
         from .ty import find_issues
 
         yield from find_issues(check_files, ("openage", "buildsystem", "etc/gdb_pretty"))
-
-    if args.cython:
-        from buildsystem.codecompliance.cython import find_issues
-
-        yield from find_issues(check_files, ("openage",))
 
     if args.cppstyle:
         from .cppstyle import find_issues
