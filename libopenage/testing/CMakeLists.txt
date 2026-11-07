@@ -9,4 +9,3 @@ add_sources(libopenage
 if(BUILD_TESTING AND NOT FVD_NATIVE_RELEASE)
 	add_sources(libopenage native_test_runner.cpp)
 endif()
-

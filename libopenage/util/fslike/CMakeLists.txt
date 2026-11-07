@@ -4,4 +4,3 @@ add_sources(libopenage
 	fslike.cpp
 	native.cpp
 )
-
