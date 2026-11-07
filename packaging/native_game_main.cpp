@@ -224,7 +224,8 @@ void validate_assets(const fs::path &assets) {
 	    api.at("version").as_string() != openage::native_game::engine_api_version) {
 		throw std::runtime_error{
 			"Incompatible tracked nyan API at " + engine.string()
-			+ " (expected engine version 0.5.0)"};
+			+ " (expected engine version " + std::string{openage::native_game::engine_api_version}
+			+ ", found " + api.at("version").as_string() + ")"};
 	}
 	std::size_t nyan_count = 0;
 	for (const auto &entry : fs::recursive_directory_iterator(engine_dir)) {

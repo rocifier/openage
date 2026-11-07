@@ -3,3 +3,6 @@
 *.nyan text eol=lf
 /build-fvd.sh text eol=lf
 /packaging/native_game/SmokeTestLinuxArchive.sh text eol=lf
+
+# The tracked engine API hashes are computed over canonical LF source bytes.
+/assets/fvd/engine_api/** text eol=lf
