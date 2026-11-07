@@ -9,6 +9,7 @@
 
 #include "error/error.h"
 #include "testing/native_test_runner.h"
+#include "testing/testing.h"
 
 namespace openage::coord::tests { void coord(); }
 namespace openage::cvar::tests { void native_config(); }
@@ -63,6 +64,11 @@ void help() {
 	             "  --all              Run every registered native C++ test\n";
 }
 
+void diagnostic_failure() {
+	// Exercise the failure path without registering a permanently failing test.
+	TESTFAILMSG(__FILE__ << ":" << __LINE__ << ": native failure diagnostic");
+}
+
 int run(const Test &test) {
 	std::cout << "[ RUN      ] " << test.name << std::endl;
 	try {
@@ -85,6 +91,9 @@ int run(const Test &test) {
 } // namespace
 
 int openage::testing::native_test_main(int argc, char **argv) {
+	if (argc == 2 && std::string_view{argv[1]} == "--verify-error-report") {
+		return run({"native::failure_diagnostic", diagnostic_failure});
+	}
 	if (argc == 2 && std::string_view{argv[1]} == "--help") {
 		help();
 		return 0;

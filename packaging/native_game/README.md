@@ -71,9 +71,9 @@ The developer game accepts loose source assets through `--asset-dir assets`; pac
 Run `test` to reconfigure the developer (non-release) native library, build
 the C++-owned test executable and native protocol tests, and execute CTest.
 `openage_native_cpp_tests` accepts `--list`, `--all`, `--exact NAME`, and
-`--prefix PREFIX`. This initial nine-test registry includes coordinate
+`--prefix PREFIX`. This initial seventeen-test registry includes coordinate
 operations, native config, network messages, numeric utilities, assertions
-and texture parsing. It lives in `libopenage/testing/native_test_runner.cpp`
+texture parsing, transport/protocol handshake, mailbox handling and replicated world deltas. It lives in `libopenage/testing/native_test_runner.cpp`
 rather than the Python-generated test dispatcher. More engine tests will be
 ported before the old Cython test bridge disappears.
 Run `legacy-test` to configure Python adapters, build the developer runner and execute the traditional C++/Python suite.

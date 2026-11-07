@@ -115,6 +115,10 @@ if(BUILD_TESTING AND NOT FVD_NATIVE_RELEASE)
 		COMMAND openage_native_cpp_tests --exact openage::testing::tests::comparison)
 	add_test(NAME fvd_native_game_cpp_prefix
 		COMMAND openage_native_cpp_tests --prefix openage::util::tests::)
+	add_test(NAME fvd_native_game_cpp_error_report
+		COMMAND "${CMAKE_COMMAND}"
+		"-DFVD_CPP_TEST_EXECUTABLE=$<TARGET_FILE:openage_native_cpp_tests>"
+		-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativeCppTestErrorCheck.cmake")
 	add_test(NAME fvd_native_game_cpp_missing
 		COMMAND openage_native_cpp_tests --exact openage::not_a_test)
 	set_tests_properties(fvd_native_game_cpp_missing PROPERTIES WILL_FAIL TRUE)
