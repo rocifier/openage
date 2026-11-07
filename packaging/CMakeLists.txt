@@ -28,6 +28,20 @@ set_target_properties(openage_native_game PROPERTIES OUTPUT_NAME "openage-native
 target_include_directories(openage_native_game PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core)
 target_link_libraries(openage_native_game PRIVATE libopenage Qt6::Core toml11::toml11)
+# A developer run uses the build-tree executable, never a packaged archive.
+# MSVC puts engine/nyan DLLs in other target directories. Synchronize these
+# two DLLs on every run (copy_if_different is effectively free when unchanged).
+# Qt itself is loaded from the installed developer vcpkg environment.
+if(WIN32)
+    add_custom_target(openage_native_game_dev_runtime
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:libopenage>" "$<TARGET_FILE_DIR:openage_native_game>"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:nyan::nyan>" "$<TARGET_FILE_DIR:openage_native_game>"
+        DEPENDS openage_native_game
+        COMMENT "Refresh local native game DLLs (no release staging)")
+endif()
+
 # The sole install payload is the strict FVDNative component.
 include("${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativePackage.cmake")
 # Generated from the single CMake compatibility source.
