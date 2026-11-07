@@ -82,6 +82,46 @@ if(_position LESS 0)
 	message(FATAL_ERROR "Manifest omitted the exported engine manifest")
 endif()
 
+# Exercise independent native release SHA-256 verification on fixture data,
+# then prove a valid manifest cannot mask tampering or missing files.
+set(_stage "${_root}/stage")
+foreach(_dir fvd shaders qml)
+	file(MAKE_DIRECTORY "${_stage}/share/openage/${_dir}")
+	file(COPY "${_root}/assets/${_dir}/"
+		DESTINATION "${_stage}/share/openage/${_dir}")
+endforeach()
+file(COPY "${_manifest}" DESTINATION "${_stage}/share/openage")
+file(MAKE_DIRECTORY "${_stage}/share/openage/converted/engine")
+file(COPY "${_root}/api/"
+	DESTINATION "${_stage}/share/openage/converted/engine")
+set(_integrity "${CMAKE_CURRENT_LIST_DIR}/VerifyNativeManifest.cmake")
+function(_check_integrity _expected _label)
+	execute_process(COMMAND "${CMAKE_COMMAND}" "-DFVD_NATIVE_STAGE=${_stage}"
+		-P "${_integrity}"
+		RESULT_VARIABLE _rc OUTPUT_QUIET ERROR_QUIET)
+	if(_expected AND NOT _rc EQUAL 0)
+		message(FATAL_ERROR "${_label}: valid native asset stage rejected")
+	endif()
+	if(NOT _expected AND _rc EQUAL 0)
+		message(FATAL_ERROR "${_label}: compromised stage accepted")
+	endif()
+endfunction()
+_check_integrity(TRUE "normal stage")
+file(APPEND "${_stage}/share/openage/fvd/modpack.toml" "\n# deliberate corruption\n")
+_check_integrity(FALSE "tampered FVD modpack")
+file(COPY "${_root}/assets/fvd/modpack.toml"
+	DESTINATION "${_stage}/share/openage/fvd")
+_check_integrity(TRUE "restored asset")
+file(REMOVE "${_stage}/share/openage/shaders/identity.vert.glsl")
+_check_integrity(FALSE "missing shader")
+file(COPY "${_root}/assets/shaders/identity.vert.glsl"
+	DESTINATION "${_stage}/share/openage/shaders")
+file(APPEND "${_stage}/share/openage/fvd-native-manifest.toml"
+	"[[file]]\npath = \"../unsafe\"\nsha256 = \"a\"\n")
+_check_integrity(FALSE "invalid manifest record")
+file(COPY "${_manifest}" DESTINATION "${_stage}/share/openage")
+_check_integrity(TRUE "restored manifest")
+
 # Both the checked-in path and the installed runtime path use the same
 # validator. Assert the installed layout is viable before negative cases.
 file(MAKE_DIRECTORY "${_root}/stage/share/openage/converted/engine")

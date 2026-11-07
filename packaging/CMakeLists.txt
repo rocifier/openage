@@ -39,6 +39,9 @@ target_compile_definitions(openage_native_game PRIVATE
 	FVD_NATIVE_RELEASE=$<BOOL:${FVD_NATIVE_RELEASE}>)
 
 if(BUILD_TESTING)
+	add_test(NAME fvd_native_game_manifest
+		COMMAND "${CMAKE_COMMAND}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativeManifestTest.cmake")
 	add_executable(openage_native_game_args_test native_game_args_test.cpp native_game_args.cpp)
 	add_test(NAME fvd_native_game_args COMMAND openage_native_game_args_test)
 	add_test(NAME fvd_native_game_help COMMAND openage_native_game --help)
