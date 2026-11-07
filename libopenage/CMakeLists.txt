@@ -22,7 +22,6 @@ target_compile_definitions(libopenage PRIVATE
 set_target_properties(libopenage PROPERTIES
 	VERSION 0
 	AUTOMOC ON
-	AUTOGEN_TARGET_DEPENDS "cppgen"
 )
 
 ##################################################
@@ -332,10 +331,8 @@ endif()
 
 ##################################################
 # source file definitions
-get_codegen_scu_file()
-if(NOT FVD_WITH_PYTHON_ADAPTERS)
-	set(CODEGEN_SCU_FILE "${CMAKE_BINARY_DIR}/libopenage/codegen_scu_native.gen.cpp")
-endif()
+# Coordinate headers/sources and the C++ test registry are tracked code;
+# neither requires build-time Python-generated compilation units.
 
 # add new sources here, dependencies for linking and including
 # are specified above the source file list.
@@ -345,7 +342,6 @@ add_sources(libopenage
 	options.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/config.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/version.cpp
-	${CODEGEN_SCU_FILE}
 )
 
 pxdgen(

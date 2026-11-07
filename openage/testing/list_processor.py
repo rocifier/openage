@@ -58,29 +58,20 @@ def list_targets_py():
     yield from list_targets(tests_py, demos_py, benchmark_py)
 
 
-def list_targets_cpp():
-    """Invokes list_targets() with the C++-specific listers."""
-    from .testlist import benchmark_cpp, demos_cpp, tests_cpp
-
-    yield from list_targets(tests_cpp, demos_cpp, benchmark_cpp)
-
-
 def get_all_targets() -> OrderedDict:
     """
-    Reads the Python and C++ testspec.
+    Reads pure Python tests, demos and benchmarks only. Native C++ tests use openage_native_cpp_tests.
 
     returns an OrderedDict of
     {(testname, type): conditionfun, lang, description, testfun}.
 
     type is in {'demo', 'test'},
-    lang is in {'cpp', 'py'},
+    lang is 'py',
     conditionfun is a callable which determines if the test is
         to be run in the given environment
     description is a str, and
     testfun is callable and takes 0 args for tests / list(str) for demos.
     """
-    from .cpp_testing import run_cpp_method
-
     result = OrderedDict()
 
     for name, type_, description, conditionfun in list_targets_py():
@@ -98,32 +89,5 @@ def get_all_targets() -> OrderedDict:
             raise ValueError("Unexpected Python test/demo name") from exc
 
         result[name, type_] = conditionfun, "py", description, func
-
-    for name, type_, description, conditionfun in list_targets_cpp():
-        if type_ == "demo":
-
-            def runner(args, name=name):
-                """runs the demo func, and ensures that args is empty."""
-                if args:
-                    raise ValueError(
-                        "C++ demos can't take arguments. "
-                        "You should write a Python demo that "
-                        "calls to C++ then, with arguments."
-                    )
-                run_cpp_method(name)
-        elif type_ in ["test", "benchmark"]:
-
-            def runner(name=name):
-                """simply runs the func."""
-                run_cpp_method(name)
-        else:
-            raise ValueError("Unknown type " + type_)
-
-        try:
-            name = lstrip_once(name, "openage::")
-        except ValueError as exc:
-            raise ValueError("Unexpected C++ test/demo name") from exc
-
-        result[name, type_] = conditionfun, "cpp", description, runner
 
     return result

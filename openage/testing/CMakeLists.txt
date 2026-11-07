@@ -1,5 +1,4 @@
 add_cython_modules(
-	cpp_testing.pyx
 	misc_cpp.pyx
 )
 

@@ -495,10 +495,8 @@ function(python_finalize)
 		endif()
 	endforeach()
 
-	##################################################
-	# code generation
-
-	codegen_run()
+	# Python/Cython developer adapters remain for now, but the native C++
+	# engine and its test registry no longer invoke Python code generation.
 
 	# inplace module install (bin/module.so -> module.so)
 	# MSVC, Xcode (multi-config generators) produce outputs
