@@ -94,6 +94,20 @@ public:
 	void set_fog_edge_width(float tile_width);
 
 	/**
+	 * Draw a square of dry, yellowed grass (e.g. a no-build zone), with its
+	 * edge feathered into the surrounding terrain. Purely cosmetic.
+	 *
+	 * @param centre_ne Centre of the square in tile coordinates (ne).
+	 * @param centre_se Centre of the square in tile coordinates (se).
+	 * @param half_size Distance from the centre to the square's edge, in tiles.
+	 * @param feather Width of the fade outside the edge, in tiles.
+	 */
+	void set_dry_zone(float centre_ne, float centre_se, float half_size, float feather);
+
+	/** Stop drawing the dry square. */
+	void clear_dry_zone();
+
+	/**
 	 * Add a new render entity to the terrain renderer.
 	 *
 	 * This creates a new terrain chunk and add it to the model.
@@ -179,6 +193,13 @@ private:
 	bool fog_enabled = false;
 	size_t fog_map_size = 1;
 	float fog_edge_width = 0.8f;
+
+	/** Dry grass square, see set_dry_zone(). */
+	bool dry_zone_enabled = false;
+	float dry_zone_centre_ne = 0.0f;
+	float dry_zone_centre_se = 0.0f;
+	float dry_zone_half_size = 0.0f;
+	float dry_zone_feather = 1.0f;
 
 	/** Apply the fog uniforms to one terrain mesh's uniform input. */
 	void apply_fog(const std::shared_ptr<renderer::UniformInput> &uniforms) const;

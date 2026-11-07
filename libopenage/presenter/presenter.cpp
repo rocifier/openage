@@ -547,6 +547,15 @@ void Presenter::init_graphics(const renderer::window_settings &window_settings) 
 		auto fvd = this->simulation->get_game()->get_state()->get_fvd();
 		if (fvd) {
 			this->terrain_renderer->set_grid_enabled(true);
+			// Show the Hunter tower's no-build zone as dry grass. The zone
+			// covers whole tiles out to the radius (tile centres), so its edge
+			// is half a tile further; fade into the green over 1.5 tiles.
+			if (auto radius = fvd->get_hunter_no_build_radius()) {
+				const auto centre = fvd->get_centre();
+				this->terrain_renderer->set_dry_zone(
+					centre.ne.to_float(), centre.se.to_float(),
+					static_cast<float>(*radius) + 0.5f, 1.5f);
+			}
 			this->camera->look_at_coord(fvd->get_centre().to_scene3());
 			auto size = fvd->get_centre().ne.to_float() * 2;
 			auto eye = this->camera->get_position();
@@ -2556,6 +2565,11 @@ void Presenter::render() {
 								                            and entry.definition != "fvd.data.entities.HunterRallyPoint"
 								                            and entry.position.to_tile() == tile;
 							                        }))) {
+								valid = false;
+							}
+							// Same rule as FVD::can_place_tower: no building in
+							// the dead-grass zone around the Hunter tower.
+							if (fvd->in_hunter_no_build_zone(tile)) {
 								valid = false;
 							}
 							const auto a = project_tile(tile.ne, tile.se);

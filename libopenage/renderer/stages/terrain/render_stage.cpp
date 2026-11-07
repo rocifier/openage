@@ -117,11 +117,45 @@ void TerrainRenderStage::set_fog_edge_width(float tile_width) {
 	}
 }
 
+void TerrainRenderStage::set_dry_zone(float centre_ne, float centre_se, float half_size, float feather) {
+	std::unique_lock lock{this->mutex};
+	this->dry_zone_enabled = true;
+	this->dry_zone_centre_ne = centre_ne;
+	this->dry_zone_centre_se = centre_se;
+	this->dry_zone_half_size = half_size;
+	this->dry_zone_feather = std::max(feather, 0.0f);
+	for (auto &chunk : this->model->get_chunks()) {
+		for (auto &mesh : chunk->get_meshes()) {
+			if (mesh->get_uniforms()) {
+				this->apply_fog(mesh->get_uniforms());
+			}
+		}
+	}
+}
+
+void TerrainRenderStage::clear_dry_zone() {
+	std::unique_lock lock{this->mutex};
+	this->dry_zone_enabled = false;
+	for (auto &chunk : this->model->get_chunks()) {
+		for (auto &mesh : chunk->get_meshes()) {
+			if (mesh->get_uniforms()) {
+				this->apply_fog(mesh->get_uniforms());
+			}
+		}
+	}
+}
+
 void TerrainRenderStage::apply_fog(const std::shared_ptr<renderer::UniformInput> &uniforms) const {
 	uniforms->update("fog", this->fog_texture);
 	uniforms->update("fog_enabled", this->fog_enabled);
 	uniforms->update("fog_map_size", static_cast<float>(this->fog_map_size));
 	uniforms->update("fog_edge_width", this->fog_edge_width);
+	// The dry zone rides along with the fog uniforms, so every terrain mesh
+	// (including chunks created later) gets it.
+	uniforms->update("dry_zone_enabled", this->dry_zone_enabled);
+	uniforms->update("dry_zone_centre", Eigen::Vector2f{this->dry_zone_centre_se, this->dry_zone_centre_ne});
+	uniforms->update("dry_zone_half_size", this->dry_zone_half_size);
+	uniforms->update("dry_zone_feather", this->dry_zone_feather);
 }
 
 void TerrainRenderStage::add_render_entity(const std::shared_ptr<RenderEntity> entity,

@@ -208,6 +208,20 @@ public:
 	/** Full grid footprint of a potential tower. */
 	std::vector<coord::tile> get_tower_footprint(const coord::tile &site) const;
 
+	/**
+	 * Whether a tile lies in the square no-build zone around the Hunter
+	 * tower: within its attack range (plus the tile a Builder stands on
+	 * while building) along both map axes. Builders may still walk there.
+	 * Always false when the scenario has no Hunter tower.
+	 */
+	bool in_hunter_no_build_zone(const coord::tile &tile) const;
+
+	/**
+	 * Half the side of the square no-build zone in tiles, measured from the
+	 * Hunter tower's centre, or nullopt when there is no Hunter tower.
+	 */
+	std::optional<double> get_hunter_no_build_radius() const;
+
 	/** Get an unfinished construction order, or nullptr if absent. */
 	std::shared_ptr<component::command::BuildTowerCommand> get_build_order(
 		entity_id_t builder) const;

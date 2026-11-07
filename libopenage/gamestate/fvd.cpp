@@ -624,7 +624,8 @@ bool FVD::can_place_tower(const std::shared_ptr<GameState> &state,
 	for (const auto &tile : this->get_tower_footprint(site)) {
 		if (tile.ne < 0 or tile.se < 0
 		    or tile.ne >= this->map_size or tile.se >= this->map_size
-		    or this->is_tile_reserved(tile)) {
+		    or this->is_tile_reserved(tile)
+		    or this->in_hunter_no_build_zone(tile)) {
 			return false;
 		}
 		for (const auto &[id, occupant] : state->get_game_entities()) {
@@ -2637,6 +2638,28 @@ std::optional<entity_id_t> FVD::get_hunter_rally_marker() const {
 
 const std::string &FVD::get_hunter_rally_marker_definition() const {
 	return this->hunter_rally_marker;
+}
+
+std::optional<double> FVD::get_hunter_no_build_radius() const {
+	if (not this->hunter_tower_id) {
+		return std::nullopt;
+	}
+	// The tower's attack range, plus one tile: a Builder stands next to its
+	// site while building, so a site just outside the range must not put the
+	// Builder inside it.
+	return this->hunter_tower_range + 1.0;
+}
+
+bool FVD::in_hunter_no_build_zone(const coord::tile &tile) const {
+	const auto radius = this->get_hunter_no_build_radius();
+	if (not radius) {
+		return false;
+	}
+	// Square, aligned with the map's tile axes, centred on the Hunter tower.
+	const auto centre = this->get_centre();
+	const double ne = tile.ne + 0.5 - centre.ne.to_double();
+	const double se = tile.se + 0.5 - centre.se.to_double();
+	return std::abs(ne) <= *radius and std::abs(se) <= *radius;
 }
 
 coord::phys3 FVD::get_centre() const {

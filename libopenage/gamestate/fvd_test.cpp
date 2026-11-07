@@ -3292,6 +3292,9 @@ void fvd_build_line_order() {
 	Game game{loop, mods, entities, terrain};
 	auto state = game.get_state();
 	auto fvd = state->get_fvd();
+	// These sites sit close to the map centre, inside the Hunter tower's
+	// no-build zone; this test is about construction, not that zone.
+	fvd->remove_hunter_tower(state, time::TIME_ZERO);
 	std::optional<entity_id_t> builder{};
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		auto owner = std::dynamic_pointer_cast<component::Ownership>(
@@ -3386,6 +3389,9 @@ void fvd_build_double_row() {
 	Game game{loop, mods, entities, terrain};
 	auto state = game.get_state();
 	auto fvd = state->get_fvd();
+	// These sites sit close to the map centre, inside the Hunter tower's
+	// no-build zone; this test is about construction, not that zone.
+	fvd->remove_hunter_tower(state, time::TIME_ZERO);
 	std::optional<entity_id_t> builder{};
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		auto owner = std::dynamic_pointer_cast<component::Ownership>(
@@ -3456,6 +3462,9 @@ void fvd_retask_foundation() {
 	Game game{loop, mods, entities, terrain};
 	auto state = game.get_state();
 	auto fvd = state->get_fvd();
+	// These sites sit close to the map centre, inside the Hunter tower's
+	// no-build zone; this test is about construction, not that zone.
+	fvd->remove_hunter_tower(state, time::TIME_ZERO);
 	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
 
 	std::array<entity_id_t, 9> builders{};
@@ -4011,19 +4020,28 @@ void fvd_hunter_tower() {
 	fvd->start_hunter_wave(state, time::TIME_ZERO);
 	const auto centre = position_of_entity(central, 0);
 
-	// A Builder tower well inside range, which the Hunter tower must ignore.
+	// Builders may not build in the square no-build zone: the tower's 10-tile
+	// range plus the tile a Builder stands on while building, i.e. tile
+	// centres up to 11 tiles from the Hunter tower along either axis.
+	TESTEQUALS(fvd->get_hunter_no_build_radius().value_or(-1.0), 11.0);
+	TESTEQUALS(fvd->in_hunter_no_build_zone({74, 64}), true);  // 10.5 east
+	TESTEQUALS(fvd->in_hunter_no_build_zone({75, 64}), false); // 11.5 east
+	TESTEQUALS(fvd->in_hunter_no_build_zone({53, 64}), true);  // 10.5 west
+	TESTEQUALS(fvd->in_hunter_no_build_zone({52, 64}), false);
+	TESTEQUALS(fvd->in_hunter_no_build_zone({74, 74}), true);  // square, so corners count
+	TESTEQUALS(fvd->in_hunter_no_build_zone({75, 74}), false);
 	auto mason = spawn(2, "Builder", {72.5, 66.5, 0}, 0);
-	TESTEQUALS(fvd->request_build(state, 2, {mason->get_id()}, {72, 64, 0}, at(0)), true);
-	loop->reach_time(at(10), state);
-	entity_id_t tower = 0;
-	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
-			tower = id;
-		}
-	}
-	TESTEQUALS(tower != 0, true);
+	TESTEQUALS(fvd->can_place_tower(state, 2, {mason->get_id()}, {72.5, 64.5, 0}, at(0)), false);
+	TESTEQUALS(fvd->request_build(state, 2, {mason->get_id()}, {72, 64, 0}, at(0)), false);
+	// Builders can still walk through it; only building is refused.
+	TESTEQUALS(fvd->can_place_tower(state, 2, {mason->get_id()}, {76.5, 64.5, 0}, at(0)), true);
 	std::dynamic_pointer_cast<component::Position>(
-		mason->get_component(component::component_t::POSITION))->set_position(at(10), {110.5, 110.5, 0});
+		mason->get_component(component::component_t::POSITION))->set_position(at(0), {110.5, 110.5, 0});
+
+	// A Builder tower well inside range (placed directly, as a scenario
+	// could), which the Hunter tower must ignore.
+	const auto tower = spawn(2, "Tower", {72.5, 64.5, 0}, 0)->get_id();
+	loop->reach_time(at(10), state);
 
 	// Builders six tiles away, just inside the 10-tile range and just outside it.
 	auto near = spawn(3, "Builder", centre + coord::phys3_delta{-6, 0, 0}, 10);
