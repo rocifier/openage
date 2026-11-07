@@ -12,7 +12,17 @@
 
 namespace openage::coord::tests { void coord(); }
 namespace openage::cvar::tests { void native_config(); }
-namespace openage::network::tests { void messages(); }
+namespace openage::network::tests {
+void messages();
+void protocol();
+void handshake();
+void command_mailbox();
+void connection_mailbox();
+void rehost_ticket();
+void replication();
+void world_delta();
+void world_delta_flares();
+}
 namespace openage::testing::tests { void comparison(); }
 namespace openage::renderer::resources::tests { void alpha_mask(); void texture_metadata(); void palette_colors(); }
 namespace openage::util::tests { void fixed_point(); void matrix(); }
@@ -29,6 +39,14 @@ constexpr Test tests[] = {
 	{"openage::coord::tests::coord", &openage::coord::tests::coord},
 	{"openage::cvar::tests::native_config", &openage::cvar::tests::native_config},
 	{"openage::network::tests::messages", &openage::network::tests::messages},
+	{"openage::network::tests::protocol", &openage::network::tests::protocol},
+	{"openage::network::tests::handshake", &openage::network::tests::handshake},
+	{"openage::network::tests::command_mailbox", &openage::network::tests::command_mailbox},
+	{"openage::network::tests::connection_mailbox", &openage::network::tests::connection_mailbox},
+	{"openage::network::tests::rehost_ticket", &openage::network::tests::rehost_ticket},
+	{"openage::network::tests::replication", &openage::network::tests::replication},
+	{"openage::network::tests::world_delta", &openage::network::tests::world_delta},
+	{"openage::network::tests::world_delta_flares", &openage::network::tests::world_delta_flares},
 	{"openage::testing::tests::comparison", &openage::testing::tests::comparison},
 	{"openage::renderer::resources::tests::alpha_mask", &openage::renderer::resources::tests::alpha_mask},
 	{"openage::renderer::resources::tests::texture_metadata", &openage::renderer::resources::tests::texture_metadata},
