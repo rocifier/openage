@@ -3,6 +3,4 @@ add_sources(libopenage
 	cvar_test.cpp
 )
 
-pxdgen(
-	cvar.h
-)
+
