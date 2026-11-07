@@ -383,6 +383,10 @@ endif()
 # Windows; compiling them in a separate executable would fail linking.
 # The release library still excludes every test translation unit.
 set(_fvd_native_cpp_test_sources
+	# These are native test infrastructure, not test entrypoints. The broad
+	# filename filter below also matches testing.cpp and _test_support.cpp.
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/testing.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/gamestate/fvd_test_support.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/testing/native_test_runner.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/audio/fvd_audio_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/audio/mixer_test.cpp"
