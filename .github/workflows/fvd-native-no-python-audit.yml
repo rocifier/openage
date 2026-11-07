@@ -1,0 +1,35 @@
+name: FVD native code Python-boundary audit
+on:
+  push:
+    branches: [fvd-track-engine-api-20261107]
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'buildsystem/**'
+      - 'openage/**'
+      - '.github/workflows/fvd-native-no-python-audit.yml'
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'buildsystem/**'
+      - 'openage/**'
+      - '.github/workflows/fvd-native-no-python-audit.yml'
+
+jobs:
+  no-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native source inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "== Python-interface references remaining in native C++ =="
+          git grep -nE '#include.*pyinterface|#include.*Python[.]h|PyIfFunc|py::Obj|pyinterface::|FVD_WITH_PYTHON_ADAPTERS' -- libopenage CMakeLists.txt || true
+          echo "== Python/Cython CMake integration references =="
+          git grep -nE 'pxdgen\\(|add_cython_modules\\(|python_finalize\\(|include\\(python\\)|find_package\\(Python' -- CMakeLists.txt libopenage buildsystem || true
+          echo "== Any surviving Cython source files =="
+          find openage -type f \\( -name '*.pyx' -o -name '*.pxd' \\) -print
+          echo "== Any surviving generator content =="
+          find openage/codegen -maxdepth 3 -type f -print 2>/dev/null || true
