@@ -6,4 +6,4 @@ Configure the checkout root with CMake and a C++20 toolchain. IDEs should build 
 - [Qt Creator](qt_creator.md) — native CMake game/relay targets.
 - [Emacs](emacs.md) — general editing support; any Python language-server configuration is optional and is not required for building FVD.
 
-Use `build-fvd game` for a packaged multiplayer lobby and `build-fvd solo` for local play. The [native build guide](../building.md) describes system dependencies and the [release acceptance checklist](../code/network/FVD_RELEASE_ACCEPTANCE.md) describes required verification.
+Use `build-fvd game` for a locally rebuilt multiplayer lobby and `build-fvd solo` for local play. Neither command uses an archive. The [native build guide](../building.md) describes system dependencies and the [release acceptance checklist](../code/network/FVD_RELEASE_ACCEPTANCE.md) describes required verification.
