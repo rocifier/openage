@@ -28,7 +28,7 @@ The no-Python CI job invokes CMake, the developer C++ test runner, native audio-
 
 ```bash
 bash build-fvd.sh test
-bash build-fvd.sh
+bash build-fvd.sh package
 bash build-fvd.sh relay --listen 127.0.0.1 --port 40000
 # In another terminal: bash build-fvd.sh game
 ```
