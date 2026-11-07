@@ -1,4 +1,4 @@
-# Native-only Linux acceptance environment. Intentionally NEVER install Python.
+# Native-only Linux acceptance environment. The final image contains no Python.
 FROM ubuntu:26.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -8,4 +8,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopusfile-dev libpng-dev libtoml11-dev \
     qt6-declarative-dev qt6-multimedia-dev qml6-module-qtquick-controls \
     && rm -rf /var/lib/apt/lists/*
-# No Python/Cython/Mako/NumPy development or runtime packages here.
+
+# Ubuntu's Qt development packages pull in Python for optional tooling even
+# though the native FVD build does not use it. Remove that transitive runtime
+# while retaining the native package payload, then let the build prove none of
+# those tools need the interpreter.
+RUN set -eux; \
+    python_packages="$(dpkg-query -W -f='${binary:Package}\n' \
+        'python3*' 'libpython3*' 2>/dev/null || true)"; \
+    if [ -n "$python_packages" ]; then \
+        dpkg --purge --force-depends $python_packages; \
+    fi; \
+    ! command -v python3; \
+    ! find /usr/lib /usr/local/lib -type f -name 'libpython3*.so*' -print -quit | grep -q .
+# No Python/Cython/Mako/NumPy development or runtime packages remain here.
