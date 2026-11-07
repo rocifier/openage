@@ -1,13 +1,11 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # FVDNative install component only: packaging-time tools, not runtime.
-# Never include EmbedWinDependencies.cmake here: it embeds Python.
+# Qt plugins are deployed by native tools or PowerShell; no Python.
 
 set(_bin "${CMAKE_INSTALL_PREFIX}/@CMAKE_INSTALL_BINDIR@")
 set(_assets "${CMAKE_INSTALL_PREFIX}/@ASSET_DIR@")
 set(_vcpkg "@vcpkg_dir@")
 set(_windeployqt "@windeployqt@")
-set(_python "@PYTHON@")
-set(_buildsystem "@BUILDSYSTEM_DIR@")
 set(_game "${_bin}/openage-native.exe")
 set(_relay "${_bin}/openage-relay.exe")
 
@@ -15,7 +13,12 @@ if(NOT EXISTS "${_game}" OR NOT EXISTS "${_relay}")
 	message(FATAL_ERROR "FVDNative game/relay executables are missing from ${_bin}")
 endif()
 
-# Exported FVD QML needs Qt's plugin and QML module deployment.
+# Qt binaries/QML modules: use windeployqt when available, otherwise scan QML
+# imports and copy modules/plugins with the built-in PowerShell JSON parser.
+find_program(_powershell NAMES powershell.exe)
+if(NOT _powershell)
+	message(FATAL_ERROR "PowerShell is required for native Windows Qt deployment and audit")
+endif()
 if(EXISTS "${_windeployqt}")
 	execute_process(
 		COMMAND "${CMAKE_COMMAND}" -E env "PATH=${_vcpkg}/bin;$ENV{PATH}"
@@ -27,22 +30,23 @@ if(EXISTS "${_windeployqt}")
 			"${_game}"
 		RESULT_VARIABLE _deploy_rc)
 	if(NOT _deploy_rc EQUAL 0)
-		message(FATAL_ERROR "windeployqt could not deploy FVD's Qt runtime (${_deploy_rc})")
+		message(FATAL_ERROR "windeployqt failed to deploy FVD Qt runtime (${_deploy_rc})")
 	endif()
 else()
 	set(_qmlscanner "${_vcpkg}/tools/Qt6/bin/qmlimportscanner.exe")
-	if(NOT EXISTS "${_qmlscanner}" OR NOT EXISTS "${_python}")
-		message(FATAL_ERROR "FVDNative needs windeployqt or developer-only Qt import scanner")
+	if(NOT EXISTS "${_qmlscanner}")
+		message(FATAL_ERROR "FVDNative needs windeployqt or vcpkg qmlimportscanner.exe")
 	endif()
 	execute_process(
-		COMMAND "${_python}" "${_buildsystem}/scripts/deploy_qt.py"
-			"${_qmlscanner}"
-			"${_assets}"
-			"${_vcpkg}/Qt6"
-			"${_bin}"
+		COMMAND "${_powershell}" -NoProfile -ExecutionPolicy Bypass
+			-File "@CMAKE_SOURCE_DIR@/packaging/native_game/DeployQtWindows.ps1"
+			-Scanner "${_qmlscanner}"
+			-QmlRoot "${_assets}"
+			-QtRoot "${_vcpkg}/Qt6"
+			-Destination "${_bin}"
 		RESULT_VARIABLE _deploy_rc)
 	if(NOT _deploy_rc EQUAL 0)
-		message(FATAL_ERROR "FVD native Qt deployment failed (${_deploy_rc})")
+		message(FATAL_ERROR "Native PowerShell Qt deployment failed (${_deploy_rc})")
 	endif()
 endif()
 
@@ -103,10 +107,6 @@ execute_process(
 	RESULT_VARIABLE _audit_rc)
 if(NOT _audit_rc EQUAL 0)
 	message(FATAL_ERROR "Native Windows package audit failed (${_audit_rc})")
-endif()
-find_program(_powershell NAMES powershell.exe)
-if(NOT _powershell)
-	message(FATAL_ERROR "PowerShell is needed to audit all packaged Windows DLL imports")
 endif()
 execute_process(
 	COMMAND "${_powershell}" -NoProfile -ExecutionPolicy Bypass
