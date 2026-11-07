@@ -1,7 +1,7 @@
 // Copyright 2026 the openage authors. See copying.md for legal info.
 {
     // Native-only FVD tasks. The deleted ./configure and Python launcher are
-    // intentionally not referenced. Launches build/package first if needed.
+    // intentionally not referenced. Launch tasks build the latest local binary.
     "version": "2.0.0",
     "tasks": [
         {
@@ -20,8 +20,6 @@
         {
             "label": "FVD: Native C++ Tests",
             "type": "shell",
-            "dependsOn": ["FVD: Build"],
-            "dependsOrder": "sequence",
             "command": "bash",
             "args": ["${workspaceFolder}/build-fvd.sh", "test"],
             "windows": {
@@ -33,13 +31,13 @@
             "problemMatcher": []
         },
         {
-            "label": "FVD: Package and Smoke",
+            "label": "FVD: Package Release Archive",
             "type": "shell",
             "command": "bash",
-            "args": ["${workspaceFolder}/build-fvd.sh"],
+            "args": ["${workspaceFolder}/build-fvd.sh", "package"],
             "windows": {
                 "command": "powershell.exe",
-                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1"]
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "package"]
             },
             "options": {"cwd": "${workspaceFolder}"},
             "group": "build",
@@ -48,8 +46,6 @@
         {
             "label": "FVD: Open Multiplayer Lobby",
             "type": "shell",
-            "dependsOn": ["FVD: Package and Smoke"],
-            "dependsOrder": "sequence",
             "command": "bash",
             "args": ["${workspaceFolder}/build-fvd.sh", "game"],
             "windows": {
@@ -62,8 +58,6 @@
         {
             "label": "FVD: Launch Solo",
             "type": "shell",
-            "dependsOn": ["FVD: Package and Smoke"],
-            "dependsOrder": "sequence",
             "command": "bash",
             "args": ["${workspaceFolder}/build-fvd.sh", "solo"],
             "windows": {
@@ -76,8 +70,6 @@
         {
             "label": "FVD: Start Relay",
             "type": "shell",
-            "dependsOn": ["FVD: Package and Smoke"],
-            "dependsOrder": "sequence",
             "command": "bash",
             "args": ["${workspaceFolder}/build-fvd.sh", "relay"],
             "windows": {
