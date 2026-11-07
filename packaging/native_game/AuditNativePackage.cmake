@@ -26,6 +26,8 @@ foreach(_required
 endforeach()
 
 if(FVD_NATIVE_REQUIRE_MANIFEST)
+	include("${CMAKE_CURRENT_LIST_DIR}/CheckEngineApi.cmake")
+	fvd_validate_engine_api("${FVD_NATIVE_STAGE}/share/openage/converted/engine")
 	foreach(_required
 		"share/openage/fvd-native-manifest.toml"
 		"share/openage/converted/engine/modpack.toml"
@@ -36,6 +38,12 @@ if(FVD_NATIVE_REQUIRE_MANIFEST)
 	endforeach()
 endif()
 
+# Read, validate, and hash *all* manifest inputs, not just manifest presence.
+# FVD NativePackage stages the source API at the legacy runtime mount.
+if(FVD_NATIVE_REQUIRE_MANIFEST)
+	include("${CMAKE_CURRENT_LIST_DIR}/VerifyNativeManifest.cmake")
+endif()
+
 file(GLOB_RECURSE _files RELATIVE "${FVD_NATIVE_STAGE}"
 	LIST_DIRECTORIES FALSE "${FVD_NATIVE_STAGE}/*")
 
@@ -43,8 +51,10 @@ foreach(_file IN LISTS _files)
 	string(TOLOWER "${_file}" _lower)
 	if(_lower MATCHES "\\.(py|pyc|pyo|pyd|whl)$"
 	   OR _lower MATCHES "(^|/)(libpython|python[0-9]+)([0-9._-]*)(\\.dll|\\.so([.][0-9]+)*|\\.dylib|\\.exe)?$"
-	   OR _lower MATCHES "(^|/)(__pycache__|site-packages|dist-packages)/")
-		message(FATAL_ERROR "Python developer artifact in FVDNative component: ${_file}")
+	   OR _lower MATCHES "(^|/)(__pycache__|site-packages|dist-packages)/"
+	   OR _lower MATCHES "(^|/)(openage[.]exe|openage[.]bat|openage[.]desktop)$"
+	   OR _lower MATCHES "(^|/)openage[.](msi|nsi|nsh)$")
+		message(FATAL_ERROR "Non-native FVD distribution artifact: ${_file}")
 	endif()
 endforeach()
 

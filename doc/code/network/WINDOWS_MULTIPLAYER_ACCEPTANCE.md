@@ -44,13 +44,13 @@ unchanged.
 
 ## Automated preflight (one Windows development build)
 
-Build the FVD branch, then run:
+First build and package the FVD branch with `.\build-fvd.cmd build`, then run:
 
 ```powershell
-bin/run test openage::network::tests::lobby_capacity
-bin/run test openage::network::tests::lobby_relay_client
-bin/run test openage::network::tests::fvd_multi_session
-bin/run test openage::network::tests::relay_multi_host_lobby
+.\build-fvd.cmd test --exact openage::network::tests::lobby_capacity
+.\build-fvd.cmd test --exact openage::network::tests::lobby_relay_client
+.\build-fvd.cmd test --exact openage::network::tests::fvd_multi_session
+.\build-fvd.cmd test --exact openage::network::tests::relay_multi_host_lobby
 $LASTEXITCODE
 ```
 
@@ -87,7 +87,7 @@ recipient but must not stall healthy recipients or the Hunter simulation.
 ### Windows validation of this change
 
 1. Build this PR's C++ branch (the Python proxy changes belong to
-   independent draft PR #7). Run `run.exe test network::tests::lobby_capacity`,
+   independent draft PR #7). Run `.\build-fvd.cmd test --exact network::tests::lobby_capacity`,
    including its new 4/8-player rapid private-capture, simultaneous recovery
    snapshot, and post-recovery command checks.
 2. Run the other existing network regressions
@@ -152,14 +152,14 @@ every other recipient's next pass.
 1. Run the **same FVD branch build and gameplay assets** on both PCs.
    Launch a persistent relay on PC A:
    ```powershell
-   bin/run relay --listen 0.0.0.0 --port 32456 --max-connections 128
+   .\build-fvd.cmd relay --listen 0.0.0.0 --port 40000 --max-connections 128
    ```
-   Allow **inbound TCP 32456** in PC A's Windows Firewall on the trusted
+   Allow **inbound TCP 40000** in PC A's Windows Firewall on the trusted
    network. PC B must reach PC A at its LAN IPv4 address. On PC A the
    game may use `127.0.0.1`; on PC B it must use **PC A's LAN IP**, not
    `127.0.0.1`. The relay must remain running in its own terminal.
-2. Start `bin/run game` on both PCs. In each lobby enter its appropriate
-   relay address, port 32456, and a different player name. On either PC,
+2. Start `.\build-fvd.cmd game` on both PCs (opens multiplayer lobby without forcing solo). In each lobby enter its appropriate
+   relay address, port 40000, and a different player name. On either PC,
    choose **Host Game** for 2 players. On the other, use **Refresh Games**
    and **Join Room**. When both names appear, the lobby creator presses
    **Start Game**.

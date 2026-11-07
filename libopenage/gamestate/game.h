@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace nyan {
 class Database;
@@ -85,15 +86,17 @@ private:
 	 *
 	 * TODO: Move this into nyan.
 	 *
-	 * @param base_dir Base directory where mods are stored.
-	 * @param mod_dir Name of the mod directory.
-	 * @param search Search path relative to the mod directory.
-	 * @param recursive if true, recursively search subfolders if the the search path is a directory.
+	 * @param mod_path Native path for the actual modpack directory.
+	 * @param mod_id Logical nyan namespace / modpack ID, independent of disk name.
+	 * @param search Search path relative to the modpack directory.
+	 * @param recursive Whether to recurse into subdirectories.
+	 * @param mod_roots Shared lookup of logical IDs to physical mod roots.
 	 */
-	void load_path(const util::Path &base_dir,
-	               const std::string &mod_dir,
+	void load_path(const util::Path &mod_path,
+	               const std::string &mod_id,
 	               const std::string &search,
-	               bool recursive = false);
+	               bool recursive,
+	               const std::shared_ptr<const std::unordered_map<std::string, std::string>> &mod_roots);
 
 	/**
 	 * Generate the terrain for the current game.

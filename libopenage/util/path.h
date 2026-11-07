@@ -14,16 +14,11 @@
 
 #include <optional>
 
-// pxd: from libopenage.pyinterface.pyobject cimport PyObj
-// Avoid pulling the Python object implementation into native gameplay headers.
-// The complete type is included only by the developer adapter sources.
 #include "file.h"
 #include "fslike/native.h"
 
 // pxd: from libopenage.util.fslike.fslike cimport FSLike
 
-namespace openage::pyinterface { class PyObjectRef; }
-namespace openage::py { using Obj = pyinterface::PyObjectRef; }
 
 namespace openage::util {
 
@@ -33,7 +28,7 @@ class FSLike;
 
 
 /**
- * C++ pendant to the python util.fslike.path.Path
+ * Native virtual filesystem path.
  *
  * Contains a filesystem-like object and path-parts.
  *
@@ -62,23 +57,10 @@ public:
 	 */
 	using parts_t = std::vector<part_t>;
 
-	/**
-	 * Nullary constructor, pls don't use.
-	 * It only exists because Cython can't RAII.
-	 * It should be just friend of cython.
-	 */
+	/** Empty path for failed resolution and optional values. */
 	Path();
 
-	/**
-	 * Construct a path object from a python fslike
-	 * object. This is called from Cython.
-	 *
-	 * You will probably never call that manually.
-	 */
-	Path(const py::Obj &fslike,
-	     const parts_t &parts = {});
-
-	/**
+		/**
 	 * Construct a path from a fslike pointer.
 	 */
 	Path(std::shared_ptr<fslike::FSLike> fslike,

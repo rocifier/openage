@@ -1,12 +1,11 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
-# Re-export a changed engine API: .\build-fvd.cmd -ReexportApi
-# Modes: package (default), build, test, legacy-test, solo, relay. Accept runtime or
-# legacy test options directly after their mode.
+# Engine API is checked in under assets/fvd/engine_api; no export step.
+# Modes: package (default), build, test, python-test, game, solo, relay. Accept runtime or
+# test and native runtime options directly after their mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "package"
-$ReexportApi = $false
 $SkipSmoke = $false
 $ObserveSoloSeconds = 30
 $Jobs = 4
@@ -14,14 +13,13 @@ $NativeArgs = @()
 $tokens = @($args)
 $i = 0
 if ($tokens.Count -gt 0 -and
-    $tokens[0] -in @("package", "build", "test", "legacy-test", "solo", "relay")) {
+    $tokens[0] -in @("package", "build", "test", "python-test", "game", "solo", "relay")) {
     $Mode = $tokens[0]
     $i = 1
 }
 while ($i -lt $tokens.Count) {
     $token = [string] $tokens[$i]
     switch ($token) {
-        "-ReexportApi" { $ReexportApi = $true; break }
         "-SkipSmoke" { $SkipSmoke = $true; break }
         "-ObserveSoloSeconds" {
             if ($i + 1 -ge $tokens.Count) { throw "$token requires a number" }
@@ -47,11 +45,11 @@ while ($i -lt $tokens.Count) {
             continue
         }
         default {
-            if ($Mode -in @("legacy-test", "solo", "relay")) {
+            if ($Mode -in @("python-test", "game", "solo", "relay", "test")) {
                 $NativeArgs += $token
             }
             else {
-                throw "Unknown argument '$token'. Commands: package, build, test, legacy-test, solo, relay."
+                throw "Unknown argument '$token'. Commands: package, build, test, python-test, game, solo, relay."
             }
         }
     }
@@ -61,8 +59,7 @@ while ($i -lt $tokens.Count) {
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSCommandPath
 $build = Join-Path $root ".bin\msvc-vcpkg"
-$converted = Join-Path $root "assets\converted"
-$api = Join-Path $converted "engine"
+$api = Join-Path $root "assets\fvd\engine_api"
 $dist = Join-Path $root "dist"
 
 function Invoke-Checked([string] $Executable, [string[]] $Arguments, [string] $Description) {
@@ -172,10 +169,10 @@ function Get-ExtractedRunStage {
 
 Push-Location $root
 try {
-    if ($Mode -in @("solo", "relay")) {
+    if ($Mode -in @("game", "solo", "relay")) {
         # Run the actual packaged binary, not a developer launcher. No compilation.
         $bin = Get-ExtractedRunStage
-        $name = if ($Mode -eq "solo") { "openage-native.exe" } else { "openage-relay.exe" }
+        $name = if ($Mode -eq "relay") { "openage-relay.exe" } else { "openage-native.exe" }
         $exe = Join-Path $bin $name
         $runArgs = @()
         if ($Mode -eq "solo") { $runArgs += "--solo" }
@@ -190,6 +187,23 @@ try {
         return
     }
 
+    # Pure Python tests are optional tools, wholly independent of CMake,
+    # the native engine and the old Cython test dispatcher.
+    if ($Mode -eq "python-test") {
+        $python = Join-Path $root ".venv\Scripts\python.exe"
+        if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+            $command = Get-Command "python.exe" -ErrorAction SilentlyContinue
+            if (-not $command) { throw "Python unavailable; install Python 3.12+ or run 'uv sync'." }
+            $python = $command.Source
+        }
+        $testArgs = @($NativeArgs)
+        if ($testArgs.Count -eq 0) {
+            $testArgs = @("openage.testing.test_fvd_network_benchmark")
+        }
+        Invoke-Checked $python (@("-m", "unittest", "-v") + $testArgs) "Run pure Python tests"
+        return
+    }
+
     # This optional local developer environment is not shipped in the release.
     $envScript = Join-Path $root "deps\msvc-env.ps1"
     if (Test-Path -LiteralPath $envScript -PathType Leaf) {
@@ -198,74 +212,35 @@ try {
     if (-not (Get-Command "cmake.exe" -ErrorAction SilentlyContinue)) {
         throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
     }
-    if ($Mode -eq "legacy-test") {
-        $python = Join-Path $root ".venv\Scripts\python.exe"
-        if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
-            throw "Python developer environment missing. Run 'uv sync' from $root first."
-        }
-
-        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=ON",
-            "-DPython3_EXECUTABLE=$python") "Configure Python-enabled developer tests"
-        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--parallel", "$Jobs") "Build Python-enabled developer tests"
-
-        $runner = Join-Path $build "RelWithDebInfo\run.exe"
-        if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
-            throw "Python-enabled test runner missing: $runner"
-        }
-        $testArgs = @($NativeArgs)
-        if ($testArgs.Count -eq 0) { $testArgs = @("-a") }
-        Push-Location $build
-        try {
-            Invoke-Checked $runner (@("test") + $testArgs) "Run legacy C++/Python tests"
-        }
-        finally { Pop-Location }
-        return
-    }
-
     if ($Mode -eq "test") {
         if (-not (Test-Path -LiteralPath (Join-Path $build "CMakeCache.txt") -PathType Leaf)) {
             throw "No configured Windows build; first run: .\build-fvd.cmd build"
         }
+        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
+            "-DFVD_NATIVE_RELEASE=OFF") "Configure native-only C++ tests"
         Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--target", "openage_native_game_args_test", "openage_native_relay_args_test",
-            "openage_native_relay_network_test", "--parallel", "$Jobs") "Build native test targets"
+            "--target", "openage_native_game", "openage_native_relay",
+            "openage_native_game_args_test", "openage_native_relay_args_test",
+            "openage_native_relay_network_test", "openage_native_cpp_tests", "--parallel", "$Jobs") "Build native test targets"
         Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
             "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
+        if ($NativeArgs.Count -gt 0) {
+            $nativeRunner = Join-Path $build "packaging\RelWithDebInfo\openage_native_cpp_tests.exe"
+            if (-not (Test-Path -LiteralPath $nativeRunner -PathType Leaf)) {
+                $nativeRunner = Join-Path $build "packaging\openage_native_cpp_tests.exe"
+            }
+            Invoke-Checked $nativeRunner @($NativeArgs) "Run selected native C++ tests"
+        }
         Write-Host "FVD native tests passed." -ForegroundColor Green
         return
     }
 
-    # Developer-only asset export is needed once per API version, not on
-    # every player build. The shipped game never needs a Python runtime.
-    $apiMissing = -not ((Test-Path -LiteralPath (Join-Path $api "modpack.toml") -PathType Leaf) -and
-                         (Test-Path -LiteralPath (Join-Path $api "manifest.toml") -PathType Leaf))
-    if ($apiMissing -or $ReexportApi) {
-        Write-Host "Exported engine API is missing or refresh was requested." -ForegroundColor Yellow
-        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=ON") "Configure developer API exporter"
-        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--parallel", "$Jobs") "Build developer tools for API export"
-
-        $runner = Join-Path $build "RelWithDebInfo\run.exe"
-        if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
-            throw "Developer API exporter missing: $runner"
+    # The engine API is a committed source asset. No Python/Cython export
+    # bootstrap may run in a supported native build or package command.
+    foreach ($required in @("modpack.toml", "manifest.toml", "root.nyan")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $api $required) -PathType Leaf)) {
+            throw "Tracked FVD engine API incomplete: missing $required under $api"
         }
-        Push-Location $build
-        try {
-            Invoke-Checked $runner @("convert-export-api", $converted) "Export engine nyan API"
-        }
-        finally {
-            Pop-Location
-        }
-    } else {
-        Write-Host "==> Using existing exported engine API (no Python developer rebuild)." -ForegroundColor Green
-    }
-
-    if (-not ((Test-Path -LiteralPath (Join-Path $api "modpack.toml") -PathType Leaf) -and
-               (Test-Path -LiteralPath (Join-Path $api "manifest.toml") -PathType Leaf))) {
-        throw "Engine API export is incomplete in $api"
     }
 
     $nativeRelease = if ($Mode -eq "package") { "ON" } else { "OFF" }
@@ -276,8 +251,7 @@ try {
         "Configure Python-free native developer build"
     }
     Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-        "-DFVD_NATIVE_RELEASE=$nativeRelease", "-DFVD_WITH_PYTHON_ADAPTERS=OFF",
-        "-DFVD_NATIVE_API_ASSET_DIR=$api") $configureDescription
+        "-DFVD_NATIVE_RELEASE=$nativeRelease") $configureDescription
     Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
         "--target", "openage_native_game", "openage_native_relay",
         "--parallel", "$Jobs") "Build native game and relay"

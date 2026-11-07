@@ -1,86 +1,26 @@
-# Instructions for macOS users
+# macOS native development build
 
-## Prerequisite steps
-- XCode >= Xcode 12
-- Install [Homebrew](http://brew.sh). If you use some other package managers, you're on your own :)
+FVD's game, relay and test runner are native C++ targets. The old Python/Cython build, `./configure` frontend and `bin/run` launcher are not supported.
 
-```
-brew update-reset && brew update
-brew install --cask font-dejavu
-brew install cmake python3 libepoxy freetype fontconfig harfbuzz opus opusfile libogg libpng toml11 eigen
-brew install qtbase qtdeclarative qtmultimedia
+Install Xcode Command Line Tools and Homebrew native dependencies:
+
+```sh
+brew install cmake ninja llvm flex make eigen libepoxy freetype fontconfig harfbuzz opus opusfile libogg libpng toml11 qt6
 ```
 
-You will also need [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md) and its dependencies:
+Use Homebrew LLVM for C++20 module scanning (AppleClang may be insufficient), then configure the native developer targets:
 
-```
-brew install flex make
-```
-
-Optionally, for documentation generation:
-
-```
-brew install doxygen
-```
-
-## Clone the repository
-
-```
-git clone https://github.com/SFTtech/openage
-cd openage
+```sh
+LLVM_PREFIX="$(brew --prefix llvm)"
+cmake -S . -B bin -G Ninja -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES \
+  -DFVD_NATIVE_RELEASE=OFF \
+  -DCMAKE_C_COMPILER="$LLVM_PREFIX/bin/clang" \
+  -DCMAKE_CXX_COMPILER="$LLVM_PREFIX/bin/clang++"
+cmake --build bin --parallel "$(sysctl -n hw.logicalcpu)" \
+  --target openage_native_game openage_native_relay openage_native_cpp_tests
+ctest --test-dir bin -R '^fvd_native_(game|relay)_' --output-on-failure
 ```
 
-## Python dependencies (developer tools only)
+Only Windows and Linux `build-fvd` scripts currently provide a verified player archive workflow. The macOS recipe above builds developer targets; it is not a claim of a tested portable macOS release. Optional Python tests use `python3 -m unittest -v openage.testing.test_fvd_network_benchmark` from the checkout root and require no third-party Python packages.
 
-The general openage developer build still needs Python 3.12+ and Cython
-3.1+ for conversion, code generation, and the traditional developer
-launcher. Install its declared dependencies from the repository root:
-
-```bash
-uv sync
-```
-
-The dependency list is maintained in [`pyproject.toml`](../../pyproject.toml);
-there is no need to duplicate a potentially outdated `pip install` list
-here. The native FVD player and standalone relay do not load Python.
-
-**FVD packaging note:** `build-fvd.sh` is currently Linux-specific and
-`build-fvd.cmd` is Windows-specific. The full macOS native release
-packaging workflow has not yet been validated; the commands below are
-for general openage developer builds, not a claimed Python-free macOS
-player archive.
-
-## Building
-
-Recent versions of Apple Clang support the C++20 features openage uses, so the
-compiler shipped with Xcode is normally fine:
-
-```
-./configure --download-nyan -- -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
-```
-
-Older Apple Clang releases are missing parts of C++20 and will fail to build.
-If you hit compiler errors, install Homebrew's LLVM and point `configure` at it instead:
-
-```
-brew install llvm
-./configure --compiler="$(brew --prefix llvm)/bin/clang++" --download-nyan -- -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
-```
-
-Afterwards, trigger the build using `make`:
-
-```
-make -j$(sysctl -n hw.ncpu)
-```
-
-## Testing
-`make test` runs the built-in tests.
-
-
-## Running
-`make run` or `cd bin && ./run` launches the game. Try `./run --help` if you don't know what to do!
-
-
-## To create the documentation
-`make doc`
-For more options and details, refer to [doc/README.md][/doc/README.md]
+See [FVD build instructions](../building.md).

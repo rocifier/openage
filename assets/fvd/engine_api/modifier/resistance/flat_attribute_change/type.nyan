@@ -1,0 +1,20 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.modifier
+import engine.util.terrain
+
+ElevationDifferenceHigh(engine.modifier.Modifier):
+    min_elevation_difference : optional(float) = None
+
+ElevationDifferenceLow(engine.modifier.Modifier):
+    min_elevation_difference : optional(float) = None
+
+Stray(engine.modifier.Modifier):
+    pass
+
+Terrain(engine.modifier.Modifier):
+    terrain : engine.util.terrain.Terrain
+
+Unconditional(engine.modifier.Modifier):
+    pass

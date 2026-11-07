@@ -1,0 +1,8 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.diplomatic_stance
+import engine.util.patch.property
+
+Diplomatic(engine.util.patch.property.PatchProperty):
+    stances : set(engine.util.diplomatic_stance.DiplomaticStance)

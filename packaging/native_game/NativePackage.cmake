@@ -1,21 +1,12 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 #
-# Separate install component for the Python-free FVD distribution.
-# Qt/vendor runtime deployment and the release asset manifest are future gates.
+# The only supported CPack payload: native game, relay, libraries and FVD assets.
 
-set(FVD_NATIVE_API_ASSET_DIR "" CACHE PATH
-	"Pre-exported engine API modpack directory; optional during development")
+include("${CMAKE_CURRENT_LIST_DIR}/CheckEngineApi.cmake")
+set(_fvd_api_source "${CMAKE_SOURCE_DIR}/assets/fvd/engine_api")
+# Fail at configure time, including developer builds. No conversion bootstrap.
+fvd_validate_engine_api("${_fvd_api_source}")
 
-option(FVD_NATIVE_RELEASE
-	"Require Python-free adapters and complete exported API when staging FVD" OFF)
-if(FVD_NATIVE_RELEASE)
-	if(FVD_WITH_PYTHON_ADAPTERS)
-		message(FATAL_ERROR "FVD native releases must use -DFVD_WITH_PYTHON_ADAPTERS=OFF")
-	endif()
-	if(NOT FVD_NATIVE_API_ASSET_DIR)
-		message(FATAL_ERROR "FVD native releases require -DFVD_NATIVE_API_ASSET_DIR=<exported engine>")
-	endif()
-endif()
 
 install(TARGETS openage_native_game openage_native_relay
 	RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT FVDNative)
@@ -30,7 +21,8 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/fvd/"
 	COMPONENT FVDNative
 	PATTERN "CMakeLists.txt" EXCLUDE
 	PATTERN "README.md" EXCLUDE
-	PATTERN "prompts.md" EXCLUDE)
+	PATTERN "prompts.md" EXCLUDE
+	PATTERN "engine_api" EXCLUDE)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/qml/"
 	DESTINATION "${ASSET_DIR}/qml"
 	COMPONENT FVDNative FILES_MATCHING PATTERN "*.qml")
@@ -60,37 +52,30 @@ else()
 		DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT FVDNative)
 endif()
 
-# Conversion is a development/build-time tool, never a player operation.
-if(FVD_NATIVE_API_ASSET_DIR)
-	if(NOT EXISTS "${FVD_NATIVE_API_ASSET_DIR}/modpack.toml"
-	   OR NOT EXISTS "${FVD_NATIVE_API_ASSET_DIR}/manifest.toml")
-		message(FATAL_ERROR
-			"FVD_NATIVE_API_ASSET_DIR must contain modpack.toml and manifest.toml")
-	endif()
-	install(DIRECTORY "${FVD_NATIVE_API_ASSET_DIR}/"
-		DESTINATION "${ASSET_DIR}/converted/engine"
-		COMPONENT FVDNative)
+# The tracked FVD API is installed at the existing engine mount point.
+# Do not also install it beneath fvd/: the source folder is not a runtime alias.
+install(DIRECTORY "${_fvd_api_source}/"
+	DESTINATION "${ASSET_DIR}/converted/engine"
+	COMPONENT FVDNative)
 
-	# Generate integrity hashes on the build machine, never in the player.
-	set(_fvd_manifest "${CMAKE_CURRENT_BINARY_DIR}/fvd-native-manifest.toml")
-	execute_process(
-		COMMAND "${CMAKE_COMMAND}"
-			"-DFVD_MANIFEST_SOURCE_ASSETS=${CMAKE_SOURCE_DIR}/assets"
-			"-DFVD_MANIFEST_API_ASSETS=${FVD_NATIVE_API_ASSET_DIR}"
-			"-DFVD_MANIFEST_OUTPUT=${_fvd_manifest}"
-			-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/GenerateNativeManifest.cmake"
-		RESULT_VARIABLE _fvd_manifest_exit)
-	if(NOT _fvd_manifest_exit EQUAL 0)
-		message(FATAL_ERROR "FVD native release manifest generation failed")
-	endif()
-	install(FILES "${_fvd_manifest}"
-		DESTINATION "${ASSET_DIR}" COMPONENT FVDNative)
+# Generate integrity hashes only from reviewed tracked source inputs.
+set(_fvd_manifest "${CMAKE_CURRENT_BINARY_DIR}/fvd-native-manifest.toml")
+execute_process(
+	COMMAND "${CMAKE_COMMAND}"
+		"-DFVD_MANIFEST_SOURCE_ASSETS=${CMAKE_SOURCE_DIR}/assets"
+		"-DFVD_MANIFEST_API_ASSETS=${_fvd_api_source}"
+		"-DFVD_MANIFEST_OUTPUT=${_fvd_manifest}"
+		-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/GenerateNativeManifest.cmake"
+	RESULT_VARIABLE _fvd_manifest_exit)
+if(NOT _fvd_manifest_exit EQUAL 0)
+	message(FATAL_ERROR "Tracked FVD engine API release manifest generation failed")
 endif()
+install(FILES "${_fvd_manifest}"
+	DESTINATION "${ASSET_DIR}" COMPONENT FVDNative)
 
 # Deploy dependencies and audit the *completed* native stage, including the
 # engine API and integrity manifest. Run this at the END of component install.
-# Only the standalone Windows portable game package deploys Qt binaries here.
-# The legacy all-component installer still has its separate Python deployer.
+# Windows deploys Qt using native tools, not the retired installer.
 if(MSVC)
 	# Keep the portable archive runnable on Windows without VS redistributables.
 	include(InstallRequiredSystemLibraries)

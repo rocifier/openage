@@ -1,33 +1,12 @@
 # Copyright 2013-2023 the openage authors. See copying.md for legal info.
 
-# >=3.16 finding numpy with the findpython3 module
 cmake_minimum_required(VERSION 3.16)
 
 
-# main build configuration file
-
-# text art: figlet -f rounded "[SFT] openage" | sed -e 's/\\/\\\\/g'
-message("
-
- ___  ______ _______ _______ ___
-|  _)/ _____|_______|_______|_  |
-| | ( (____  _____      _     | |    ___  ____  _____ ____  _____  ____ _____
-| |  \\____ \\|  ___)    | |    | |   / _ \\|  _ \\| ___ |  _ \\(____ |/ _  | ___ |
-| |_ _____) ) |        | |   _| |  | |_| | |_| | ____| | | / ___ ( (_| | ____|
-|___|______/|_|        |_|  (___|   \\___/|  __/|_____)_| |_\\_____|\\___ |_____)
-                                         |_|                     (_____|
-
-Welcome to the SFT technologies computer-aided openage build system!
-
-You have chosen, or been chosen, to attempt the daring task of building openage.
-If you have installed all the dependencies that are conveniently listed in
-[doc/building.md], this _might_ just work!
-
-If it doesn't, consider reporting the issue, or ask for help:
-  * GitHub: https://github.com/SFTtech/openage
-  * Matrix: #sfttech:matrix.org
-")
-
+# Fast Villager Defense: native C++ game, relay and C++ tests.
+# The original-game Python/Cython converter and generic upstream launcher
+# are intentionally not part of this build.
+message(STATUS "Configuring Fast Villager Defense native C++")
 
 ##################################################
 # main buildsystem setup entry point
@@ -37,9 +16,9 @@ project(openage CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Python and Cython requirements
-set(PYTHON_MIN_VERSION 3.12)
-set(CYTHON_MIN_VERSION 3.1)
+# The FVD engine, relay, tests and distribution are native C++ only.
+# Optional pure Python developer tests run separately (never during CMake).
+option(FVD_NATIVE_RELEASE "Package the Python-free native FVD runtime" OFF)
 
 # CMake policies
 foreach(pol
@@ -48,7 +27,6 @@ foreach(pol
         CMP0071  # enable automoc for generated files
         CMP0072  # prefers GLVND by default FindOpenGL
         CMP0048  # project() command manages VERSION variables
-        CMP0094  # take the first satisfying Python version
         CMP0082  # run add_subdirectory() in the declaration order
         CMP0102  # Don't create empty cache entries
        )
@@ -69,7 +47,7 @@ string(TOUPPER "CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}" BUILD_TYPE_CXX_FLAGS)
 
 
 ##################################################
-# options: keep up to date with those in ./configure!
+# Native options: controlled directly by CMake and build-fvd wrappers.
 if(NOT DEFINED WANT_BACKTRACE)
 	set(WANT_BACKTRACE if_available)
 endif()
@@ -173,8 +151,6 @@ include(CheckInSourceBuild)
 include(HandleCXXOptions)
 include(CheckCompilerFeatures)
 include(CMakeParseArguments)
-include(HandlePythonOptions)
-include(CheckRuntimeDependencies)
 include(DetectProjectVersion)
 include(DependencyFetch)
 include(FindPackageHandleStandardArgs)
@@ -183,11 +159,9 @@ include(FindPackageHandleStandardArgs)
 include(CTest)
 
 # initialize language support
-include(codegen)
 include(cpp)
 include(doxygen)
 include(options)
-include(python)
 include(util)
 
 
@@ -227,8 +201,6 @@ doxygen_configure(libopenage/ openage/ doc/ README.md)
 ##################################################
 # static content
 add_subdirectory(assets/)
-add_subdirectory(dist/)
-add_subdirectory(cfg/)
 
 
 ##################################################
@@ -237,30 +209,8 @@ add_subdirectory(libopenage/)
 
 
 ##################################################
-# Python content (uses the C++ library)
-
-# create a virtual library that, when linked to,
-# injects a header inclusion, and links to libopenage.
-# -> all cython modules get our hacks included and link to libopenage.
-add_library(pyext_libopenage INTERFACE)
-if(MSVC)
-	set(FORCE_INCLUDE_CXXFLAG "/FI")
-else()
-	set(FORCE_INCLUDE_CXXFLAG "-include")
-endif()
-target_compile_options(pyext_libopenage INTERFACE
-	${FORCE_INCLUDE_CXXFLAG} "${CMAKE_SOURCE_DIR}/libopenage/pyinterface/hacks.h"
-)
-target_link_libraries(pyext_libopenage INTERFACE libopenage)
-set(PYEXT_LINK_LIBRARY pyext_libopenage)
-
-configure_file(run.py.in run.py)
-add_cython_modules(EMBED NOINSTALL ${CMAKE_CURRENT_BINARY_DIR}/run.py)
-add_py_modules(BININSTALL ${CMAKE_CURRENT_BINARY_DIR}/run.py AS openage)
-add_subdirectory(openage/)
-
-python_finalize()
-
+# Python extensions and C++ code generation were retired from FVD.
+# Use python -m unittest for optional pure Python tests (no CMake).
 
 ##################################################
 # packaging.
@@ -279,13 +229,11 @@ message("${PROJECT_NAME} ${PROJECT_VERSION}
 
    version string | ${VERSION_FULL_STRING}
          compiler | ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}
-           python | ${PYTHON_VERSION_STRING}
        build type | ${CMAKE_BUILD_TYPE}
          cxxflags | ${CMAKE_CXX_FLAGS} ${EXTRA_FLAGS}
  build type flags | ${${BUILD_TYPE_CXX_FLAGS}}
         build dir | ${CMAKE_BINARY_DIR}
    install prefix | ${CMAKE_INSTALL_PREFIX}
-py install prefix | ${CMAKE_PY_INSTALL_PREFIX}
 ")
 
 ##################################################

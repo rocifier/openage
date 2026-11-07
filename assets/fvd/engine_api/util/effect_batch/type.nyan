@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.effect_batch
+
+ChainedBatch(engine.util.effect_batch.EffectBatch):
+    pass
+
+OrderedBatch(engine.util.effect_batch.EffectBatch):
+    pass
+
+UnorderedBatch(engine.util.effect_batch.EffectBatch):
+    pass

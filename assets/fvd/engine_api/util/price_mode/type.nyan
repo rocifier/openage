@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.price_mode
+
+Dynamic(engine.util.price_mode.PriceMode):
+    change_value : float
+    min_price : float
+    max_price : float
+
+Fixed(engine.util.price_mode.PriceMode):
+    pass

@@ -1,176 +1,35 @@
-# Test system
+# FVD tests
 
-## openage computer-enriched testing automation
+The game, relay and engine tests run **natively in C++**. The old `run.py`/`bin/run` and Cython dispatcher have been removed.
 
-### Tests
+## Native developer tests
 
-There are various supported kinds of tests:
+On Windows first configure the native targets with `.\\build-fvd.cmd build`, then run `.\\build-fvd.cmd test`. On Linux use `bash build-fvd.sh build` followed by `bash build-fvd.sh test`. Both use CTest and `openage_native_cpp_tests` (developer-only, never packaged for players).
 
- - cpp tests
- - py tests
- - py doctests
-
-Tests run without user interaction to check for errors automatically.
-
-All tests are run automatically by [Kevin](https://github.com/SFTtech/kevin/) for pullrequests.
-
-
-You can invoke them with `bin/run test -a` or `make test`
-
-Have a look at `bin/run test --help` for further options.
-
-
-You are encouraged to write tests for all your contributions, as well as other components that currently lack testing.
-
-
-### Demos
-
-In addition to testing, openage supports _demos_:
-
- - cpp demos
- - py demos
-
-As opposed to tests, demos are run manually and individually by the user.
-They usually produce lots of output on stdout or may even be interactive. Python demos even accept an `argv` parameter.
-
-All tests must be registered in `openage/testing/testlist.py` (else the game won't know about them).
-
-Also see `bin/run test --help`.
-
-## Adding new tests
-
-### C++ tests
-
-C++ tests are simple `void()` functions somewhere in the `openage` namespace.
-
-They shall return on success, and raise `openage::testing::TestError` on failure.
-
-They shall not be declared in a header file; instead, add them to `openage/testing/testlist.py`.
-
-The header `libopenage/testing/testing.h` provides `TestError` and some convenience macros:
-
- - `TESTFAIL`
-    throws `TestError`
- - `TESTFAILMSG("a" << "b")`
-    throws `TestError("ab")`
- - `TESTEQUALS(left, right)`
-    evaluates `left` and `right`
-    throws `TestError(left)` if `left != right`
-    throws `TestError(exc)` if a non-`TestError` exception `exc` is raised.
- - `TESTNOTEQUALS(left, right)`
-    throws `TestError` if `left == right` or an unexpected engine exception is raised.
- - `TESTTHROWS(expr)`
-    evaluates `expr`, catching any exception, including `TestError`.
-    raises `TestError` if no exception was caught.
-
-`TESTEQUALS` and `TESTNOTEQUALS` evaluate each operand once and compare without copying it.
-Both support const values and equality-comparable types such as `std::vector` that have no stream output operator.
-Failure messages include the source file and line, printing values when possible and operand expressions in angle brackets otherwise.
-
-Example test function:
-
-``` cpp
-void test_prime() {
-    is_prime(23) or TESTFAIL;
-    is_prime(42) and TESTFAIL;
-}
+```sh
+bash build-fvd.sh test --list
+bash build-fvd.sh test --exact openage::network::tests::lobby_capacity
+bash build-fvd.sh test --exact openage::network::tests::relay_multi_host_lobby
+bash build-fvd.sh test --exact openage::network::tests::fvd_multi_session
+bash build-fvd.sh test --exact openage::audio::tests::fvd_audio_bank
+bash build-fvd.sh test --prefix openage::network::tests::
 ```
 
+On Windows, replace `bash build-fvd.sh` with `.\\build-fvd.cmd`. The registry supports `--list`, `--exact NAME`, `--prefix PREFIX`, `--all` and `--all --have-assets`. Process workers, demos and benchmarks remain opt-in; tests requiring assets need checked-in FVD resources and the tracked engine API. New C++ tests must be registered in `libopenage/testing/native_test_runner.cpp`.
 
-### Python tests
+## Optional pure Python regressions
 
-Python tests are simple argument-less functions somewhere in the `openage` package.
-
-They shall return `None` on success, and raise `openage.testing.testing.TestError` on failure.
-
-Add their names to `openage/testing/testlist.py`.
-
-The module `openage.testing.testing` provides `TestError` and some convenience functions:
-
- - `assert_value(<expr>, expected)`
-    checks whether expr == expected, and raises `TestError` if not.
- - `assert_raises(expected_exception_type)`
-    a context guard that verifies that the named exception occurs inside;
-    consult the example in `openage/testing/testing.py`.
-
-You may define tests in `.pyx` files.
-
-Example test function:
-
-``` python
-def test_prime():
-    assert_value(is_prime(23), True)
-    assert_value(is_prime(42), False)
-
-    with assert_raises(ValueError):
-        result(is_prime(-1337))
+```sh
+bash build-fvd.sh python-test
+# Windows: .\build-fvd.cmd python-test
 ```
 
+These `unittest` cases verify network proxy/bandwidth-shaping helpers and use only Python 3.12+ stdlib. Python is **not** part of CMake, native gameplay, or packaged binaries. The `fvd-native-game-args` CI workflow runs this suite separately.
 
-### Python doctests
+## Native release checks
 
-[Doctests](https://docs.python.org/3/library/doctest.html) are an integrated feature of Python.
+`build-fvd` with no arguments creates a 7Z archive and runs packaged-file audits. Those checks include native libraries, versioned nyan API, the SHA3 engine manifest, SHA-256 content hashes and platform-specific library closure. They **do not** replace actual two-client visual/audio/multiplayer tests. See [release acceptance](network/FVD_RELEASE_ACCEPTANCE.md) and [network impairment testing](network/FVD_SIMULATED_NETWORK_TESTING.md).
 
-They defined in function and module docstrings, are extremely lightweight and also serve as documentation.
+## Changed-file checks
 
-Simply add the name of a Python module to `openage/testing/testlist.py`, and all doctests in that module will run.
-
-Example doctest for a function:
-
-``` python
-def is_prime(p):
-    """
-    High-performance, state-of-the-art primality tester.
-
-    >>> is_prime(23)
-    True
-    >>> is_prime(42)
-    False
-    """
-    return not any(p % x == 0 for x in range(2, p))
-```
-
-### C++ demos
-
-Technically, those are very much like `C++` tests. In fact, the only difference to tests is the section in `openage/testing/testlist.py` where they are declared.
-
-C++ demos don't support `argv`; if you want that, make it a Python demo in a `.pyx` file and do the argparsing in Python; the Python demo function can then easily call any C++ function using the Python interface.
-
-
-### Python demos
-
-Similar to Python tests, but have one argument, `argv`. Pass arguments in the invocation:
-
-    bin/run test -d prime_demo 100
-
-Example demo:
-
-``` python
-def prime_demo(argv):
-    import argparse
-    cli = argparse.ArgumentParser()
-    cli.add_argument('max_number', type=int)
-    args = cli.parse_args(argv)
-
-    for p in range(2, args.max_number):
-        if is_prime(p):
-            print(p)
-```
-
-
-## Why?
-
-### Demos
-
-Demos should be used to implement and develop new features.
-You can directly call your code without having to launch up the whole engine.
-
-Use demos while developing new things or improvements.
-
-
-### Tests
-
-All tests are run for each pull requests, so we can detect your change broke something.
-Please try to write tests for everything you do.
-
-This is our only way of automated regression detection.
+The `fvd-quality` workflow checks changed header guards, C++ style, legal notices, whitespace and file modes against `FVD`. Developers can run `python3 -m buildsystem.codecompliance --only-changed-files origin/FVD --headerguards --cppstyle --legal --filemodes --textfiles` after fetching the `FVD` remote branch. This optional code-quality Python is never a native runtime dependency.

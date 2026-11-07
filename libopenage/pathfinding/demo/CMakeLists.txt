@@ -3,7 +3,3 @@ add_sources(libopenage
     demo_1.cpp
     tests.cpp
 )
-
-pxdgen(
-	tests.h
-)

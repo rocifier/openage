@@ -3,6 +3,9 @@
 #include "game.h"
 
 #include <algorithm>
+#include <memory>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <nyan/nyan.h>
@@ -89,9 +92,20 @@ void Game::attach_renderer(const std::shared_ptr<renderer::RenderFactory> &rende
 }
 
 void Game::load_data(const std::shared_ptr<assets::ModManager> &mod_manager) {
-	auto load_order = mod_manager->get_load_order();
+	const auto load_order = mod_manager->get_load_order();
 
-	for (auto &mod_id : load_order) {
+	// Mod IDs are nyan import namespaces, not necessarily physical folder names.
+	// In a source checkout, engine data lives in fvd/engine_api, while its
+	// module name is still "engine". Build a native filesystem lookup that
+	// keeps both identities separate and works with the installed package too.
+	auto writable_roots = std::make_shared<std::unordered_map<std::string, std::string>>();
+	for (const auto &mod_id : load_order) {
+		const auto &info = mod_manager->get_modpack(mod_id)->get_info();
+		writable_roots->emplace(mod_id, info.path.resolve_native_path());
+	}
+	const std::shared_ptr<const std::unordered_map<std::string, std::string>> mod_roots = writable_roots;
+
+	for (const auto &mod_id : load_order) {
 		auto mod = mod_manager->get_modpack(mod_id);
 		auto info = mod->get_info();
 
@@ -116,29 +130,38 @@ void Game::load_data(const std::shared_ptr<assets::ModManager> &mod_manager) {
 				}
 			}
 
-			this->load_path(info.path.get_parent(), info.path.get_name(), search, recursive);
+			this->load_path(info.path, mod_id, search, recursive, mod_roots);
 		}
 	}
 }
 
-void Game::load_path(const util::Path &base_dir,
-                     const std::string &mod_dir,
+void Game::load_path(const util::Path &mod_path,
+                     const std::string &mod_id,
                      const std::string &search,
-                     bool recursive) {
-	auto base_path = base_dir.resolve_native_path();
-	auto search_path = base_dir / mod_dir / search;
+                     bool recursive,
+                     const std::shared_ptr<const std::unordered_map<std::string, std::string>> &mod_roots) {
+	auto search_path = mod_path / search;
 
-	auto fileload_func = [&base_path](const std::string &filename) {
-		// nyan wants a string filepath, so we have to construct it from the
-		// path and subpath parameters
+	// nyan asks for logical import paths (e.g. engine/util/foo.nyan).
+	// Resolve those against each modpack's actual native directory, rather
+	// than guessing that the import namespace matches the on-disk folder.
+	// Capture roots by shared ownership because nyan may retain a fetcher.
+	auto fileload_func = [mod_roots](const std::string &filename) {
 		log::log(INFO << "Loading .nyan file: " << filename);
-		auto loc = base_path + "/" + filename;
-		return std::make_shared<nyan::File>(loc);
+		const auto separator = filename.find('/');
+		if (separator == std::string::npos) {
+			throw Error{ERR << "Nyan module path lacks a modpack name: " << filename};
+		}
+		const auto found = mod_roots->find(filename.substr(0, separator));
+		if (found == mod_roots->end()) {
+			throw Error{ERR << "Unknown nyan modpack in import path: " << filename};
+		}
+		return std::make_shared<nyan::File>(found->second + filename.substr(separator));
 	};
 
-	// file loading
+	// loading a physical file into the logical nyan namespace
 	if (search_path.is_file() and search_path.get_suffix() == ".nyan") {
-		auto loc = mod_dir + "/" + search;
+		const auto loc = mod_id + "/" + search;
 		try {
 			this->db->load(loc, fileload_func);
 		}
@@ -160,15 +183,12 @@ void Game::load_path(const util::Path &base_dir,
 
 	// directory loading
 	if (search_path.is_dir()) {
-		// load all files in a directory
 		for (auto p : search_path.iterdir()) {
 			if (p.is_dir() and not recursive) {
-				// folders are skipped unless we read recursively
 				continue;
 			}
-
 			auto new_search = search + "/" + p.get_name();
-			this->load_path(base_dir, mod_dir, new_search, recursive);
+			this->load_path(mod_path, mod_id, new_search, recursive, mod_roots);
 		}
 	}
 }

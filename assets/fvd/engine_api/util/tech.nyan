@@ -1,0 +1,15 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.language.translated.type
+import engine.util.patch
+import engine.util.tech_type
+
+import engine.root as root
+
+Tech(root.Object):
+    types : set(children(engine.util.tech_type.TechType))
+    name : engine.util.language.translated.type.TranslatedString
+    description : engine.util.language.translated.type.TranslatedMarkupFile
+    long_description : engine.util.language.translated.type.TranslatedMarkupFile
+    updates : orderedset(engine.util.patch.Patch)

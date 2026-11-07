@@ -3,11 +3,15 @@
 #include "renderer/resources/texture_data.h"
 
 #include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <system_error>
 #include <cstdint>
 #include <utility>
 #include <vector>
 
-#include "pyinterface/pyobject.h"
+#include "util/fslike/directory.h"
 #include "renderer/resources/palette_info.h"
 #include "renderer/resources/parser/parse_texture.h"
 #include "renderer/resources/texture_info.h"
@@ -49,10 +53,22 @@ void alpha_mask() {
 }
 
 void texture_metadata() {
-	auto temporary = py::import("tempfile").getattr("TemporaryDirectory").call();
-	auto directory = py::import("openage.util.fslike.directory")
-	                     .getattr("Directory").call(temporary.getattr("name"));
-	util::Path root{directory};
+	// Native filesystem fixture: this test no longer imports tempfile,
+	// constructs a Python FSLike, or requires a Cython/Python adapter.
+	struct TemporaryDirectory {
+		std::filesystem::path path{std::filesystem::temp_directory_path() /
+			("fvd-texture-metadata-" + std::to_string(
+				std::chrono::steady_clock::now().time_since_epoch().count()))};
+		TemporaryDirectory() {
+			std::filesystem::create_directories(path);
+		}
+		~TemporaryDirectory() {
+			std::error_code ec;
+			std::filesystem::remove_all(path, ec);
+		}
+	} temporary;
+	auto directory = std::make_shared<util::fslike::Directory>(temporary.path.string());
+	util::Path root{directory->root()};
 	auto path = root / "test.texture";
 	auto parse = [&](const std::string &attributes) {
 		auto file = path.open_w();

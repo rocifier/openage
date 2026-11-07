@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.activity.condition
+
+CommandInQueue(engine.util.activity.condition.Condition):
+    pass
+
+NextCommandIdle(engine.util.activity.condition.Condition):
+    pass
+
+NextCommandMove(engine.util.activity.condition.Condition):
+    pass

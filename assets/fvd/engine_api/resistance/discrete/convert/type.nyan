@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.resistance.discrete.convert
+
+AoE2Convert(engine.resistance.discrete.convert.Convert):
+    guaranteed_resist_rounds : int
+    protected_rounds : int
+    protection_round_recharge_time : float

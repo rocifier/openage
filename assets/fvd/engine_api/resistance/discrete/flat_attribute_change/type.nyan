@@ -1,0 +1,10 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.resistance.discrete.flat_attribute_change
+
+FlatAttributeChangeDecrease(engine.resistance.discrete.flat_attribute_change.FlatAttributeChange):
+    pass
+
+FlatAttributeChangeIncrease(engine.resistance.discrete.flat_attribute_change.FlatAttributeChange):
+    pass

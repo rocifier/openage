@@ -105,7 +105,7 @@ Item {
                         color: "#17221e"; radius: 4; border.color: "#688478"; border.width: 1
                         TextInput {
                             anchors.fill: parent; anchors.margins: 9
-                            text: menu.lobby ? menu.lobby.port : "32456"; color: "white"; font.pixelSize: 14
+                            text: menu.lobby ? menu.lobby.port : "40000"; color: "white"; font.pixelSize: 14
                             inputMethodHints: Qt.ImhDigitsOnly
                             maximumLength: 5
                             validator: IntValidator { bottom: 1; top: 65535 }

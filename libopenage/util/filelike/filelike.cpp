@@ -7,8 +7,4 @@ namespace openage::util::filelike {
 
 FileLike::FileLike() = default;
 
-bool FileLike::is_python_native() const noexcept {
-	return false;
-}
-
 } // openage::util::filelike

@@ -1,0 +1,24 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.ability
+import engine.util.activity.condition
+import engine.util.activity.event
+import engine.util.activity.node
+
+Ability(engine.util.activity.node.Node):
+    next : engine.util.activity.node.Node
+    ability : abstract(engine.ability.Ability)
+
+End(engine.util.activity.node.Node):
+    pass
+
+Start(engine.util.activity.node.Node):
+    next : engine.util.activity.node.Node
+
+XOREventGate(engine.util.activity.node.Node):
+    next : dict(engine.util.activity.event.Event, engine.util.activity.node.Node)
+
+XORGate(engine.util.activity.node.Node):
+    next : orderedset(engine.util.activity.condition.Condition)
+    default : engine.util.activity.node.Node

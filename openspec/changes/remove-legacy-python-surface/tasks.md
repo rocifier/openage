@@ -2,51 +2,154 @@
 
 ## 1. Make runtime data independent of conversion
 
-- [ ] 1.1 Copy the currently accepted engine API into a tracked FVD-owned source directory, preserving LF endings, API metadata and licence information.
-- [ ] 1.2 Replace `FVD_NATIVE_API_ASSET_DIR` bootstrap/export logic with the tracked source directory as the default build and package input.
-- [ ] 1.3 Centralize the expected engine API version and validate the tracked snapshot during configuration, package staging and native startup.
-- [ ] 1.4 Add regressions for missing, incomplete and version-incompatible tracked API data and for its installed runtime path.
-- [ ] 1.5 Build and smoke-test a Windows and Linux native archive before deleting the exporter.
+- [x] 1.1 Copy the currently accepted engine API into a tracked FVD-owned source directory, preserving LF endings, API metadata and licence information.
+- [x] 1.2 Replace `FVD_NATIVE_API_ASSET_DIR` bootstrap/export logic with the tracked source directory as the default build and package input.
+- [x] 1.3 Centralize the expected engine API version and validate the tracked snapshot during configuration, package staging and native startup.
+- [x] 1.4 Add regressions for missing, incomplete and version-incompatible tracked API data and for its installed runtime path.
+- [ ] 1.5 Verify fresh Windows and Linux native archives and extracted-package smoke after retiring the converter/exporter.
 
 ## 2. Replace Python-generated C++ and the Cython test bridge
 
-- [ ] 2.1 Generate the four coordinate header/source pairs one final time, remove generated-file warnings and commit them as ordinary C++ source.
-- [ ] 2.2 Compile the committed coordinate `.cpp` files directly and remove their Mako templates and generated single-compilation-unit wrapper.
-- [ ] 2.3 Add a native C++ test executable that lists tests, runs one exact or prefixed name and runs all registered C++ tests.
-- [ ] 2.4 Report the active test name, source failure location and uncaught C++ exception details without Python exception translation.
-- [ ] 2.5 Move C++ test registration out of the Python test list and generated dispatcher into a C++-owned source of truth.
-- [ ] 2.6 Port retained tests that use Python-backed paths or callbacks to native fixtures.
-- [ ] 2.7 Update `build-fvd` and editor tasks to run native C++ tests and pure Python tests as separate commands.
+- [x] 2.1 Generate the four coordinate header/source pairs one final time, remove generated-file warnings and commit them as ordinary C++ source.
+- [x] 2.2 Compile the committed coordinate `.cpp` files directly and remove their Mako templates and generated single-compilation-unit wrapper.
+- [x] 2.3 Add a native C++ test executable that lists tests, runs one exact or prefixed name and runs all registered C++ tests.
+- [x] 2.4 Report the active test name, source failure location and uncaught C++ exception details without Python exception translation.
+- [x] 2.5 Move C++ test registration out of the Python test list and generated dispatcher into a C++-owned source of truth.
+- [x] 2.6 Port retained tests that use Python-backed paths or callbacks to native fixtures.
+- [x] 2.7 Update `build-fvd` and editor tasks to run native C++ tests and pure Python tests as separate commands.
+
+Task 2 migration note: the Python-generated C++ dispatcher, coordinate Mako
+generation and the `cpp_testing.pyx` bridge are no longer compiled or used.
+The native C++-owned registry includes 113 retained tests, six opt-in demos and
+one opt-in benchmark. Four tests/demos solely exercising the removed Python
+C++ bridge are retired. C++ texture tests now use a native filesystem fixture;
+FVD scenario and network tests load the tracked engine API, not the conversion
+cache. Asset-dependent tests require `--all --have-assets`, while process
+workers and slow benchmarks are opt-in. The `build-fvd test` and `python-test`
+commands and VS Code tasks run independent native and pure-Python suites.
+The remaining Python/Cython application adapters and codegen framework are
+removed in Task 3. Full Windows/Linux archive release smoke tests are still
+tracked separately under 1.5/6.3.
 
 ## 3. Remove Python code generation, Cython and Python adapters
 
-- [ ] 3.1 Delete `openage/codegen`, its build integration, generated-file cache and generator cleanup targets.
-- [ ] 3.2 Delete all retained `.pyx` and `.pxd` modules and their CMake declarations.
-- [ ] 3.3 Remove `pxdgen`, Cython compilation, in-place extension copying and generated binding cleanup targets from the build system.
-- [ ] 3.4 Remove Python object wrappers, exception translation, filesystem callbacks and other C++ branches used only by the deleted bindings.
-- [ ] 3.5 Remove `FVD_WITH_PYTHON_ADAPTERS`, Python/Mako discovery, Python development headers/libraries and Cython from native build requirements.
+- [x] 3.1 Delete `openage/codegen`, its build integration, generated-file cache and generator cleanup targets.
+- [x] 3.2 Delete all retained `.pyx` and `.pxd` modules and their CMake declarations.
+- [x] 3.3 Remove `pxdgen`, Cython compilation, in-place extension copying and generated binding cleanup targets from the build system.
+- [x] 3.4 Remove Python object wrappers, exception translation, filesystem callbacks and other C++ branches used only by the deleted bindings.
+- [x] 3.5 Remove `FVD_WITH_PYTHON_ADAPTERS`, Python/Mako discovery, Python development headers/libraries and Cython from native build requirements.
 - [ ] 3.6 Verify clean native game, relay and C++ test builds without a Python interpreter installed.
+
+Task 3 implementation: the Python `openage/codegen` subtree, all 44 tracked
+Cython `.pyx` / `.pxd` files, their CMake registration, extension build
+helpers, native Python adapter C++ sources, `pyinterface`, Python filesystem
+constructors and configuration callbacks have been removed. Native CMake no
+longer discovers Python/Mako/Cython or uses the `FVD_WITH_PYTHON_ADAPTERS`
+option. Native-only source audits run in CI. Linux full-build verification
+passed in GitHub Actions run 42335663484 (commit a8b5d905): all native
+game/relay/C++ test targets built with CMake Python discovery disabled;
+15/15 native CTest checks passed; nine standalone Python unittest cases
+passed; the staged FVDNative component contained 999 files and no Python;
+and headless staged-game startup reached initialized engine threads. This
+does not by itself prove a machine with Python physically uninstalled.
+
+Task 3.6 remains open until
+fresh Windows and Linux native game/relay/C++ test builds are verified on
+machines **without an installed Python interpreter**; disabling Python
+discovery in hosted CI does not itself meet that stricter gate.
 
 ## 4. Remove unsupported upstream workflows
 
-- [ ] 4.1 Delete `openage/convert`, converter-only cab/media modules, conversion commands, tests and configuration data.
-- [ ] 4.2 Remove converter-only Python and native dependencies from CMake, `pyproject.toml`, lock files, platform instructions and packaging metadata.
-- [ ] 4.3 Delete `run.py`, the Python command dispatcher and Python game, relay, main and demo entry points that have no retained use.
-- [ ] 4.4 Replace documentation and scripts that invoke `bin/run` with native game, relay, C++ test or explicit pure Python commands.
-- [ ] 4.5 Confirm no supported build or startup path reads or writes `assets/converted` as a generated source-tree cache.
+- [x] 4.1 Delete `openage/convert`, converter-only cab/media modules, conversion commands, tests and configuration data.
+- [x] 4.2 Remove converter-only Python and native dependencies from CMake, `pyproject.toml`, lock files, platform instructions and packaging metadata.
+- [x] 4.3 Delete `run.py`, the Python command dispatcher and Python game, relay, main and demo entry points that have no retained use.
+- [x] 4.4 Replace documentation and scripts that invoke `bin/run` with native game, relay, C++ test or explicit pure Python commands.
+- [x] 4.5 Confirm no supported build or startup path reads or writes `assets/converted` as a generated source-tree cache.
+
+Task 4 implementation: removed the upstream original-game converter and CAB
+extractor, converter configuration/commands/tests, legacy Python game/relay/main
+entry points and `run.py`. The optional stdlib network shaper now launches
+the native C++ test registry, not `bin/run`. Python project/lock metadata,
+Nix development expressions, Ubuntu CI Docker dependencies and platform docs
+no longer prescribe converter-only Python/Cython tools; pure-Python unittest
+remains optional. The native boundary CI audit rejects legacy paths and
+source-tree `assets/converted` cache usage. The installed
+`share/openage/converted/engine` directory remains an intentional runtime
+mount sourced directly from the tracked `assets/fvd/engine_api` snapshot,
+not a generated source cache.
+
+Static source inspection is complete; full fresh Windows/Linux build and
+archive/graphical smoke acceptance remain tracked under 1.5, 3.6 and 6.
+Generic legacy packaging launcher/NSIS cleanup was completed under Task 5.
 
 ## 5. Keep only native FVD packaging
 
-- [ ] 5.1 Remove the generic graphical launcher, batch launcher, embedded Python download/install and generic Python module installation.
-- [ ] 5.2 Remove generic all-component and NSIS packaging paths that are not used by the native FVD distribution.
-- [ ] 5.3 Make the FVD native component the only supported CPack payload and preserve Windows/Linux archive naming and layout.
-- [ ] 5.4 Keep strict package audits for Python artifacts/imports, native dependency closure, tracked API compatibility and asset hashes.
+- [x] 5.1 Remove the generic graphical launcher, batch launcher, embedded Python download/install and generic Python module installation.
+- [x] 5.2 Remove generic all-component and NSIS packaging paths that are not used by the native FVD distribution.
+- [x] 5.3 Make the FVD native component the only supported CPack payload and preserve Windows/Linux archive naming and layout.
+- [x] 5.4 Keep strict package audits for Python artifacts/imports, native dependency closure, tracked API compatibility and asset hashes.
+
+Task 5 implementation: removed the generic Windows `openage.exe` graphical
+launcher, `openage.bat`, legacy embedded-Python installer/module tooling,
+unscoped all-component asset/engine installs and NSIS generator path. CPack
+now emits only a single FVDNative 7Z archive, preserving the existing
+Windows portable version/platform filename and Linux `fvd.7z` name and
+the `bin/`, `share/openage/`, `etc/openage/` layout. Windows Qt QML and
+plugins deploy via `windeployqt` or a Python-free PowerShell
+`qmlimportscanner` fallback. The FVD native package audits reject Python
+and generic launcher files, check Windows DLL and Linux ELF import closure,
+validate the installed tracked nyan API version/SHA3 manifest, and hash
+every staged release asset against its SHA-256 manifest. Negative tests
+cover corruption, missing assets, invalid manifests, and the Windows Qt
+fallback; a CPack regression prevents NSIS and extra components.
+
+The isolated native-game/manifest tests passed on Windows, Linux and macOS
+in GitHub Actions run 42340274605; the Python-boundary audit passed at
+commit 40a54fa8. Full platform builds and fresh release archive/manual
+smoke acceptance are separate gates under Tasks 1.5, 3.6 and 6.
 
 ## 6. Verify and document the fork boundary
 
 - [ ] 6.1 Run clean Windows and Linux native game, relay and C++ test builds without Python, Mako, Cython or Python development libraries installed.
-- [ ] 6.2 Run retained pure Python tests through the documented optional Python environment.
+- [x] 6.2 Run retained pure Python tests through the documented optional Python environment.
 - [ ] 6.3 Build and inspect fresh Windows and Linux FVD archives, then run solo, host, guest, relay, audio and clean-shutdown smoke checks.
-- [ ] 6.4 Update project structure, building, build-system, testing and packaging documentation to describe the FVD-only workflow.
-- [ ] 6.5 Remove stale upstream compatibility instructions and state that original-game asset conversion is unsupported.
-- [ ] 6.6 Run changed-file quality checks and record anything blocked by unavailable platform tooling.
+- [x] 6.4 Update project structure, building, build-system, testing and packaging documentation to describe the FVD-only workflow.
+- [x] 6.5 Remove stale upstream compatibility instructions and state that original-game asset conversion is unsupported.
+- [x] 6.6 Run changed-file quality checks and record anything blocked by unavailable platform tooling.
+
+Task 6 verification record (2026-11-07):
+
+- **6.2 PASS:** the optional pure-Python `unittest` suite runs separately
+  via `build-fvd python-test` (Windows/Linux) or direct Python (macOS), with
+  an isolated Python 3.12 setup. All three runners passed in Actions
+  [42341410986](https://github.com/rocifier/openage/actions/runs/42341410986).
+- **6.4/6.5 DONE:** the root README, docs index, project structure, native
+  build/system/testing, release packaging, editor tasks, contributor/debug,
+  platform setup, game assets, and active multiplayer instructions describe
+  the FVD-only product and its `build-fvd game/solo/relay/test/python-test`
+  commands. Original Age of Empires conversion is explicitly unsupported;
+  historical upstream engine documents are not active setup instructions.
+- **6.6 PASS:** changed-file C++ style, legal headers, file modes, header
+  guards and text-whitespace checks passed against `origin/FVD` in Actions
+  [42341411014](https://github.com/rocifier/openage/actions/runs/42341411014),
+  after normalizing legacy CMake line endings. Native source/Python-boundary
+  CI also passes. Compiler-platform toolchains and real multiplayer audio
+  hardware cannot be substituted by these static checks.
+- **6.1 PARTIAL:** Linux has a dedicated clean Ubuntu Docker CI job
+  `fvd-native-no-python-build.yml` that asserts the actual absence of Python
+  commands/libraries while building native game, relay, C++ tests and a 7Z
+  archive. Record its final pass/fail separately. Windows still needs a
+  **clean build host without Python installed**, not merely disabled CMake
+  discovery; therefore 6.1/3.6 remain unchecked.
+- **6.3 PARTIAL:** Windows/Linux package, asset SHA-256, nyan API and native
+  dependency audits plus automated C++ audio/relay/multiplayer regression
+  coverage exist; CI does not simulate audible playback or complete real
+  graphical host/guest interaction. Fresh Windows and Linux release archives,
+  two-client gameplay, real sound and clean-exit verification must be
+  signed off separately. See
+  `doc/code/network/FVD_RELEASE_ACCEPTANCE.md` for precise commands and
+  evidence requirements. This item and 1.5 remain unchecked.
+
+A passed native headless startup or optional unit test is **not** proof of
+manual graphical/audio acceptance or a completely Python-free Windows
+build. Do not mark 6.1, 6.3, 3.6 or 1.5 complete before that evidence exists.

@@ -99,8 +99,6 @@ public:
 	virtual int get_mtime(const Path::parts_t &parts) = 0;
 	virtual uint64_t get_filesize(const Path::parts_t &parts) = 0;
 
-	virtual bool is_python_native() const noexcept;
-
 	virtual std::ostream &repr(std::ostream &) = 0;
 };
 

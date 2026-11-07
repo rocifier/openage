@@ -1,89 +1,104 @@
-// Copyright 2021-2021 the openage authors. See copying.md for legal info.
+// Copyright 2026 the openage authors. See copying.md for legal info.
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
+    // Native-only FVD tasks. The deleted ./configure and Python launcher are
+    // intentionally not referenced. Launches build/package first if needed.
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Configure & Build",
+            "label": "FVD: Build",
             "type": "shell",
-            "group": {
-                "kind": "build",
-                "isDefault": true
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "build"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "build"]
             },
+            "options": {"cwd": "${workspaceFolder}"},
+            "group": {"kind": "build", "isDefault": true},
+            "problemMatcher": []
+        },
+        {
+            "label": "FVD: Native C++ Tests",
+            "type": "shell",
+            "dependsOn": ["FVD: Build"],
             "dependsOrder": "sequence",
-            "dependsOn": [
-                "Configure",
-                "Build"
-            ],
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "test"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "test"]
+            },
+            "options": {"cwd": "${workspaceFolder}"},
+            "group": {"kind": "test", "isDefault": true},
+            "problemMatcher": []
         },
         {
-            "label": "Configure",
+            "label": "FVD: Package and Smoke",
             "type": "shell",
-            "command": "${workspaceFolder}/configure",
-            "args": [
-                // "--optimize", "0", // Comment this out to disable compiler optimization for debug runs
-                // "--ccache",        // Comment this out if you want to use ccache
-                // "--download-nyan"  // Comment this out if you do not want to clone and build nyan yourself
-            ],
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1"]
+            },
+            "options": {"cwd": "${workspaceFolder}"},
             "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
+            "problemMatcher": []
         },
         {
-            "label": "Build",
+            "label": "FVD: Open Multiplayer Lobby",
             "type": "shell",
-            "command": "make",
-            "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
+            "dependsOn": ["FVD: Package and Smoke"],
+            "dependsOrder": "sequence",
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "game"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "game"]
+            },
+            "options": {"cwd": "${workspaceFolder}"},
+            "problemMatcher": []
         },
         {
-            "label": "Sanity Check",
+            "label": "FVD: Launch Solo",
             "type": "shell",
-            "command": "make",
-            "args": [
-                "checkmerge"
-            ],
-            "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
+            "dependsOn": ["FVD: Package and Smoke"],
+            "dependsOrder": "sequence",
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "solo"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "solo"]
+            },
+            "options": {"cwd": "${workspaceFolder}"},
+            "problemMatcher": []
         },
         {
-            "label": "Run Tests",
+            "label": "FVD: Start Relay",
             "type": "shell",
-            "command": "make",
-            "args": [
-                "test"
-            ],
+            "dependsOn": ["FVD: Package and Smoke"],
+            "dependsOrder": "sequence",
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "relay"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "relay"]
+            },
+            "options": {"cwd": "${workspaceFolder}"},
+            "problemMatcher": []
+        },
+        {
+            "label": "FVD: Optional Python Unit Tests",
+            "type": "shell",
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "python-test"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "python-test"]
+            },
+            "options": {"cwd": "${workspaceFolder}"},
             "group": "test",
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
-        },
-        {
-            "label": "Clean",
-            "type": "shell",
-            "command": "make",
-            "args": [
-                "cleanbuilddirs"
-            ],
-            "group": "build",
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
+            "problemMatcher": []
         }
     ]
 }

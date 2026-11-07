@@ -9,8 +9,6 @@
 #include <unordered_map>
 #include <utility>
 
-// pxd: from libopenage.pyinterface.functional cimport PyIfFunc0, PyIfFunc2
-#include "../pyinterface/functional.h"
 // pxd: from libopenage.util.path cimport Path
 #include "../util/path.h"
 
@@ -64,7 +62,7 @@ public:
 
 	/**
 	 * Performs the loading of a configuration file
-	 * via the Python implementation.
+	 * using the native FVD configuration parser.
 	 */
 	void load_config(const util::Path &path);
 
@@ -84,25 +82,12 @@ private:
 
 	/**
 	 * Magic path that stores config files.
-	 * Auto-redirects to the default and write paths in the home folder.
-	 * It is set up in openage/cvar/location.py and openage/game/main.py
+	 * The native startup supplies a writable application configuration path.
 	 */
 	util::Path path;
 
-	/** Do not call the Python configuration loader for native gameplay. */
-	bool native_config;
 };
 
-
-/**
- * Python function to load a configuration file.
- * The config manager is passed into it.
- *
- * pxd:
- * ctypedef CVarManager * CVarManagerPtr
- * PyIfFunc2[void, CVarManagerPtr, const Path&] pyx_load_config_file
- */
-extern OAAPI pyinterface::PyIfFunc<void, CVarManager *, const util::Path &> pyx_load_config_file;
 
 } // namespace cvar
 } // namespace openage

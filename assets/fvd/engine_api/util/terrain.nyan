@@ -1,0 +1,24 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.game_entity
+import engine.util.graphics
+import engine.util.language.translated.type
+import engine.util.path_type
+import engine.util.sound
+import engine.util.terrain
+import engine.util.terrain_type
+
+import engine.root as root
+
+Terrain(root.Object):
+    types : set(children(engine.util.terrain_type.TerrainType))
+    name : engine.util.language.translated.type.TranslatedString
+    terrain_graphic : engine.util.graphics.Terrain
+    sound : engine.util.sound.Sound
+    ambience : set(engine.util.terrain.TerrainAmbient)
+    path_costs : dict(children(engine.util.path_type.PathType), int)
+
+TerrainAmbient(root.Object):
+    object : engine.util.game_entity.GameEntity
+    max_density : int

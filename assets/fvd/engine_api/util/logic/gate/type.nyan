@@ -1,0 +1,25 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.logic.gate
+
+AND(engine.util.logic.gate.LogicGate):
+    pass
+
+MULTIXOR(engine.util.logic.gate.LogicGate):
+    pass
+
+NOT(engine.util.logic.gate.LogicGate):
+    pass
+
+OR(engine.util.logic.gate.LogicGate):
+    pass
+
+SUBSETMAX(engine.util.logic.gate.LogicGate):
+    size : int
+
+SUBSETMIN(engine.util.logic.gate.LogicGate):
+    size : int
+
+XOR(engine.util.logic.gate.LogicGate):
+    pass

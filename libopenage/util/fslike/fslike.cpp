@@ -34,9 +34,4 @@ std::pair<bool, Path> FSLike::resolve_w(const Path::parts_t &parts) {
 }
 
 
-bool FSLike::is_python_native() const noexcept {
-	return false;
-}
-
-
 } // openage::util::fslike

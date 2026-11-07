@@ -9,11 +9,3 @@ add_sources(libopenage
 	stdout_logsink.cpp
 	test.cpp
 )
-
-pxdgen(
-	level.h
-	log.h
-	logsource.h
-	named_logsource.h
-	message.h
-)

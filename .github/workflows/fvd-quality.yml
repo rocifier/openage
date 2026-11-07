@@ -1,0 +1,54 @@
+name: FVD changed-file quality checks
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'buildsystem/**'
+      - 'packaging/**'
+      - 'openage/**'
+      - 'doc/**'
+      - 'README.md'
+      - 'build-fvd*'
+      - '.github/workflows/fvd-quality.yml'
+  push:
+    branches: [fvd-track-engine-api-20261107]
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'buildsystem/**'
+      - 'packaging/**'
+      - 'openage/**'
+      - 'doc/**'
+      - 'README.md'
+      - 'build-fvd*'
+      - '.github/workflows/fvd-quality.yml'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  changed-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch merge base FVD
+        shell: bash
+        run: git fetch origin FVD:refs/remotes/origin/FVD
+      - name: Validate changed headers, C++ style, legal headers, modes and whitespace
+        shell: bash
+        run: |
+          python3 -m buildsystem.codecompliance \
+            --only-changed-files origin/FVD \
+            --headerguards --cppstyle --legal --filemodes --textfiles
+      - name: Check no supported launch scripts invoke obsolete tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -nE 'bin/run|run[.]py|./configure|convert-export-api' -- \
+            build-fvd.ps1 build-fvd.sh build-fvd.cmd Makefile; then
+            echo "::error::Supported build scripts refer to retired openage commands"
+            exit 1
+          fi

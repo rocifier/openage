@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.payment_mode
+
+import engine.root as root
+
+Cost(root.Object):
+    payment_mode : engine.util.payment_mode.PaymentMode

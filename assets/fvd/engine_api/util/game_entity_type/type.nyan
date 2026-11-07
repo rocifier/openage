@@ -1,0 +1,7 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.game_entity_type
+
+Any(engine.util.game_entity_type.GameEntityType):
+    pass

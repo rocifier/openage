@@ -24,7 +24,7 @@ namespace openage::util {
 File::File() = default;
 
 
-// yes. i'm sorry. but cython can't enum class yet.
+// Preserve the integer mode convenience overload for existing C++ users.
 File::File(const std::string &path, int mode) :
 	File{path, static_cast<mode_t>(mode)} {}
 

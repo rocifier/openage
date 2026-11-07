@@ -5,8 +5,3 @@ add_sources(libopenage
 	main.cpp
 	physics.cpp
 )
-
-
-pxdgen(
-	main.h
-)

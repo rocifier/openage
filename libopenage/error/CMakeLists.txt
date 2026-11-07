@@ -5,9 +5,3 @@ add_sources(libopenage
 	handlers.cpp
 	stackanalyzer.cpp
 )
-
-pxdgen(
-	backtrace.h
-	error.h
-	handlers.h
-)

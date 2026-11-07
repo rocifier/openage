@@ -1,0 +1,16 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.game_entity_stance
+
+Aggressive(engine.util.game_entity_stance.GameEntityStance):
+    pass
+
+Defensive(engine.util.game_entity_stance.GameEntityStance):
+    pass
+
+Passive(engine.util.game_entity_stance.GameEntityStance):
+    pass
+
+StandGround(engine.util.game_entity_stance.GameEntityStance):
+    pass

@@ -1,0 +1,50 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.attribute
+import engine.util.game_entity
+import engine.util.logic.literal
+import engine.util.progress_status
+import engine.util.state_machine
+import engine.util.tech
+
+AttributeAbovePercentage(engine.util.logic.literal.Literal):
+    attribute : engine.util.attribute.Attribute
+    threshold : float
+
+AttributeAboveValue(engine.util.logic.literal.Literal):
+    attribute : engine.util.attribute.Attribute
+    threshold : float
+
+AttributeBelowPercentage(engine.util.logic.literal.Literal):
+    attribute : engine.util.attribute.Attribute
+    threshold : float
+
+AttributeBelowValue(engine.util.logic.literal.Literal):
+    attribute : engine.util.attribute.Attribute
+    threshold : float
+
+GameEntityProgress(engine.util.logic.literal.Literal):
+    game_entity : engine.util.game_entity.GameEntity
+    progress_status : engine.util.progress_status.ProgressStatus
+
+OwnsGameEntity(engine.util.logic.literal.Literal):
+    game_entity : engine.util.game_entity.GameEntity
+
+ProjectileHitTerrain(engine.util.logic.literal.Literal):
+    pass
+
+ProjectilePassThrough(engine.util.logic.literal.Literal):
+    pass_through_range : int
+
+ResourceSpotsDepleted(engine.util.logic.literal.Literal):
+    only_enabled : bool
+
+StateChangeActive(engine.util.logic.literal.Literal):
+    state_change : engine.util.state_machine.StateChanger
+
+TechResearched(engine.util.logic.literal.Literal):
+    tech : engine.util.tech.Tech
+
+Timer(engine.util.logic.literal.Literal):
+    time : float

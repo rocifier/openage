@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.resource
+import engine.util.trade_route
+
+AoE1TradeRoute(engine.util.trade_route.TradeRoute):
+    exchange_resources : set(engine.util.resource.Resource)
+    trade_amount : int
+
+AoE2TradeRoute(engine.util.trade_route.TradeRoute):
+    pass

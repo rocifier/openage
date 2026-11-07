@@ -1,6 +1,7 @@
 // Copyright 2026 the openage authors. See copying.md for legal info.
 
 #include "native_game_args.h"
+#include "fvd_engine_api_version.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -141,7 +142,7 @@ void validate_release_manifest(const fs::path &assets) {
 		throw std::runtime_error{
 			"Packaged FVD release integrity manifest missing: " + manifest.string()};
 #else
-		// Non-release developer checkouts can use loose converted assets.
+		// Non-release developer checkouts can use tracked source assets.
 		return;
 #endif
 	}
@@ -149,7 +150,7 @@ void validate_release_manifest(const fs::path &assets) {
 	const auto definition = toml::parse(manifest.string());
 	const auto metadata = toml::find<toml::table>(definition, "fvd_native");
 	if (metadata.at("format").as_integer() != 1 or
-	    metadata.at("api_version").as_string() != "0.5.0") {
+	    toml::get<std::string>(metadata.at("api_version")) != openage::native_game::engine_api_version) {
 		throw std::runtime_error{"Unsupported FVD release manifest: " + manifest.string()};
 	}
 
@@ -206,22 +207,38 @@ void validate_assets(const fs::path &assets) {
 		throw std::runtime_error{"FVD modpack has an incompatible identity: " + fvd.string()};
 	}
 
-	const auto engine_dir = assets / "converted" / "engine";
+	// Source checkouts own the API under fvd/engine_api. Native FSLike maps
+	// the legacy nyan mount into that tracked source without copying files.
+	const auto source_api = assets / "fvd" / "engine_api";
+	const auto engine_dir = fs::is_regular_file(source_api / "modpack.toml")
+		? source_api : assets / "converted" / "engine";
 	const auto engine = engine_dir / "modpack.toml";
 	if (not fs::is_regular_file(engine) or
 	    not fs::is_regular_file(engine_dir / "manifest.toml")) {
 		throw std::runtime_error{
-			"Exported nyan API or manifest is missing from " + engine_dir.string()
-			+ "; export assets during release preparation, not at runtime"};
+			"Tracked nyan API or manifest is missing from " + engine_dir.string()
+			+ "; restore the tracked source snapshot or package files"};
 	}
 	const auto api = toml::find<toml::table>(toml::parse(engine.string()), "info");
-	// Keep in sync with CURRENT_API_VERSION in api_export_required.py until
-	// the release pipeline generates a versioned compatibility manifest.
+	const auto actual_version = toml::get<std::string>(api.at("version"));
 	if (api.at("name").as_string() != "engine" or
-	    api.at("version").as_string() != "0.5.0") {
+	    actual_version != openage::native_game::engine_api_version) {
 		throw std::runtime_error{
-			"Incompatible exported nyan API at " + engine.string()
-			+ " (expected engine version 0.5.0)"};
+			"Incompatible tracked nyan API at " + engine.string()
+			+ " (expected engine version " + std::string{openage::native_game::engine_api_version}
+			+ ", found " + actual_version + ")"};
+	}
+	std::size_t nyan_count = 0;
+	for (const auto &entry : fs::recursive_directory_iterator(engine_dir)) {
+		if (entry.is_regular_file() and entry.path().extension() == ".nyan") {
+			++nyan_count;
+		}
+	}
+	if (nyan_count != openage::native_game::engine_api_nyan_files) {
+		throw std::runtime_error{
+			"Incomplete tracked nyan API at " + engine_dir.string()
+			+ " (expected " + std::to_string(openage::native_game::engine_api_nyan_files)
+			+ " files, found " + std::to_string(nyan_count) + ")"};
 	}
 	validate_release_manifest(assets);
 }

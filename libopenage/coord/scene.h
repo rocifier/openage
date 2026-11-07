@@ -7,8 +7,8 @@
 #include "util/hash.h"
 #include "util/misc.h"
 
-#include "coord/coord_nese.gen.h"
-#include "coord/coord_neseup.gen.h"
+#include "coord/coord_nese.h"
+#include "coord/coord_neseup.h"
 #include "coord/declarations.h"
 #include "coord/phys.h"
 

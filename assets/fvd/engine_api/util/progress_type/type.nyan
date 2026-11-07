@@ -1,0 +1,22 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.progress_type
+
+AttributeChange(engine.util.progress_type.ProgressType):
+    pass
+
+Carry(engine.util.progress_type.ProgressType):
+    pass
+
+Construct(engine.util.progress_type.ProgressType):
+    pass
+
+Harvest(engine.util.progress_type.ProgressType):
+    pass
+
+Restock(engine.util.progress_type.ProgressType):
+    pass
+
+Transform(engine.util.progress_type.ProgressType):
+    pass

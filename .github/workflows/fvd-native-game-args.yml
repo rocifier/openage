@@ -7,6 +7,10 @@ on:
       - "packaging/native_game_args_test.cpp"
       - "packaging/native_game_test/**"
       - "packaging/native_game/*.ps1"
+      - "packaging/native_game/*.cmake"
+      - "packaging/native_game/*.h.in"
+      - "assets/fvd/engine_api/**"
+      - ".gitattributes"
       - "build-fvd.ps1"
       - "build-fvd.cmd"
       - "build-fvd.sh"
@@ -42,6 +46,22 @@ jobs:
         run: ctest --test-dir build/native-game-args -C Release --output-on-failure
       - name: Test native release manifest asset filters
         run: cmake -P packaging/native_game/NativeManifestTest.cmake
+      - name: Validate tracked nyan engine API and hashes
+        run: cmake -DFVD_ENGINE_API_ROOT="${{ github.workspace }}/assets/fvd/engine_api" -P packaging/native_game/CheckEngineApi.cmake
+      - name: Install isolated optional Python for pure-Python tests only
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run retained source-only Python unittest suite
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            bash build-fvd.sh python-test
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            ./build-fvd.cmd python-test
+          else
+            python -m unittest -v openage.testing.test_fvd_network_benchmark
+          fi
       - name: Validate Linux release shell syntax and CLI help
         if: runner.os == 'Linux'
         shell: bash
@@ -56,7 +76,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1', 'packaging/native_game/AuditWindowsImportsTest.ps1', 'packaging/native_game/NativeProcess.ps1', 'packaging/native_game/NativeProcessTest.ps1', 'build-fvd.ps1')
+          $scripts = @('packaging/native_game/AuditWindowsImports.ps1', 'packaging/native_game/SmokeTestWindowsArchive.ps1', 'packaging/native_game/AuditWindowsImportsTest.ps1', 'packaging/native_game/NativeProcess.ps1', 'packaging/native_game/NativeProcessTest.ps1', 'packaging/native_game/DeployQtWindows.ps1', 'packaging/native_game/DeployQtWindowsTest.ps1', 'build-fvd.ps1')
           foreach ($script in $scripts) {
             $tokens = $null
             $errors = $null
@@ -66,6 +86,10 @@ jobs:
               throw "Invalid PowerShell syntax: $script"
             }
           }
+      - name: Test Python-free Windows Qt fallback
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./packaging/native_game/DeployQtWindowsTest.ps1
       - name: Test Windows native dependency auditor
         if: runner.os == 'Windows'
         shell: pwsh

@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.diplomatic_stance
+
+import engine.root as root
+
+LiteralScope(root.Object):
+    stances : set(engine.util.diplomatic_stance.DiplomaticStance)

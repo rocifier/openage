@@ -1,0 +1,8 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.animation_override
+
+Reset(engine.util.animation_override.AnimationOverride):
+    AnimationOverride.animations = {}
+    AnimationOverride.priority = 0

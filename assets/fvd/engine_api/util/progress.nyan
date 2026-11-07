@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.progress.property
+import engine.util.progress_type
+
+import engine.root as root
+
+Progress(root.Object):
+    properties : dict(abstract(engine.util.progress.property.ProgressProperty), engine.util.progress.property.ProgressProperty) = {}
+    type : children(engine.util.progress_type.ProgressType)
+    left_boundary : float
+    right_boundary : float

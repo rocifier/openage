@@ -1,0 +1,7 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.terrain_type
+
+Any(engine.util.terrain_type.TerrainType):
+    pass

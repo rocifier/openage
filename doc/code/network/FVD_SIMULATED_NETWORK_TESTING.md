@@ -41,18 +41,18 @@ produce a green benchmark report. Run the pure-Python regression with
 
 ```sh
 # Opt-in no-impairment loopback microbenchmark
-bin/run test network::tests::lobby_latency
+build/packaging/openage_native_cpp_tests --exact openage::network::tests::lobby_latency
 
 # 5-player experiment: add ~220ms RTT, +/-40ms total jitter,
 # and 2 Mbps per-direction to each remote participant.
 python3 -m openage.testing.fvd_network_benchmark \
-  --runner bin/run --rtt-ms 220 --jitter-ms 40 --kbps 2000 \
+  --runner build/packaging/openage_native_cpp_tests --rtt-ms 220 --jitter-ms 40 --kbps 2000 \
   --rounds 20 --update-ms 500 --command-ms 500 \
   --json /tmp/fvd-network-220ms.json
 
 # Heavy serialization + one struggling guest. Still *synthetic* projectiles.
 python3 -m openage.testing.fvd_network_benchmark \
-  --runner bin/run --rtt-ms 220 --jitter-ms 40 --kbps 2000 \
+  --runner build/packaging/openage_native_cpp_tests --rtt-ms 220 --jitter-ms 40 --kbps 2000 \
   --slow-client 4 --slow-kbps 256 --stall-after-s 6.5 --stall-s 3 \
   --arrows 1024 --rounds 20 --update-ms 500 --command-ms 500 \
   --json /tmp/fvd-network-stall.json
@@ -78,18 +78,15 @@ achieved its target bandwidth. No C++ rebuild is needed for Python changes.
 Windows: from PowerShell in the openage repository, use a native launcher:
 
 ```powershell
-Test-Path .\.bin\msvc-vcpkg\run.exe
-python -m openage.testing.fvd_network_benchmark --runner .\.bin\msvc-vcpkg\run.exe --rtt-ms 220 --jitter-ms 40 --kbps 2000 --rounds 20 --json fvd-network-results.json
+Test-Path .\.bin\msvc-vcpkg\packaging\RelWithDebInfo\openage_native_cpp_tests.exe
+python -m openage.testing.fvd_network_benchmark --runner .\.bin\msvc-vcpkg\packaging\RelWithDebInfo\openage_native_cpp_tests.exe --rtt-ms 220 --jitter-ms 40 --kbps 2000 --rounds 20 --json fvd-network-results.json
 ```
 
 If the first line prints `False`, locate the build with
-`Get-ChildItem -Recurse -Filter run.exe -File` and supply its path to
-`--runner`. The benchmark now resolves `bin/run` to `bin/run.exe` on
-Windows automatically when that file exists. Do not attempt to launch the
-Unix-only `bin/run` directly through Windows subprocess. No Linux `tc` or
+`Get-ChildItem -Recurse -Filter openage_native_cpp_tests.exe -File` and supply its path with `--runner` if necessary. The test invokes the native C++ registry directly. No Linux `tc` or
 elevated permissions are needed.
 
-The Python launcher starts **four ordinary TCP byte-stream proxies** in
+The Python network shaper starts **four ordinary TCP byte-stream proxies** in
 threads, one for each guest, between those workers and the real local relay.
 It passes the relay and proxy ports into the opt-in C++ test using environment
 variables. A fixed seed makes requested jitter schedules reproducible, but
@@ -173,7 +170,7 @@ client stops receiving; inspect outstanding and state-age metrics too.
   Hunter's socket send durations. For actual achieved-rate calibration,
   prefer the standalone known-payload command above.
 
-The Python launcher emits `FVD_NETWORK_REPORT` JSON including aggregate and
+The optional Python shaper emits `FVD_NETWORK_REPORT` JSON including aggregate and
 **per-guest** p50/p95/max, per-link bytes, shaping configuration, execution
 status and a warning about the non-graphical coverage. It can also save JSON.
 

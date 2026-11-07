@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.effect.continuous
+import engine.util.progress_type
+
+TimeRelativeProgressChange(engine.effect.continuous.ContinuousEffect):
+    type : children(engine.util.progress_type.ProgressType)
+    total_change_time : float

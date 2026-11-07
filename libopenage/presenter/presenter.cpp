@@ -1821,7 +1821,7 @@ void Presenter::init_input() {
 				                QStringLiteral("openage"), QStringLiteral("fvd")};
 				for (const auto &[key, default_value] : {
 					std::pair{"address", "127.0.0.1"},
-					std::pair{"port", "32456"},
+					std::pair{"port", "40000"},
 					std::pair{"roomName", "FVD Game"},
 					std::pair{"maxPlayers", "2"},
 					std::pair{"roomId", ""},

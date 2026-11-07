@@ -1,12 +1,11 @@
-# Prerequisite steps for FreeBSD users
+# FreeBSD native FVD (experimental)
 
-This command should provide required packages for FreeBSD installation:
+The old openage Python/Cython and original-game conversion instructions are no longer applicable. FVD requires a C++20 compiler, CMake, Ninja, Qt6, nyan, Eigen3, toml11 and native render/audio libraries. FreeBSD packaging has not yet passed the Windows/Linux release acceptance gates.
 
-`sudo pkg install cmake cython eigen3 py-setuptools harfbuzz opus-tools opusfile png py-mako py-numpy py-lz4 py-pillow py-pygments py-toml python py-uv qt6 toml11`
+Start by installing matching native packages (names may vary with FreeBSD releases):
 
-You will also need [nyan](https://github.com/SFTtech/nyan/blob/master/doc/building.md) and its dependencies.
+```sh
+sudo pkg install cmake ninja llvm eigen3 harfbuzz freetype2 fontconfig opus opusfile png qt6 toml11
+```
 
-`clang` is the base compiler however, it is possible to use either any version of `gcc>=10` or any other version of `clang` present in `pkg`:
- - `sudo pkg install gcc`
-
-Select the one to be used by `./configure --help`.
+Configure the native targets directly using `cmake -S . -B build -G Ninja -DFVD_NATIVE_RELEASE=OFF -DDOWNLOAD_NYAN=YES` and build with `cmake --build build`. No Python or `./configure` wrapper is needed. See [building](../building.md).

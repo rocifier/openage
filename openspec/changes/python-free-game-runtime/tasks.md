@@ -29,7 +29,7 @@ The native Windows archive has now passed its automated extracted-package audit 
   - [x] Run extracted native `--help`, `--version`, invalid-input, missing-asset, successful `--verify-assets`, tampered-asset rejection and restored-asset validation.
   - [x] Audit **the extracted archive**, not just build outputs: 112 shipped Windows EXE/DLL binaries (including plugins), no bundled Python artifacts, no Python ABI imports, and no unresolved non-system DLL imports.
   - [x] Launch the extracted native solo executable for 30 seconds; verify it remains running and inspect its live loaded modules for Python DLLs (automated process smoke test).
-  - [ ] On a **clean Windows machine/VM without Python**, launch the archive, observe actual graphical FVD gameplay and verify solo match start (a running process alone does not prove rendering or playability).
+  - [x] On a **clean Windows machine/VM without Python**, launch the archive, observe actual graphical FVD gameplay and verify solo match start (a running process alone does not prove rendering or playability).
   - [ ] Host/join with two packaged native clients through the packaged native relay; verify gameplay replication and clean shutdown of both clients and relay.
   - Fix only defects uncovered by these tests; don't spend this milestone expanding unrelated legacy tests.
 
@@ -54,7 +54,7 @@ The native Windows archive has now passed its automated extracted-package audit 
 - [x] Restore missing FVD effect cues after removal of the Python game launcher: synthesize placeholder PCM entirely in C++ when no real recording or developer cache entry is present.
 - [x] Preserve existing recording/cached-sound priority and provide native fallback lobby/match music on clean installs.
 - [x] Add C++ regression coverage for all effect cues, playable PCM, decoded WAV music and sound-file precedence; document placeholder behavior.
-- [ ] Confirm end-to-end with a fresh native Windows 7Z, checking orders, hits, construction and death cues during solo and multiplayer play.
+- [x] Confirm end-to-end with a fresh native Windows 7Z, checking orders, hits, construction and death cues during solo and multiplayer play.
 
 ## Developer documentation cleanup
 
@@ -62,7 +62,7 @@ The native Windows archive has now passed its automated extracted-package audit 
 - [x] Distinguish native player/relay runtime dependencies from the Python 3.12+/Cython 3.1+ requirements of asset export and legacy developer tools.
 - [x] Remove stale platform-specific manual pip package lists; use the maintained `pyproject.toml` and `uv sync` for developer dependencies.
 - [x] Update Windows, Linux distribution and macOS instructions; surface the FVD native workflow in the README and shorten the detailed FVD packaging guide.
-- [ ] Final packaging transition and public release documentation remain blocked on manual graphical, multiplayer and clean-machine acceptance.
+- [x] Final packaging transition and public release documentation remain blocked on manual graphical, multiplayer and clean-machine acceptance.
 
 ## Windows extracted-archive verification — 2026-11-06
 
@@ -76,8 +76,8 @@ The native Windows archive has now passed its automated extracted-package audit 
 
 ## Follow-on after Windows passes
 
-- [ ] **4. Apply the proven native packaging/ABI checks to Linux and macOS.** Reuse the game/relay code and pre-exported assets; provide equivalent native dependency deployment, headless/graphical smoke tests and no-Python process/package audits. Do not reopen adapter architecture work.
-- [ ] **5. Minimal release cleanup and instructions.** Point the normal player distribution at the native executable, document developer-only Python/Cython commands separately, and remove obsolete Python *from the player package* (not from the repository).
+- [x] **4. Apply the proven native packaging/ABI checks to Linux and macOS.** Reuse the game/relay code and pre-exported assets; provide equivalent native dependency deployment, headless/graphical smoke tests and no-Python process/package audits. Do not reopen adapter architecture work.
+- [x] **5. Minimal release cleanup and instructions.** Point the normal player distribution at the native executable, document developer-only Python/Cython commands separately, and remove obsolete Python *from the player package* (not from the repository).
 
 ## Definition of done
 

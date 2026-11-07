@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.language.translated.type
+import engine.util.sound
+
+import engine.root as root
+
+Taunt(root.Object):
+    activation_message : text
+    display_message : engine.util.language.translated.type.TranslatedString
+    sound : engine.util.sound.Sound

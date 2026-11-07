@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.herdable_mode
+
+ClosestHerding(engine.util.herdable_mode.HerdableMode):
+    pass
+
+LongestTimeInRange(engine.util.herdable_mode.HerdableMode):
+    pass
+
+MostHerding(engine.util.herdable_mode.HerdableMode):
+    pass

@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.effect.discrete
+import engine.util.convert_type
+import engine.util.cost
+
+Convert(engine.effect.discrete.DiscreteEffect):
+    type : children(engine.util.convert_type.ConvertType)
+    min_chance_success : optional(float) = None
+    max_chance_success : optional(float) = None
+    chance_success : float
+    cost_fail : optional(engine.util.cost.Cost) = None

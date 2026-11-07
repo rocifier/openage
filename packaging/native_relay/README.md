@@ -21,7 +21,7 @@ The result is `relay-distribution/bin/openage-relay` (or
 ## Run
 
 ```sh
-./relay-distribution/bin/openage-relay --listen 0.0.0.0 --port 32456
+./relay-distribution/bin/openage-relay --listen 0.0.0.0 --port 40000
 ```
 
 Add `--player-token` followed by a **64-hex-character** token, once per
@@ -40,5 +40,5 @@ nyan or game asset directories are required.
 
 Build on the host's distribution or an ABI-compatible environment; an executable
 built against newer glibc may not run on an older Linux host. Open TCP port
-32456 (or the port you configured) in the firewall. Test room listing and a
+40000 (or the port you configured) in the firewall. Test room listing and a
 real host/guest connection before switching production traffic.

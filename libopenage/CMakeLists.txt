@@ -2,16 +2,7 @@
 
 # main C++ library definitions.
 # dependency and source file setup for the resulting library.
-# The interpreter is still useful for development, Cython bindings and
-# conversion, but FVD binaries must be linkable without those adapters.
-option(FVD_WITH_PYTHON_ADAPTERS
-	"Include C++ adapters that call back into Python (developer mode)" ON)
 declare_binary(libopenage openage library allow_no_undefined)
-# A native FVD distribution must not build Python/Cython interface objects
-# into the runtime-linked engine.
-target_compile_definitions(libopenage PRIVATE
-	FVD_WITH_PYTHON_ADAPTERS=$<BOOL:${FVD_WITH_PYTHON_ADAPTERS}>
-)
 
 
 #################################################################
@@ -22,7 +13,6 @@ target_compile_definitions(libopenage PRIVATE
 set_target_properties(libopenage PROPERTIES
 	VERSION 0
 	AUTOMOC ON
-	AUTOGEN_TARGET_DEPENDS "cppgen"
 )
 
 ##################################################
@@ -270,10 +260,6 @@ configure_file(config.cpp.in config.cpp)
 configure_file(version.h.in version.h)
 configure_file(version.cpp.in version.cpp)
 
-configure_file(
-	"${CMAKE_SOURCE_DIR}/openage/config.py.in"
-	"${CMAKE_BINARY_DIR}/openage/config.py"
-)
 
 ##################################################
 # directories for header inclusion
@@ -318,24 +304,13 @@ target_link_libraries(libopenage
 		Qt6::Multimedia
 )
 
-##################################################
-# installation of the library
-install(TARGETS libopenage
-	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-if(WIN32)
-	install(FILES $<TARGET_FILE:nyan::nyan>
-		DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
+# libopenage and nyan ship only via the audited FVDNative component.
 
 
 ##################################################
 # source file definitions
-get_codegen_scu_file()
-if(NOT FVD_WITH_PYTHON_ADAPTERS)
-	set(CODEGEN_SCU_FILE "${CMAKE_BINARY_DIR}/libopenage/codegen_scu_native.gen.cpp")
-endif()
+# Coordinate headers/sources and the C++ test registry are tracked code;
+# neither requires build-time Python-generated compilation units.
 
 # add new sources here, dependencies for linking and including
 # are specified above the source file list.
@@ -345,12 +320,8 @@ add_sources(libopenage
 	options.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/config.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/version.cpp
-	${CODEGEN_SCU_FILE}
 )
 
-pxdgen(
-	main.h
-)
 
 # add subsystem folders
 add_subdirectory("assets")
@@ -371,7 +342,6 @@ add_subdirectory("main")
 add_subdirectory("network")
 add_subdirectory("pathfinding")
 add_subdirectory("presenter")
-add_subdirectory("pyinterface")
 add_subdirectory("renderer")
 add_subdirectory("rng")
 add_subdirectory("testing")
@@ -399,11 +369,79 @@ if(APPLE)
 	endif()
 endif()
 
+# Keep a curated native C++ suite in the developer engine DLL. C++ tests
+# call engine-internal methods that are deliberately not DLL-exported on
+# Windows; compiling them in a separate executable would fail linking.
+# The release library still excludes every test translation unit.
+set(_fvd_native_cpp_test_sources
+	# These are native test infrastructure, not test entrypoints. The broad
+	# filename filter below also matches testing.cpp and _test_support.cpp.
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/testing.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/gamestate/fvd_test_support.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/native_test_runner.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/audio/fvd_audio_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/audio/mixer_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/console/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/coord/coord_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/curve/tests/container.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/curve/tests/curve_types.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/cvar/cvar_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/datastructure/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/error/demo.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/event/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/gamestate/activity/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/gamestate/fvd_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/input/controller/game/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/input/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/job/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/log/test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/authority_succession_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/command_mailbox_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/connection_mailbox_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/fvd_loopback_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/fvd_multi_session_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/handshake_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/lobby_capacity_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/lobby_relay_client_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/lobby_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/match_disconnect_coordinator_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/messages_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/protocol_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/rehost_ticket_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/relay_multi_host_lobby_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/relay_process_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/relay_registry_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/relay_service_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/relay_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/replication_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/session_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/transport_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/world_delta_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/pathfinding/legacy/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/pathfinding/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/presenter/fvd_minimap_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/presenter/fvd_sound_events_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/presenter/guest_clock_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/presenter/hud_mouse_capture_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/renderer/font/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/renderer/resources/texture_data_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/renderer/stages/world/render_stage_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/rng/rng_tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/benchmark_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/testing_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/constinit_vector_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/enum_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/fixed_point_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/hash_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/init_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/matrix_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/misc_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/quaternion_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/vector_test.cpp")
+
 # The player build must not compile developer test objects into libopenage.
-# In particular, texture_data_test.cpp constructs a Python-backed Path.
-# The native codegen SCU excludes the matching test dispatch table.
-if(NOT FVD_WITH_PYTHON_ADAPTERS)
-	get_target_property(_all_engine_sources libopenage SOURCES)
+# C++ test bodies live only in the developer library, not the release DLL.
+get_target_property(_all_engine_sources libopenage SOURCES)
 	set(_native_engine_sources "")
 	foreach(_source IN LISTS _all_engine_sources)
 		get_filename_component(_filename "${_source}" NAME)
@@ -411,10 +449,11 @@ if(NOT FVD_WITH_PYTHON_ADAPTERS)
 		# while other files are *_test.cpp or *_tests.cpp.
 		if(_source MATCHES "/(test|tests)/"
 		   OR _filename MATCHES "(^test|_test)[A-Za-z0-9_-]*[.]cpp$")
-			continue()
+			if(FVD_NATIVE_RELEASE OR NOT BUILD_TESTING
+			   OR NOT _source IN_LIST _fvd_native_cpp_test_sources)
+				continue()
+			endif()
 		endif()
 		list(APPEND _native_engine_sources "${_source}")
 	endforeach()
 	set_property(TARGET libopenage PROPERTY SOURCES "${_native_engine_sources}")
-endif()
-

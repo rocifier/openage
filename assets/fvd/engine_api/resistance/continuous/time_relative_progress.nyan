@@ -1,0 +1,8 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.resistance.continuous
+import engine.util.progress_type
+
+TimeRelativeProgressChange(engine.resistance.continuous.Resistance):
+    type : children(engine.util.progress_type.ProgressType)

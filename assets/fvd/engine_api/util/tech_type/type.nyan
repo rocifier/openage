@@ -1,0 +1,7 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.tech_type
+
+Any(engine.util.tech_type.TechType):
+    pass

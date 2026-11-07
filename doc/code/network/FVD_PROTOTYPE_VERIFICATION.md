@@ -1,49 +1,24 @@
 # FVD prototype verification matrix
 
-**Last updated:** 2026-10-31, branch `FVD`. **Evidence status:** the Windows
-MSVC RelWithDebInfo build and all 95 registered tests passed with FVD assets
-on 2026-10-30, and `checkmerge` passed. Subsequent user-reported two-player
-acceptance covers death animations, projectile-delivery stress, construction
-overlays and victory-condition gameplay, in addition to the earlier multiplayer
-smoke tests. Exact projectile stress parameters were not supplied. Linux and
-four/eight-player graphical load and failure-path testing remain follow-up.
+**Historical results (October 2026):** the Windows C++/gameplay verification below records the pre-migration state. Re-run current tests on the native C++ registry for release acceptance.
 
 ## Automated preflight — Linux and Windows
 
-First build the same current `FVD` commit and ensure the converted FVD
-assets are installed. From the repository root, run:
+Use the current FVD branch and checked-in assets, then build and run the native suite:
 
 ```sh
-./run test -a --have-assets
+bash build-fvd.sh build
+bash build-fvd.sh test
+# Run individual tests with the native registry (Windows: use the .exe path):
+build/packaging/openage_native_cpp_tests --exact openage::network::tests::world_delta
+build/packaging/openage_native_cpp_tests --exact openage::network::tests::messages
+build/packaging/openage_native_cpp_tests --exact openage::network::tests::replication
+build/packaging/openage_native_cpp_tests --exact openage::network::tests::lobby_capacity
+build/packaging/openage_native_cpp_tests --exact openage::gamestate::tests::fvd_hunter_combat
+build/packaging/openage_native_cpp_tests --exact openage::gamestate::tests::fvd_scenario
 ```
 
-The last independently reported Linux result was **82/86**, prior to
-subsequent fixes. The fresh result must be recorded before marking these
-items verified. On Windows, use the configured `bin/run` launcher
-(e.g. `bin/run test -a --have-assets`).
-
-If the full run fails, rerun the relevant named tests, with `-a --have-assets`
-for asset-backed tests:
-
-```sh
-bin/run test network::tests::world_delta
-bin/run test network::tests::messages
-bin/run test network::tests::replication
-bin/run test network::tests::lobby_capacity
-bin/run test network::tests::lobby_relay_client
-bin/run test network::tests::fvd_loopback
-bin/run test network::tests::fvd_multi_session -a --have-assets
-bin/run test gamestate::tests::fvd_hunter_spawning -a --have-assets
-bin/run test gamestate::tests::fvd_hunter_focus_attack -a --have-assets
-bin/run test gamestate::tests::fvd_hunter_combat -a --have-assets
-bin/run test gamestate::tests::fvd_scenario -a --have-assets
-```
-
-Use the installed launcher path appropriate to each machine. Repeat
-`fvd_scenario` and `lobby_capacity` multiple times to expose intermittent
-selection and startup failures; a single pass cannot rule out flakiness.
-Run `make tests` and `make checkmerge` where that build workflow is
-configured.
+On Windows, `.\\build-fvd.cmd test` rebuilds tests and invokes the native CTest suite. The native `openage_native_cpp_tests` registry also supports `--list`, `--prefix`, and `--all --have-assets`. No conversion cache or Python game dispatcher is needed. Repeat synchronization and lobby tests to expose intermittency; a single pass does not prove stability.
 
 ### Verification mapping
 

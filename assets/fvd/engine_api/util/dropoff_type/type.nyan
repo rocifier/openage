@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.dropoff_type
+
+InverseLinear(engine.util.dropoff_type.DropoffType):
+    pass
+
+Linear(engine.util.dropoff_type.DropoffType):
+    pass
+
+NoDropoff(engine.util.dropoff_type.DropoffType):
+    pass

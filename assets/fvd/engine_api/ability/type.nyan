@@ -1,0 +1,298 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.ability
+import engine.ability.type
+import engine.effect.continuous
+import engine.resistance
+import engine.util.accuracy
+import engine.util.activity
+import engine.util.attribute
+import engine.util.cost
+import engine.util.create
+import engine.util.effect_batch
+import engine.util.exchange_mode
+import engine.util.exchange_rate
+import engine.util.game_entity
+import engine.util.game_entity_formation
+import engine.util.game_entity_stance
+import engine.util.game_entity_type
+import engine.util.herdable_mode
+import engine.util.hitbox
+import engine.util.language.translated.type
+import engine.util.lock
+import engine.util.logic
+import engine.util.move_mode
+import engine.util.path_type
+import engine.util.production_mode
+import engine.util.progress
+import engine.util.research
+import engine.util.resource
+import engine.util.resource_spot
+import engine.util.selection_box
+import engine.util.state_machine
+import engine.util.storage
+import engine.util.target_mode
+import engine.util.terrain
+import engine.util.terrain_type
+import engine.util.trade_route
+
+ActiveTransformTo(engine.ability.Ability):
+    target_state : engine.util.state_machine.StateChanger
+    transform_time : float
+    transform_progress : set(engine.util.progress.Progress)
+
+Activity(engine.ability.Ability):
+    graph : engine.util.activity.Activity
+
+ApplyContinuousEffect(engine.ability.Ability):
+    effects : set(engine.effect.continuous.ContinuousEffect)
+    application_delay : float
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+ApplyDiscreteEffect(engine.ability.Ability):
+    batches : set(engine.util.effect_batch.EffectBatch)
+    reload_time : float
+    application_delay : float
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+AttributeChangeTracker(engine.ability.Ability):
+    attribute : engine.util.attribute.Attribute
+    change_progress : set(engine.util.progress.Progress)
+
+Cloak(engine.ability.Ability):
+    interrupted_by : set(engine.ability.Ability)
+    interrupt_cooldown : float
+
+CollectStorage(engine.ability.Ability):
+    container : engine.util.storage.EntityContainer
+    storage_elements : set(engine.util.game_entity.GameEntity)
+
+Collision(engine.ability.Ability):
+    hitbox : engine.util.hitbox.Hitbox
+
+Constructable(engine.ability.Ability):
+    starting_progress : int
+    construction_progress : set(engine.util.progress.Progress)
+
+Create(engine.ability.Ability):
+    creatables : set(engine.util.create.CreatableGameEntity)
+
+Despawn(engine.ability.Ability):
+    activation_condition : set(engine.util.logic.LogicElement)
+    despawn_condition : set(engine.util.logic.LogicElement)
+    despawn_time : float
+    state_change : optional(engine.util.state_machine.StateChanger) = None
+
+DetectCloak(engine.ability.Ability):
+    range : float
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+DropResources(engine.ability.Ability):
+    containers : set(engine.util.storage.ResourceContainer)
+    search_range : float
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+DropSite(engine.ability.Ability):
+    accepts_from : set(engine.util.storage.ResourceContainer)
+
+EnterContainer(engine.ability.Ability):
+    allowed_containers : set(engine.util.storage.EntityContainer)
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+ExchangeResources(engine.ability.Ability):
+    resource_a : engine.util.resource.Resource
+    resource_b : engine.util.resource.Resource
+    exchange_rate : engine.util.exchange_rate.ExchangeRate
+    exchange_modes : set(engine.util.exchange_mode.ExchangeMode)
+
+ExitContainer(engine.ability.Ability):
+    allowed_containers : set(engine.util.storage.EntityContainer)
+
+Fly(engine.ability.Ability):
+    height : float
+
+Formation(engine.ability.Ability):
+    formations : set(engine.util.game_entity_formation.GameEntityFormation)
+
+Foundation(engine.ability.Ability):
+    foundation_terrain : engine.util.terrain.Terrain
+
+GameEntityStance(engine.ability.Ability):
+    stances : set(engine.util.game_entity_stance.GameEntityStance)
+
+Gather(engine.ability.Ability):
+    auto_resume : bool
+    resume_search_range : float
+    targets : set(engine.util.resource_spot.ResourceSpot)
+    gather_rate : engine.util.resource.ResourceRate
+    container : engine.util.storage.ResourceContainer
+
+Harvestable(engine.ability.Ability):
+    resources : engine.util.resource_spot.ResourceSpot
+    harvest_progress : set(engine.util.progress.Progress)
+    restock_progress : set(engine.util.progress.Progress)
+    gatherer_limit : int
+    harvestable_by_default : bool
+
+Herd(engine.ability.Ability):
+    range : float
+    strength : int
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+Herdable(engine.ability.Ability):
+    adjacent_discover_range : float
+    mode : engine.util.herdable_mode.HerdableMode
+
+Idle(engine.ability.Ability):
+    pass
+
+LineOfSight(engine.ability.Ability):
+    range : float
+
+Live(engine.ability.Ability):
+    attributes : set(engine.util.attribute.AttributeSetting)
+
+Lock(engine.ability.Ability):
+    lock_pools : set(engine.util.lock.LockPool)
+
+Move(engine.ability.Ability):
+    speed : float
+    modes : set(engine.util.move_mode.MoveMode)
+    path_type : children(engine.util.path_type.PathType)
+
+Named(engine.ability.Ability):
+    name : engine.util.language.translated.type.TranslatedString
+    description : engine.util.language.translated.type.TranslatedMarkupFile
+    long_description : engine.util.language.translated.type.TranslatedMarkupFile
+
+OverlayTerrain(engine.ability.Ability):
+    terrain_overlay : engine.util.terrain.Terrain
+
+PassiveTransformTo(engine.ability.Ability):
+    condition : set(engine.util.logic.LogicElement)
+    transform_time : float
+    target_state : engine.util.state_machine.StateChanger
+    transform_progress : set(engine.util.progress.Progress)
+
+Pathable(engine.ability.Ability):
+    hitbox : engine.util.hitbox.Hitbox
+    path_costs : dict(children(engine.util.path_type.PathType), int)
+
+ProductionQueue(engine.ability.Ability):
+    size : int
+    production_modes : set(engine.util.production_mode.ProductionMode)
+
+Projectile(engine.ability.Ability):
+    arc : int
+    accuracy : set(engine.util.accuracy.Accuracy)
+    target_mode : engine.util.target_mode.TargetMode
+    ignored_types : set(children(engine.util.game_entity_type.GameEntityType))
+    unignored_entities : set(engine.util.game_entity.GameEntity)
+
+ProvideContingent(engine.ability.Ability):
+    amount : set(engine.util.resource.ResourceAmount)
+
+RallyPoint(engine.ability.Ability):
+    pass
+
+RangedContinuousEffect(engine.ability.type.ApplyContinuousEffect):
+    min_range : int
+    max_range : int
+
+RangedDiscreteEffect(engine.ability.type.ApplyDiscreteEffect):
+    min_range : int
+    max_range : int
+
+RegenerateAttribute(engine.ability.Ability):
+    rate : engine.util.attribute.AttributeRate
+
+RegenerateResourceSpot(engine.ability.Ability):
+    rate : engine.util.resource.ResourceRate
+    resource_spot : engine.util.resource_spot.ResourceSpot
+
+RemoveStorage(engine.ability.Ability):
+    container : engine.util.storage.EntityContainer
+    storage_elements : set(engine.util.game_entity.GameEntity)
+
+Research(engine.ability.Ability):
+    researchables : set(engine.util.research.ResearchableTech)
+
+Resistance(engine.ability.Ability):
+    resistances : set(engine.resistance.Resistance)
+
+ResourceStorage(engine.ability.Ability):
+    containers : set(engine.util.storage.ResourceContainer)
+
+Restock(engine.ability.Ability):
+    auto_restock : bool
+    target : engine.util.resource_spot.ResourceSpot
+    restock_time : float
+    manual_cost : engine.util.cost.Cost
+    auto_cost : engine.util.cost.Cost
+    amount : int
+
+Selectable(engine.ability.Ability):
+    selection_box : engine.util.selection_box.SelectionBox
+
+SendBackToTask(engine.ability.Ability):
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+ShootProjectile(engine.ability.Ability):
+    projectiles : orderedset(engine.util.game_entity.GameEntity)
+    min_projectiles : int
+    max_projectiles : int
+    min_range : int
+    max_range : int
+    reload_time : float
+    spawn_delay : float
+    projectile_delay : float
+    require_turning : bool
+    manual_aiming_allowed : bool
+    spawning_area_offset_x : float
+    spawning_area_offset_y : float
+    spawning_area_offset_z : float
+    spawning_area_width : float
+    spawning_area_height : float
+    spawning_area_randomness : float
+    allowed_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+Stop(engine.ability.Ability):
+    pass
+
+Storage(engine.ability.Ability):
+    container : engine.util.storage.EntityContainer
+    empty_condition : set(engine.util.logic.LogicElement)
+
+TerrainRequirement(engine.ability.Ability):
+    allowed_types : set(children(engine.util.terrain_type.TerrainType))
+    blacklisted_terrains : set(engine.util.terrain.Terrain)
+
+Trade(engine.ability.Ability):
+    trade_routes : set(engine.util.trade_route.TradeRoute)
+    container : engine.util.storage.ResourceContainer
+
+TradePost(engine.ability.Ability):
+    trade_routes : set(engine.util.trade_route.TradeRoute)
+
+TransferStorage(engine.ability.Ability):
+    storage_element : engine.util.game_entity.GameEntity
+    source_container : engine.util.storage.EntityContainer
+    target_container : engine.util.storage.EntityContainer
+
+Turn(engine.ability.Ability):
+    turn_speed : float
+
+UseContingent(engine.ability.Ability):
+    amount : set(engine.util.resource.ResourceAmount)
+
+Visibility(engine.ability.Ability):
+    visible_in_fog : bool

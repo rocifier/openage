@@ -1,0 +1,9 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.root as root
+
+Hitbox(root.Object):
+    radius_x : float
+    radius_y : float
+    radius_z : float

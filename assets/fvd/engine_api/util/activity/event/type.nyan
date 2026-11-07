@@ -1,0 +1,13 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.activity.event
+
+CommandInQueue(engine.util.activity.event.Event):
+    pass
+
+Wait(engine.util.activity.event.Event):
+    time : float
+
+WaitAbility(engine.util.activity.event.Event):
+    pass

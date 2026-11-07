@@ -1,0 +1,110 @@
+name: FVD native code Python-boundary audit
+on:
+  push:
+    branches: [fvd-track-engine-api-20261107]
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'buildsystem/**'
+      - 'openage/**'
+      - 'cfg/**'
+      - 'packaging/**'
+      - 'build-fvd*'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'nix/**'
+      - 'shell.nix'
+      - 'flake.nix'
+      - '.github/workflows/fvd-native-no-python-audit.yml'
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'buildsystem/**'
+      - 'openage/**'
+      - 'cfg/**'
+      - 'packaging/**'
+      - 'build-fvd*'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'nix/**'
+      - 'shell.nix'
+      - 'flake.nix'
+      - '.github/workflows/fvd-native-no-python-audit.yml'
+
+jobs:
+  no-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native source inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "== Python-interface references remaining in native C++ =="
+          if git grep -nE '#include.*pyinterface|#include.*Python[.]h|PyIfFunc|py::Obj|pyinterface::|FVD_WITH_PYTHON_ADAPTERS' -- libopenage CMakeLists.txt; then
+            echo "::error::Native C++ still contains Python/Cython adapter references"
+            exit 1
+          fi
+          echo "== Python/Cython CMake integration references =="
+          if git grep -nF -e 'pxdgen(' -e 'add_cython_modules(' -e 'python_finalize(' -e 'include(python)' -e 'find_package(Python' -- CMakeLists.txt libopenage buildsystem; then
+            echo "::error::Native build still contains Python/Cython generation"
+            exit 1
+          fi
+          echo "== Any surviving Cython source files =="
+          if git ls-files '*.pyx' '*.pxd' | grep -q .; then
+            git ls-files '*.pyx' '*.pxd'
+            echo "::error::Cython source files remain"
+            exit 1
+          fi
+          echo "== Any surviving generator content =="
+          for removed in \
+            openage/codegen openage/convert openage/cabextract openage/cppinterface \
+            cfg/converter run.py.in configure openage/__main__.py \
+            openage/game/main.py openage/main/main.py openage/relay/main.py; do
+            if test -e "$removed"; then
+              echo "::error::Unsupported legacy path remains: $removed"
+              exit 1
+            fi
+          done
+          echo "== Source-tree cache and retired command audit =="
+          if test -e assets/converted; then
+            echo "::error::Generated assets/converted source tree is not supported"
+            exit 1
+          fi
+          if git grep -nE 'bin/run|run[.]py|convert-export-api|FVD_NATIVE_API_ASSET_DIR' -- \
+            build-fvd.sh build-fvd.ps1 build-fvd.cmd Makefile; then
+            echo "::error::Native build wrapper references a retired command"
+            exit 1
+          fi
+          if git grep -nF -e 'assets/converted' -- \
+            build-fvd.sh build-fvd.ps1 build-fvd.cmd CMakeLists.txt; then
+            echo "::error::Native build attempts to use generated source-tree assets"
+            exit 1
+          fi
+          echo "== Reject legacy Python installer and generic package paths =="
+          for old in \
+            packaging/openage_launcher.cpp \
+            buildsystem/scripts/EmbedPython.cmake \
+            buildsystem/scripts/EmbedWinDependencies.cmake \
+            buildsystem/scripts/deploy_qt.py \
+            buildsystem/templates/ForwardVariables.cmake.in \
+            buildsystem/templates/openage.bat.in; do
+            if test -e "$old"; then
+              echo "::error::Legacy installer/launcher survived: $old"
+              exit 1
+            fi
+          done
+          if git grep -nE 'openage_launcher|CPACK_GENERATOR.*NSIS|PYTHON_EMBED_VERSION|EmbedWinDependencies|deploy_qt[.]py' -- \
+            packaging/CMakeLists.txt packaging/CPackOptions.cmake \
+            packaging/native_game/DeployWindows.cmake.in; then
+            echo "::error::Native CPack still refers to a deprecated installer"
+            exit 1
+          fi
+          if git grep -nE '^[[:space:]]*install[[:space:]]*\(' -- \
+            CMakeLists.txt assets/CMakeLists.txt libopenage/CMakeLists.txt \
+            packaging/CMakeLists.txt; then
+            echo "::error::Generic/unscoped FVD install command remains"
+            exit 1
+          fi
+          echo "Native-only source and command boundary verified."

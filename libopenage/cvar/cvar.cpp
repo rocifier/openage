@@ -12,9 +12,8 @@
 namespace openage {
 namespace cvar {
 
-CVarManager::CVarManager(const util::Path &path, bool native_config) :
-	path{path},
-	native_config{native_config} {}
+CVarManager::CVarManager(const util::Path &path, bool /*native_config*/) :
+	path{path} {}
 
 
 bool CVarManager::create(const std::string &name,
@@ -46,14 +45,6 @@ void CVarManager::set(const std::string &name, const std::string &value) const {
 
 
 void CVarManager::load_config(const util::Path &path) {
-	if (not this->native_config) {
-#if FVD_WITH_PYTHON_ADAPTERS
-		pyx_load_config_file.call(this, path);
-		return;
-#else
-		throw Error(MSG(err) << "Python configuration loading is not available in the native FVD runtime");
-#endif
-	}
 
 	// Use the same set/load syntax as openage/cvar/config_file.py, without
 	// requiring Cython to register a callback before gameplay can start.
@@ -99,9 +90,5 @@ void CVarManager::load_all() {
 	this->load_config(this->path["keybinds.oac"]);
 	this->load_config(this->path["audio.oac"]);
 }
-
-#if FVD_WITH_PYTHON_ADAPTERS
-pyinterface::PyIfFunc<void, CVarManager *, const util::Path &> pyx_load_config_file;
-#endif
 
 }} // openage::cvar

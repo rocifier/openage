@@ -1,0 +1,101 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.ability.type
+import engine.modifier
+import engine.util.attribute
+import engine.util.attribute_change_type
+import engine.util.create
+import engine.util.diplomatic_stance
+import engine.util.game_entity
+import engine.util.game_entity_type
+import engine.util.logic
+import engine.util.progress_status
+import engine.util.research
+import engine.util.resource
+import engine.util.resource_spot
+import engine.util.storage
+import engine.util.tech
+
+AbsoluteProjectileAmount(engine.modifier.Modifier):
+    amount : float
+
+AoE2ProjectileAmount(engine.modifier.Modifier):
+    provider_abilities : set(engine.ability.type.ApplyDiscreteEffect)
+    receiver_abilities : set(engine.ability.type.ApplyDiscreteEffect)
+    change_types : set(children(engine.util.attribute_change_type.AttributeChangeType))
+
+AttributeSettingsValue(engine.modifier.Modifier):
+    attribute : engine.util.attribute.Attribute
+
+EntityContainerCapacity(engine.modifier.Modifier):
+    container : engine.util.storage.EntityContainer
+
+ContinuousResource(engine.modifier.Modifier):
+    rates : set(engine.util.resource.ResourceRate)
+
+CreationAttributeCost(engine.modifier.Modifier):
+    attributes : set(engine.util.attribute.Attribute)
+    creatables : set(engine.util.create.CreatableGameEntity)
+
+CreationResourceCost(engine.modifier.Modifier):
+    resources : set(engine.util.resource.Resource)
+    creatables : set(engine.util.create.CreatableGameEntity)
+
+CreationTime(engine.modifier.Modifier):
+    creatables : set(engine.util.create.CreatableGameEntity)
+
+DepositResourcesOnProgress(engine.modifier.Modifier):
+    progress_status : engine.util.progress_status.ProgressStatus
+    resources : set(engine.util.resource.Resource)
+    affected_types : set(engine.util.game_entity_type.GameEntityType)
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+DiplomaticLineOfSight(engine.modifier.Modifier):
+    diplomatic_stance : engine.util.diplomatic_stance.DiplomaticStance
+
+GatheringEfficiency(engine.modifier.Modifier):
+    resource_spot : engine.util.resource_spot.ResourceSpot
+
+GatheringRate(engine.modifier.Modifier):
+    resource_spot : engine.util.resource_spot.ResourceSpot
+
+InContainerContinuousEffect(engine.modifier.Modifier):
+    containers : set(engine.util.storage.EntityContainer)
+    ability : engine.ability.type.ApplyContinuousEffect
+
+InContainerDiscreteEffect(engine.modifier.Modifier):
+    containers : set(engine.util.storage.EntityContainer)
+    ability : engine.ability.type.ApplyDiscreteEffect
+
+InstantTechResearch(engine.modifier.Modifier):
+    tech : engine.util.tech.Tech
+    condition : set(engine.util.logic.LogicElement)
+
+MoveSpeed(engine.modifier.Modifier):
+    pass
+
+RefundOnCondition(engine.modifier.Modifier):
+    refund_amount : set(engine.util.resource.ResourceAmount)
+
+ReloadTime(engine.modifier.Modifier):
+    pass
+
+ResearchAttributeCost(engine.modifier.Modifier):
+    attributes : set(engine.util.attribute.Attribute)
+    researchables : set(engine.util.research.ResearchableTech)
+
+ResearchResourceCost(engine.modifier.Modifier):
+    resources : set(engine.util.resource.Resource)
+    researchables : set(engine.util.research.ResearchableTech)
+
+ResearchTime(engine.modifier.Modifier):
+    researchables : set(engine.util.research.ResearchableTech)
+
+Reveal(engine.modifier.Modifier):
+    line_of_sight : float
+    affected_types : set(children(engine.util.game_entity_type.GameEntityType))
+    blacklisted_entities : set(engine.util.game_entity.GameEntity)
+
+StorageElementCapacity(engine.modifier.Modifier):
+    storage_element : engine.util.storage.StorageElementDefinition

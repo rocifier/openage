@@ -1,0 +1,18 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.modifier
+import engine.util.language.translated.type
+import engine.util.patch
+import engine.util.resource
+
+import engine.root as root
+
+PlayerSetup(root.Object):
+    name : engine.util.language.translated.type.TranslatedString
+    description : engine.util.language.translated.type.TranslatedMarkupFile
+    long_description : engine.util.language.translated.type.TranslatedMarkupFile
+    leader_names : set(engine.util.language.translated.type.TranslatedString)
+    modifiers : set(engine.modifier.Modifier)
+    starting_resources : set(engine.util.resource.ResourceAmount)
+    game_setup : orderedset(engine.util.patch.Patch)

@@ -54,6 +54,7 @@ private:
 	void require_writable(const Path::parts_t &parts) const;
 
 	std::map<std::string, Mount> mounts;
+	bool source_engine_api;
 };
 
 } // namespace openage::util::fslike

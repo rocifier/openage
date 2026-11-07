@@ -1,35 +1,11 @@
-# Installation for Gentoo users
+# Gentoo FVD native build (experimental)
 
+The historical upstream `openage` overlay package does **not** describe or install the current FVD native distribution. Configure this fork from source using CMake, a C++20 compiler, Ninja, Qt6, nyan, toml11 and the renderer/audio development libraries. Python, Cython and asset conversion are not native dependencies.
 
-## Overlay
-
-Up to date builds are found in our [sft overlay](https://github.com/SFTtech/gentoo-overlay/tree/master/games-strategy/openage).
-
-For automatic updates, install the overlay with [layman](https://wiki.gentoo.org/wiki/Layman)!
-
-``` shell
-# add the sft-overlay
-layman -a sft
+```sh
+cmake -S . -B build -G Ninja -DFVD_NATIVE_RELEASE=OFF -DDOWNLOAD_NYAN=YES
+cmake --build build --parallel
+ctest --test-dir build -R '^fvd_native_(game|relay)_' --output-on-failure
 ```
 
-## Installation
-
-``` shell
-# install openage
-emerge -avt openage
-```
-
-This will install the latest release.
-
-
-### git version
-
-If you want to install the latest git version:
-
-```
-# In /etc/portage/package.keywords, add
-=games-strategy/openage-9999::sft **
-```
-
-Beware, the git version does **not** do automatic updates.
-You have to explicitly "reinstall" openage or use `app-portage/smart-live-rebuild`.
+The supported native release archive wrappers currently target Windows and Linux. See [building](../building.md).

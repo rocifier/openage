@@ -1,0 +1,12 @@
+# NYAN FILE
+!version 0.2.0
+
+import engine.util.attribute
+import engine.util.cost
+import engine.util.resource
+
+AttributeCost(engine.util.cost.Cost):
+    amount : set(engine.util.attribute.AttributeAmount)
+
+ResourceCost(engine.util.cost.Cost):
+    amount : set(engine.util.resource.ResourceAmount)

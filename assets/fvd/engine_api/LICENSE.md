@@ -1,0 +1,1 @@
+The engine API data is derived from openage's GPL-3.0-or-later converter definitions. See ../../../copying.md for the project licence. The nyan data is exported from openage/convert/service/read/nyan_api_loader.py at the revision that introduced this snapshot.
