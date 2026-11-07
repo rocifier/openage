@@ -100,7 +100,7 @@ jobs:
           exit 1
         fi
         # Inspect the exact files selected for the distribution component.
-        # The generic installer remains out of scope; audit only FVDNative.
+        # Only FVDNative is supported; inspect exactly its staged payload.
         cmake --install . --prefix "$(pwd)/fvd-native-stage" --component FVDNative
         cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -DFVD_NATIVE_REQUIRE_MANIFEST=ON -P ../packaging/native_game/AuditNativePackage.cmake
 

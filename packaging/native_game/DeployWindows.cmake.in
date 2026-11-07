@@ -50,7 +50,7 @@ else()
 	endif()
 endif()
 
-# Native openage is directly inside bin/, not in python/.
+# The native executable is directly inside bin/.
 file(WRITE "${_bin}/qt.conf" "[Paths]\nPlugins = plugins\nQml2Imports = qml\n")
 
 # Resolve vcpkg DLL imports recursively, including the Qt plugins.

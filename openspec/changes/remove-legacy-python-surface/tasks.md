@@ -84,10 +84,29 @@ Generic legacy packaging launcher/NSIS cleanup belongs to Task 5.
 
 ## 5. Keep only native FVD packaging
 
-- [ ] 5.1 Remove the generic graphical launcher, batch launcher, embedded Python download/install and generic Python module installation.
-- [ ] 5.2 Remove generic all-component and NSIS packaging paths that are not used by the native FVD distribution.
-- [ ] 5.3 Make the FVD native component the only supported CPack payload and preserve Windows/Linux archive naming and layout.
-- [ ] 5.4 Keep strict package audits for Python artifacts/imports, native dependency closure, tracked API compatibility and asset hashes.
+- [x] 5.1 Remove the generic graphical launcher, batch launcher, embedded Python download/install and generic Python module installation.
+- [x] 5.2 Remove generic all-component and NSIS packaging paths that are not used by the native FVD distribution.
+- [x] 5.3 Make the FVD native component the only supported CPack payload and preserve Windows/Linux archive naming and layout.
+- [x] 5.4 Keep strict package audits for Python artifacts/imports, native dependency closure, tracked API compatibility and asset hashes.
+
+Task 5 implementation: removed the generic Windows `openage.exe` graphical
+launcher, `openage.bat`, legacy embedded-Python installer/module tooling,
+unscoped all-component asset/engine installs and NSIS generator path. CPack
+now emits only a single FVDNative 7Z archive, preserving the existing
+Windows portable version/platform filename and Linux `fvd.7z` name and
+the `bin/`, `share/openage/`, `etc/openage/` layout. Windows Qt QML and
+plugins deploy via `windeployqt` or a Python-free PowerShell
+`qmlimportscanner` fallback. The FVD native package audits reject Python
+and generic launcher files, check Windows DLL and Linux ELF import closure,
+validate the installed tracked nyan API version/SHA3 manifest, and hash
+every staged release asset against its SHA-256 manifest. Negative tests
+cover corruption, missing assets, invalid manifests, and the Windows Qt
+fallback; a CPack regression prevents NSIS and extra components.
+
+The isolated native-game/manifest tests passed on Windows, Linux and macOS
+in GitHub Actions run 42340274605; the Python-boundary audit passed at
+commit 40a54fa8. Full platform builds and fresh release archive/manual
+smoke acceptance are separate gates under Tasks 1.5, 3.6 and 6.
 
 ## 6. Verify and document the fork boundary
 
