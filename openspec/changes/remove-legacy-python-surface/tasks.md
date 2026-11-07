@@ -45,7 +45,15 @@ Cython `.pyx` / `.pxd` files, their CMake registration, extension build
 helpers, native Python adapter C++ sources, `pyinterface`, Python filesystem
 constructors and configuration callbacks have been removed. Native CMake no
 longer discovers Python/Mako/Cython or uses the `FVD_WITH_PYTHON_ADAPTERS`
-option. Native-only source audits run in CI. Task 3.6 remains open until
+option. Native-only source audits run in CI. Linux full-build verification
+passed in GitHub Actions run 42335663484 (commit a8b5d905): all native
+game/relay/C++ test targets built with CMake Python discovery disabled;
+15/15 native CTest checks passed; nine standalone Python unittest cases
+passed; the staged FVDNative component contained 999 files and no Python;
+and headless staged-game startup reached initialized engine threads. This
+does not by itself prove a machine with Python physically uninstalled.
+
+Task 3.6 remains open until
 fresh Windows and Linux native game/relay/C++ test builds are verified on
 machines **without an installed Python interpreter**; disabling Python
 discovery in hosted CI does not itself meet that stricter gate.
