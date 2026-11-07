@@ -5,5 +5,3 @@ add_sources(libopenage
 	handlers.cpp
 	stackanalyzer.cpp
 )
-
-

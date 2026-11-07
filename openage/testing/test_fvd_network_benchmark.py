@@ -137,7 +137,9 @@ class FVDTcpShaperLoopbackTests(unittest.TestCase):
             self.assertGreater(stats["pacing_wait_ms"], 0)
             self.assertGreater(duration, 0.35)
             self.assertLess(duration, 4.0)
-            self.assertGreater(stats["peak_1s_kbps"], 450)
+            # macOS ARM CI has higher socket/scheduler jitter than Linux.
+            # Rate precision is covered by virtual-clock pacer tests above.
+            self.assertGreater(stats["peak_1s_kbps"], 250)
             self.assertLess(stats["peak_1s_kbps"], 1600)
         finally:
             proxy.close()
