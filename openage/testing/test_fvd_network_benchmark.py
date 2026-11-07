@@ -7,8 +7,12 @@ import time
 import unittest
 
 from .fvd_network_benchmark import (
-    TokenBucketPacer, TransferStats, TcpShaper,
-    bounded_sleep_seconds, free_port, parse_report_fields,
+    TcpShaper,
+    TokenBucketPacer,
+    TransferStats,
+    bounded_sleep_seconds,
+    free_port,
+    parse_report_fields,
 )
 
 
@@ -40,10 +44,7 @@ class FVDNetworkReportParsingTests(unittest.TestCase):
 
     def test_unknown_text_fields_do_not_crash_reporting(self):
         fields = parse_report_fields("mode=independent status=congested extra flag=ok")
-        self.assertEqual(fields, {
-            "mode": "independent", "status": "congested", "flag": "ok"
-        })
-
+        self.assertEqual(fields, {"mode": "independent", "status": "congested", "flag": "ok"})
 
 
 class FVDTokenBucketTests(unittest.TestCase):
@@ -98,9 +99,15 @@ class FVDTcpShaperLoopbackTests(unittest.TestCase):
         source.listen(1)
         source.settimeout(5.0)
         proxy = TcpShaper(
-            free_port(), source.getsockname()[1],
-            rtt_ms=0, jitter_ms=0, kbps=1000, seed=42,
-            proxy_buffer_kb=8, socket_buffer_kb=8, burst_ms=25,
+            free_port(),
+            source.getsockname()[1],
+            rtt_ms=0,
+            jitter_ms=0,
+            kbps=1000,
+            seed=42,
+            proxy_buffer_kb=8,
+            socket_buffer_kb=8,
+            burst_ms=25,
         )
         payload = b"fvd-test!" * 8192  # 73,728 bytes
         errors = []
@@ -120,9 +127,7 @@ class FVDTcpShaperLoopbackTests(unittest.TestCase):
         try:
             started = time.monotonic()
             # The listener reports the assigned port, which remains stable.
-            with socket.create_connection(
-                ("127.0.0.1", proxy.listen_port), timeout=5.0
-            ) as receiver:
+            with socket.create_connection(("127.0.0.1", proxy.listen_port), timeout=5.0) as receiver:
                 receiver.settimeout(5.0)
                 received = bytearray()
                 while len(received) < len(payload):
@@ -146,7 +151,6 @@ class FVDTcpShaperLoopbackTests(unittest.TestCase):
             source.close()
             server_thread.join(timeout=5)
         self.assertEqual(errors, [])
-
 
 
 if __name__ == "__main__":

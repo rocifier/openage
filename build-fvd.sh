@@ -163,7 +163,9 @@ if [[ "$mode" == "test" ]]; then
     cmake -S "$root" -B "$build" -DFVD_NATIVE_RELEASE=OFF
     step "Build native test targets (incremental)"
     cmake --build "$build" --parallel "$jobs" \
-        --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test openage_native_cpp_tests
+        --target openage_native_game openage_native_relay \
+        openage_native_game_args_test openage_native_relay_args_test \
+        openage_native_relay_network_test openage_native_cpp_tests
     step "Run native game/relay CTest suite"
     ctest --test-dir "$build" --output-on-failure -R '^fvd_native_(game|relay)_'
     if (("${#forwarded[@]}" > 0)); then

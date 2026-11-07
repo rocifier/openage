@@ -12,6 +12,10 @@ import sys
 
 from .util import log_setup, normalize_path
 
+# Native FVD retains Python only for its stdlib network helpers and developer
+# tooling. Legacy openage modules are not a supported or installable package.
+PYTHON_CHECK_PATHS = ("openage/testing", "buildsystem", "etc/gdb_pretty")
+
 
 def parse_args():
     """Returns the raw argument namespace."""
@@ -234,12 +238,12 @@ def find_all_issues(args, check_files=None):
     if args.ruff:
         from .ruff import find_issues
 
-        yield from find_issues(check_files, ("openage", "buildsystem", "etc/gdb_pretty"))
+        yield from find_issues(check_files, PYTHON_CHECK_PATHS)
 
     if args.ty:
         from .ty import find_issues
 
-        yield from find_issues(check_files, ("openage", "buildsystem", "etc/gdb_pretty"))
+        yield from find_issues(check_files, PYTHON_CHECK_PATHS)
 
     if args.cppstyle:
         from .cppstyle import find_issues

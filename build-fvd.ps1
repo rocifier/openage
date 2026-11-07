@@ -219,7 +219,8 @@ try {
         Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
             "-DFVD_NATIVE_RELEASE=OFF") "Configure native-only C++ tests"
         Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--target", "openage_native_game_args_test", "openage_native_relay_args_test",
+            "--target", "openage_native_game", "openage_native_relay",
+            "openage_native_game_args_test", "openage_native_relay_args_test",
             "openage_native_relay_network_test", "openage_native_cpp_tests", "--parallel", "$Jobs") "Build native test targets"
         Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
             "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
