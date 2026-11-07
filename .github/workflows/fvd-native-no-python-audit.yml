@@ -36,6 +36,10 @@ jobs:
             exit 1
           fi
           echo "== Any surviving Cython source files =="
-          find openage -type f \\( -name '*.pyx' -o -name '*.pxd' \\) -print
+          if git ls-files '*.pyx' '*.pxd' | grep -q .; then
+            git ls-files '*.pyx' '*.pxd'
+            echo "::error::Cython source files remain"
+            exit 1
+          fi
           echo "== Any surviving generator content =="
           find openage/codegen -maxdepth 3 -type f -print 2>/dev/null || true
