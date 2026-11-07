@@ -109,6 +109,20 @@ if(BUILD_TESTING AND NOT FVD_NATIVE_RELEASE)
 	target_include_directories(openage_native_cpp_tests PRIVATE
 		"${CMAKE_SOURCE_DIR}/libopenage")
 	target_link_libraries(openage_native_cpp_tests PRIVATE libopenage)
+	# The runner imports only one DLL symbol, but its engine DLL must be next
+	# to the executable on Windows; the source tests are not shipped.
+	if(WIN32)
+		add_custom_command(TARGET openage_native_cpp_tests POST_BUILD
+			COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+				"$<TARGET_FILE:libopenage>" "$<TARGET_FILE_DIR:openage_native_cpp_tests>"
+			COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+				"$<TARGET_FILE:nyan::nyan>" "$<TARGET_FILE_DIR:openage_native_cpp_tests>"
+			COMMENT "Stage developer engine DLLs beside native C++ tests")
+	endif()
+	add_test(NAME fvd_native_game_cpp_list
+		COMMAND openage_native_cpp_tests --list)
+	set_tests_properties(fvd_native_game_cpp_list PROPERTIES
+		PASS_REGULAR_EXPRESSION "openage::gamestate::tests::fvd_hunter_rally_point")
 	add_test(NAME fvd_native_game_cpp_all
 		COMMAND openage_native_cpp_tests --all)
 	add_test(NAME fvd_native_game_cpp_exact
