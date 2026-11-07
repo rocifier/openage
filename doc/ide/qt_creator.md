@@ -1,33 +1,7 @@
-# Qt Creator IDE
+# Qt Creator with native FVD
 
-Qt Creator can be used to launch build, edit, run and debug C++ and QML code.
+Qt Creator can open the checkout's root `CMakeLists.txt` as a CMake project. Select a C++20 compiler, Qt 6, nyan and the native render/audio dependencies from [building.md](../building.md).
 
-Install Qt Creator from the repository of your distribution or with an installer from the Qt website.
+Configure a **developer build** with `FVD_NATIVE_RELEASE=OFF`. Use the targets `openage_native_game`, `openage_native_relay` and `openage_native_cpp_tests`. Do not choose a deleted `run` launcher or a Python interpreter. Run the built executable `packaging/openage-native` (Windows: `packaging/<Config>/openage-native.exe`) with **working directory set to the source checkout** and arguments `--asset-dir assets` (plus `--solo` for local gameplay).
 
-To launch QtCreator in English on Linux:
-
-```
-$ LANGUAGE=C qtcreator
-```
-
-## Opening and configuring the project
-
-Open the root `CMakeLists.txt` with QtCreator and select the Qt installation that you want to target and click **Configure Project**.
-
-Watch the **General Messages** log window for CMake errors.
-
-
-## Enabling parallel build
-
-Go to **Projects** -> **openage** -> **Build & Run** -> **Build** -> **Build Steps** -> **Build** -> **Details**, and add `-j4` to the **Tool arguments**.
-
-
-## Run & Debug
-
-1. To set the correct executable, first go to **Projects** -> **openage** -> **Build & Run** -> **Run** page.
-1. In the **Run configuration** combo-box select **Custom Executable** and set **Executable** to `<path-to-openage-src>/run`.
-1. Set **Working directory** to `<path-to-openage-src>`.
-
-`<path-to-openage-src>` is the directory where the sources of the openage are (the directory of the root `CMakeLists.txt` file).
-
-The `<path-to-openage-src>/run` binary has no executable bit set when first built, set it manually with `chmod`.
+For an end-user install/relocation check, package and smoke-test using `build-fvd.cmd` on Windows or `build-fvd.sh` on Linux, and launch the extracted archive via `build-fvd game` or `build-fvd solo`. Running a developer target alone does not verify the strict release manifest or its native dependency closure.

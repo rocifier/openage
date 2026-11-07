@@ -1,63 +1,16 @@
-Documentation
-=============
+# FVD developer documentation
 
-Most readers love documentation, its creators hate it.
+Fast Villager Defense is a native C++ RTS fork of openage. The supported runtime consists of `openage-native`, `openage-relay`, committed FVD assets and the tracked nyan engine API. **Original Age of Empires game conversion is not supported.**
 
-Unfortunately, nobody can look inside your head and have the same ingenious
-thoughts as you do. To ensure your thoughts also reach the afterworld, please
-document your stuff reasonably!
+Start here:
 
-The documentation is split up in two parts: *static* and *dynamic* docs,
+- [Build FVD on Windows or Linux](building.md) — prerequisites, CMake targets and native archive wrappers
+- [Launch game, multiplayer and relay](running.md)
+- [Test game, relay and optional Python tooling](code/testing.md)
+- [Source-tree ownership](project_structure.md) and [native CMake packaging](buildsystem.md)
+- [FVD assets and engine API](assets.md)
+- [Package/release verification](../packaging/native_game/README.md), [current acceptance status](code/network/FVD_RELEASE_ACCEPTANCE.md)
+- [Multiplayer design](code/network/README.md), [Windows multiplayer acceptance](code/network/WINDOWS_MULTIPLAYER_ACCEPTANCE.md)
+- [Contributor workflow](contributing.md), [debugging](debug.md) and [IDE configuration](ide/README.md)
 
-
-Static Docs
------------
-
-Dedicated documentation files reside in the `doc/` directory, where this
-readme file lies in as well. You can find ideas, milestones, planning and
-workflow descriptions etc in here.
-
-A good entry point may be the file [doc/project_structure](/doc/project_structure.md).
-it roughly explains where to find what code in the project.
-
-If **you** made any relevant discoveries or gained insights that help others
-understand any part of the project:
-
-* Create a file and write down your thoughts
-* Ideally, use markdown syntax, alternatively plain text
-* Submit your contribution (pull request) so we can include it in the official
-  repository
-* This ensures newcomers can start developing easily
-
-
-Dynamic Docs
-------------
-
-This type of documentation is written inside code files:
-
- - C++ methods and classes are documented in their header files
- - Python methods and classes are documented via docstrings
-
-Due to potential documentation laziness,
-the above statements might be out-right fabrications.
-
-
-### Doc Generation
-
-Dynamic documentation can be auto-generated from source documentation using **doxygen**.
-
-after calling `./configure`, you can invoke
-
-	make doc
-
-to create doxygen html and LaTeX files.
-
-
-After creation, view them in a browser by
-
-	$BROWSER bin/doc/html/index.html
-
-or, if you want to create LaTeX documents, run
-
-	make -C bin/doc/latex/ pdf
-	$PDFVIEWER bin/doc/latex/refman.pdf
+Optional Python unit tests are source-only development tools; CMake, game/relay builds and player archives do not require an interpreter, Cython, Mako or Python packages. Historical upstream openage engine documentation may still describe defunct components and should **not** be treated as an FVD build or installation guide.
