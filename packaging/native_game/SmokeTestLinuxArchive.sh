@@ -43,9 +43,17 @@ cmake "-DFVD_NATIVE_STAGE=$stage" -DFVD_NATIVE_REQUIRE_MANIFEST=ON \
 
 # ELF closure checks: exported executable and engine must resolve without Python.
 export LD_LIBRARY_PATH="$stage/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-for elf in "$game" "$relay" "$stage/lib/libopenage.so"; do
+# Audit every installed shared library, including transitive native imports.
+mapfile -d '' -t runtime_libs < <(
+    find "$stage/lib" -type f \( -name '*.so' -o -name '*.so.*' \) -print0
+)
+for elf in "$game" "$relay" "$stage/lib/libopenage.so" "${runtime_libs[@]}"; do
     [[ -e "$elf" ]] || { echo "Missing runtime ELF: $elf" >&2; exit 1; }
-    deps="$(ldd "$elf")"
+    if ! deps="$(ldd "$elf" 2>&1)"; then
+        echo "Unable to inspect packaged ELF dependencies for $elf:" >&2
+        echo "$deps" >&2
+        exit 1
+    fi
     if grep -Eiq 'libpython|cython|not found' <<<"$deps"; then
         echo "Python ABI dependency or missing runtime library in $elf:" >&2
         echo "$deps" >&2

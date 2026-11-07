@@ -126,8 +126,7 @@ cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z -B dist
 If the tracked API changes, update the snapshot and its SHA3-256 manifest as a
 reviewed source change. CMake configuration checks those hashes and the API
 version; packaging checks the staged files, and native startup validates the
-release manifest. The converter's old API exporter remains in Python source until Task 4,
-but is no longer used by any native build or test path.
+release manifest. The old original-game converter and API exporter have been removed.
 
 Coordinate C++ templates were materialized as ordinary source files in
 `libopenage/coord/`. The complete Python C++ code generator, .pyx/.pxd
@@ -153,5 +152,12 @@ Windows machine/VM **without Python**. Linux additionally requires
 clean-distribution library portability testing. Do not mistake a
 successful process smoke test for full gameplay acceptance.
 
-The native runtime and its C++ tests are the supported build path. The
-old generic packaging configuration remains to be removed in Task 5.
+The native runtime and C++ tests are the supported build path. CPack emits
+**only FVDNative 7Z archives** (no NSIS or embedded Python). Windows retains
+the portable version/platform archive naming; Linux retains `fvd.7z`.
+
+Staging checks reject Python and generic launchers, validate the tracked nyan
+API and every SHA-256 asset hash. Windows audits imported DLLs and deploys Qt
+using `windeployqt` or PowerShell/qmlimportscanner instead of Python. Linux
+archive smoke tests audit the complete installed ELF shared library closure.
+

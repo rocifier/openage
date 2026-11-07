@@ -1,15 +1,15 @@
-# Releasing
+# Releasing Fast Villager Defense
 
-openage uses [Semver](https://semver.org).. People often seem to overlook the special rules for initial development versions. Please avoid prerelease versions (`-alpha`, `-beta`, `-rc.1`, ...) for now. We might decide to include build metadata like date or commit hash, that's up for discussion.
+The supported FVD distribution is a **native-only 7Z archive** containing the
+single `FVDNative` CPack component. NSIS, generic launchers and embedded
+Python distributions are unsupported.
 
-Release guide:
+1. Update `openage_version`, document changes, and merge accepted code to `FVD`.
+2. Build and smoke-test Windows (`.\\build-fvd.cmd`) and Linux (`bash build-fvd.sh`) archives.
+3. Inspect each extracted archive: no Python artifacts/imports, complete native dependencies, compatible tracked API, and verified asset SHA-256 hashes.
+4. Manually verify graphical solo, audio, multiplayer host/guest/relay, clean exit, a Windows VM without Python, and Linux portability before public release.
+5. Tag the accepted commit and attach both verified native archives to GitHub.
 
-1. Create a new changelog named `doc/changelogs/engine/$VERSION.md`.
-1. Bump the version number in `openage_version`. Given `0.y.z`, both `0.y.(z+1)` and `0.(y+1).0` are valid. The latter will probably be more common, but which of those you choose doesn't really matter.
-1. Commit, PR, merge, pull as usual.
-    * OPTIONAL: Set up [commit signing](https://help.github.com/en/articles/managing-commit-signature-verification), signing tags will make a "verified" badge show up on the release later.
-1. Tag the merge commit, something like `git tag -s v0.5.0`. The prefixed `v` is mandatory.
-1. Push the tag to GitHub.
-1. Use the GitHub web interface to publish a release from the tag. Make it look nice, see previous release description. If in doubt, save the draft and have someone else proof read it. Also include the changelog.
-1. In the future, kevin will automatically attach build artifacts like installers to the release. For now, you will need to do that manually. Have fun setting up a windows build environment or if you feel like being lazy, go bug someone who already has. Actually, taking care of where to build for windows before publishing the release might not be a bad idea.
-    * OPTIONAL: Brag on social media. /r/openage, /r/aoe2 and AoE2 Discords might be the right place to do so.
+Windows archives preserve the portable version/platform suffix; Linux uses
+`fvd.7z`. Both extract to `bin/`, `share/openage/`, and `etc/openage/`.
+See [native packaging](../packaging/native_game/README.md).
