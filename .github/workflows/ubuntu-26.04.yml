@@ -47,6 +47,8 @@ jobs:
         cd build
 
         cmake \
+          -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE \
+          -DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_C_COMPILER=$(which gcc) \
           -DCMAKE_CXX_COMPILER=$(which g++) \
@@ -69,12 +71,11 @@ jobs:
           -G Ninja \
           ..
 
-        cmake --build . --parallel $(nproc) -- -k1
+        cmake --build . --parallel $(nproc) --target openage_native_game openage_native_relay openage_native_cpp_tests
 
         # Native C++ registry, no generated test dispatcher or Python callback.
         # Default --all skips asset-bound and deliberately opt-in worker tests;
         # CTest also probes exact/prefix/error reporting.
-        cmake --build . --target openage_native_cpp_tests --parallel $(nproc)
         ctest -R '^fvd_native_(game|relay)_' --output-on-failure
 
         # Optional pure-Python tests use the stdlib unittest runner, never

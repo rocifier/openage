@@ -186,6 +186,11 @@ if [[ ! -f "$build/CMakeCache.txt" ]]; then
 fi
 
 if [[ "$mode" == "legacy-test" ]]; then
+    echo "Legacy Python/Cython integration was removed; use test or python-test." >&2
+    exit 2
+fi
+
+if false; then
     python_args=()
     if [[ -x "$root/.venv/bin/python" ]]; then
         python_args=("-DPython3_EXECUTABLE=$root/.venv/bin/python")

@@ -213,6 +213,9 @@ try {
         throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
     }
     if ($Mode -eq "legacy-test") {
+        throw "Legacy Python/Cython integration was removed; use test or python-test."
+    }
+    if ($false) {
         $python = Join-Path $root ".venv\Scripts\python.exe"
         if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
             throw "Python developer environment missing. Run 'uv sync' from $root first."
