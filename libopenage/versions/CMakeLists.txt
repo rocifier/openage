@@ -5,5 +5,3 @@ add_sources(libopenage
 	${CMAKE_CURRENT_BINARY_DIR}/compiletime.cpp
 	versions.cpp
 )
-
-

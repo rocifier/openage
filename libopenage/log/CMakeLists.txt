@@ -9,5 +9,3 @@ add_sources(libopenage
 	stdout_logsink.cpp
 	test.cpp
 )
-
-
