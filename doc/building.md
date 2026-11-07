@@ -13,11 +13,12 @@ From the checkout root:
 .\build-fvd.cmd build        # compile game and relay for development
 .\build-fvd.cmd test         # rebuild and run native C++/CTest checks
 .\build-fvd.cmd python-test  # optional stdlib-only Python tests
+.\build-fvd.cmd game         # open packaged multiplayer lobby
 .\build-fvd.cmd solo         # run latest packaged solo game
 .\build-fvd.cmd relay        # run latest packaged standalone relay
 ```
 
-`solo` and `relay` run the *last packaged* archive and do not rebuild. Run `build-fvd.cmd` after source changes to package them. `-SkipSmoke` skips archive smoke-testing for faster local iterations.
+`game`, `solo` and `relay` run the *last packaged* archive and do not rebuild. Run `build-fvd.cmd` after source changes to package them. `-SkipSmoke` skips archive smoke-testing for faster local iterations.
 
 ## Linux
 
@@ -28,6 +29,7 @@ bash build-fvd.sh            # build, package and smoke-test native archive
 bash build-fvd.sh build      # incremental developer build
 bash build-fvd.sh test       # native game/relay and C++ registry tests
 bash build-fvd.sh python-test # optional Python-only regression suite
+bash build-fvd.sh game      # open multiplayer lobby from latest archive
 bash build-fvd.sh solo --no-audio
 bash build-fvd.sh relay --port 40000
 ```

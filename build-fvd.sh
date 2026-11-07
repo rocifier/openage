@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Linux FVD native candidate: build, package and smoke-test.
-# Usage: bash build-fvd.sh [package|build|test|python-test|solo|relay] [options]
+# Usage: bash build-fvd.sh [package|build|test|python-test|game|solo|relay] [options]
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -15,7 +15,7 @@ nyan_version="${NYAN_CLONE_VERSION:-v0.3.1}"
 skip_smoke=0
 mode=package
 forwarded=()
-if (($#)) && [[ "$1" =~ ^(package|build|test|python-test|solo|relay)$ ]]; then
+if (($#)) && [[ "$1" =~ ^(package|build|test|python-test|game|solo|relay)$ ]]; then
     mode="$1"
     shift
 fi
@@ -28,6 +28,7 @@ FVD Linux native release candidate
   bash build-fvd.sh build               Build the native game and relay
   bash build-fvd.sh test                Run native CTest (optional native runner args)
   bash build-fvd.sh python-test         Run pure Python tests, no CMake/Cython
+  bash build-fvd.sh game                Open packaged multiplayer lobby
   bash build-fvd.sh solo --no-audio     Launch packaged native solo gameplay
   bash build-fvd.sh relay --port 40000  Start packaged native relay
   bash build-fvd.sh relay -- --help     Pass any native options after --
@@ -54,7 +55,7 @@ while (($#)); do
             ;;
         -h|--help) usage; exit 0 ;;
         *)
-            if [[ "$mode" == "solo" || "$mode" == "relay" || "$mode" == "python-test" || "$mode" == "test" ]]; then
+            if [[ "$mode" == "game" || "$mode" == "solo" || "$mode" == "relay" || "$mode" == "python-test" || "$mode" == "test" ]]; then
                 forwarded+=("$1")
                 shift
             else
@@ -87,8 +88,7 @@ for tool in cmake c++; do
     fi
 done
 
-# Reuse the preconfigured developer build if one exists. ./configure uses
-# a bin symlink; Linux CI commonly uses a separate build directory.
+# Reuse a configured native developer build when present. Otherwise use build/.
 if [[ -f "$root/bin/CMakeCache.txt" ]]; then
     build="$root/bin"
 elif [[ -f "$root/build/CMakeCache.txt" ]]; then
@@ -141,12 +141,15 @@ extract_for_play() {
     export LD_LIBRARY_PATH="$stage_dir/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 }
 
-if [[ "$mode" == "solo" || "$mode" == "relay" ]]; then
+if [[ "$mode" == "game" || "$mode" == "solo" || "$mode" == "relay" ]]; then
     archive="$(find_archive)"
     extract_for_play "$archive"
     if [[ "$mode" == "solo" ]]; then
         step "Launch native FVD solo (Ctrl+C to stop)"
         (cd "$bin_dir" && exec ./openage-native --solo "${forwarded[@]}")
+    elif [[ "$mode" == "game" ]]; then
+        step "Launch native FVD multiplayer lobby (Ctrl+C to stop)"
+        (cd "$bin_dir" && exec ./openage-native "${forwarded[@]}")
     else
         step "Launch native FVD relay (Ctrl+C to stop)"
         (cd "$bin_dir" && exec ./openage-relay "${forwarded[@]}")

@@ -49,18 +49,21 @@ different distributions**.
 | Build native game and relay | `.\build-fvd.cmd build` | `bash build-fvd.sh build` |
 | Native tests | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
 | Pure Python unit tests | `.\build-fvd.cmd python-test` | `bash build-fvd.sh python-test` |
+| Launch packaged multiplayer lobby | `.\build-fvd.cmd game` | `bash build-fvd.sh game` |
 | Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
 | Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
-Arguments following `solo` or `relay` go directly to the native executable:
+Arguments following `game`, `solo` or `relay` go directly to the native executable:
 
 ```powershell
+.\build-fvd.cmd game --window-mode windowed
 .\build-fvd.cmd solo --no-audio --window-mode fullscreen
 .\build-fvd.cmd relay --listen 127.0.0.1 --port 40000
 .\build-fvd.cmd relay -- --help
 ```
 
 ```bash
+bash build-fvd.sh game
 bash build-fvd.sh solo --no-audio
 bash build-fvd.sh relay --listen 127.0.0.1 --port 40000
 ```

@@ -2,7 +2,7 @@
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
 # Engine API is checked in under assets/fvd/engine_api; no export step.
-# Modes: package (default), build, test, python-test, solo, relay. Accept runtime or
+# Modes: package (default), build, test, python-test, game, solo, relay. Accept runtime or
 # test and native runtime options directly after their mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "package"
@@ -13,7 +13,7 @@ $NativeArgs = @()
 $tokens = @($args)
 $i = 0
 if ($tokens.Count -gt 0 -and
-    $tokens[0] -in @("package", "build", "test", "python-test", "solo", "relay")) {
+    $tokens[0] -in @("package", "build", "test", "python-test", "game", "solo", "relay")) {
     $Mode = $tokens[0]
     $i = 1
 }
@@ -45,11 +45,11 @@ while ($i -lt $tokens.Count) {
             continue
         }
         default {
-            if ($Mode -in @("python-test", "solo", "relay", "test")) {
+            if ($Mode -in @("python-test", "game", "solo", "relay", "test")) {
                 $NativeArgs += $token
             }
             else {
-                throw "Unknown argument '$token'. Commands: package, build, test, python-test, solo, relay."
+                throw "Unknown argument '$token'. Commands: package, build, test, python-test, game, solo, relay."
             }
         }
     }
@@ -169,10 +169,10 @@ function Get-ExtractedRunStage {
 
 Push-Location $root
 try {
-    if ($Mode -in @("solo", "relay")) {
+    if ($Mode -in @("game", "solo", "relay")) {
         # Run the actual packaged binary, not a developer launcher. No compilation.
         $bin = Get-ExtractedRunStage
-        $name = if ($Mode -eq "solo") { "openage-native.exe" } else { "openage-relay.exe" }
+        $name = if ($Mode -eq "relay") { "openage-relay.exe" } else { "openage-native.exe" }
         $exe = Join-Path $bin $name
         $runArgs = @()
         if ($Mode -eq "solo") { $runArgs += "--solo" }
