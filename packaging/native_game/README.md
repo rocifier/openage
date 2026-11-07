@@ -2,9 +2,9 @@
 
 The end-user Fast Villager Defense (FVD) runtime uses native C++ entry points:
 `openage-native` for the game and `openage-relay` for the relay. Neither
-runtime loads Python or Cython. Python 3.12+, Cython 3.1+ and Python
-packages remain **developer/build-time tools** for code generation,
-asset conversion, API export and the traditional openage test suite.
+runtime loads Python or Cython. Python 3.12+ and the remaining Cython
+modules are **optional development tools**, not runtime dependencies.
+Coordinate C++ code and C++ test dispatch are now tracked, not generated.
 
 ## The normal workflow: one command
 
@@ -48,7 +48,7 @@ different distributions**.
 | Package + smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
 | Build native game and relay | `.\build-fvd.cmd build` | `bash build-fvd.sh build` |
 | Native tests | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
-| Legacy C++/Python tests | `.\build-fvd.cmd legacy-test` | `bash build-fvd.sh legacy-test` |
+| Pure Python unit tests | `.\\build-fvd.cmd python-test` | `bash build-fvd.sh python-test` |\n| Optional legacy Python/Cython tests | `.\build-fvd.cmd legacy-test` | `bash build-fvd.sh legacy-test` |
 | Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
 | Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
@@ -68,16 +68,24 @@ bash build-fvd.sh relay --listen 127.0.0.1 --port 40000
 The launch commands use the most recent archive, extracted to `dist/run/`; they do **not** reconfigure or compile.
 Run `build` for an incremental native game and relay build without creating or inspecting an archive.
 The developer game accepts loose source assets through `--asset-dir assets`; packaged builds retain strict release manifest validation.
-Run `test` to reconfigure the developer (non-release) native library, build
-the C++-owned test executable and native protocol tests, and execute CTest.
-`openage_native_cpp_tests` accepts `--list`, `--all`, `--exact NAME`, and
-`--prefix PREFIX`. This initial seventeen-test registry includes coordinate
-operations, native config, network messages, numeric utilities, assertions
-texture parsing, transport/protocol handshake, mailbox handling and replicated world deltas. It lives in `libopenage/testing/native_test_runner.cpp`
-rather than the Python-generated test dispatcher. More engine tests will be
-ported before the old Cython test bridge disappears.
-Run `legacy-test` to configure Python adapters, build the developer runner and execute the traditional C++/Python suite.
-With no test name it passes `-a` to the legacy runner and executes every test that does not require external game assets.
+Run `test` to configure the native developer library, compile the C++
+test runner, and execute the native CTest suite. C++ test registration now
+lives entirely in `libopenage/testing/native_test_runner.cpp` (120 retained
+C++ tests, demos and benchmarks), not the Python test list or Cython.
+`openage_native_cpp_tests` accepts `--list`, `--all`,
+`--all --have-assets`, `--exact NAME`, and `--prefix PREFIX`.
+The default `--all` skips asset-bound tests, interactive demos,
+performance benchmarks and internal process worker entry points.
+You can forward native flags through `build-fvd test --prefix openage::network::tests::`
+after the normal CTest run.
+
+Use `python-test` to run stdlib-only tests through `python -m unittest`,
+without configuring CMake or compiling extensions. To choose another pure
+Python unittest module, supply its dotted module name after `python-test`.
+The optional `legacy-test` command remains for developer Python/Cython
+integration tests during the remaining OpenSpec cleanup; it no longer owns
+or invokes the C++ test registry. Network process integration tests spawn the
+native C++ worker directly.
 
 Optional arguments: skip the extracted-package test with `-SkipSmoke` or `--skip-smoke`.
 Windows additionally supports `-ObserveSoloSeconds 0` to disable the
@@ -88,8 +96,8 @@ live graphical-process observation.
 The **build machine** needs compiler/Qt/nyan and the other native
 dependencies described in [building.md](../../doc/building.md).
 Until subsequent source-tree cleanup tasks land, top-level CMake can still
-need the existing Python/Cython developer environment for legacy code
-generation and tests, installed with `uv sync` using
+need the existing Python/Cython developer environment for optional upstream
+modules and tests, installed with `uv sync` using
 [pyproject.toml](../../pyproject.toml). The **shipped native game** does
 not need Python, pip, setuptools, or Cython; the standalone native relay
 does not even require Qt, nyan or game assets.
@@ -127,8 +135,10 @@ for other workflows but is no longer called by either FVD build wrapper.
 
 Coordinate C++ templates were materialized as ordinary source files in
 `libopenage/coord/`. Builds no longer invoke Mako for those types.
-The old Python test dispatcher and optional legacy test mode still exist
-until the remaining native test registrations and fixtures are migrated.
+The Python-generated C++ test dispatcher, testlist and Cython test bridge
+have been removed. The retained native test registry now covers FVD gameplay,
+network replication, rendering, audio and utility tests; any remaining
+Python-only test modules are invoked separately.
 
 The FVDNative CMake install component stages the native game/relay, C++
 engine libraries, Qt/QML runtime, FVD data, shaders, config and tracked

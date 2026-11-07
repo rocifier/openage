@@ -71,18 +71,21 @@ jobs:
 
         cmake --build . --parallel $(nproc) -- -k1
 
-        # Process-level FVD tests load the nyan API; export it with the
-        # developer tool once, never via the native game executable.
-        mkdir -p ../assets/converted
-        ./run convert-export-api ../assets/converted
-        ./run test -a
-        ctest -R fvd_native_game_ --output-on-failure
+        # Native C++ registry, no generated test dispatcher or Python callback.
+        # Default --all skips asset-bound and deliberately opt-in worker tests;
+        # CTest also probes exact/prefix/error reporting.
+        cmake --build . --target openage_native_cpp_tests --parallel $(nproc)
+        ctest -R '^fvd_native_(game|relay)_' --output-on-failure
 
-        # Rebuild just the native game with Python filesystem adapters removed.
-        # The developer test suite above intentionally runs before this toggle.
-        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF \
-          -DFVD_NATIVE_RELEASE=ON \
-          -DFVD_NATIVE_API_ASSET_DIR="$(pwd)/../assets/converted/engine" .
+        # Optional pure-Python tests use the stdlib unittest runner, never
+        # import the old Cython C++ test bridge or dispatch engine methods.
+        cd ..
+        python3 -m unittest -v openage.testing.test_fvd_network_benchmark
+        cd build
+
+        # Rebuild native release with Python filesystem adapters removed.
+        # The tracked engine API is already committed to assets/fvd/engine_api.
+        cmake -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_RELEASE=ON .
         cmake --build . --target openage_native_game --parallel $(nproc)
         ctest -R fvd_native_game_ --output-on-failure
         # A source-level import check is insufficient: reject accidental
