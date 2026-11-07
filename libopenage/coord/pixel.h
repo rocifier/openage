@@ -4,7 +4,7 @@
 
 #include <eigen3/Eigen/Dense>
 
-#include "coord_xy.gen.h"
+#include "coord_xy.h"
 #include "declarations.h"
 
 namespace openage {

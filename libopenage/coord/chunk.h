@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "coord_nese.gen.h"
-#include "coord_neseup.gen.h"
+#include "coord_nese.h"
+#include "coord_neseup.h"
 #include "declarations.h"
 
 namespace openage {

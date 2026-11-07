@@ -8,7 +8,7 @@ namespace openage {
 namespace coord {
 
 /**
- * Template class for all coordinate types that have the members (${formatted_members("{}")}).
+ * Template class for all coordinate types that have the members (ne, se, up).
  *
  * There is a distinction between relative and absolute coordinate values
  * to disallow semantically-nonsensical origin-sensitive operations:
@@ -29,39 +29,41 @@ namespace coord {
  * in etc/gdb_pretty/printers.py.
  */
 template<typename CoordType, typename Absolute, typename Relative>
-struct Coord${camelcase}Absolute {
+struct CoordNeSeUpAbsolute {
 
 	using elem_t = CoordType;
 
 	// The member variables to store the actual data.
-	${formatted_members("CoordType {0};", join_with="\n\t")}
+	CoordType ne;
+	CoordType se;
+	CoordType up;
 
 	/**
 	 * We don't want to have a default constructor,
 	 * because zero-initialization of absolute coordinates is
 	 * origin-sensitive and thus non-sensical.
 	 */
-	Coord${camelcase}Absolute() = delete;
+	CoordNeSeUpAbsolute() = delete;
 
 	/**
 	 * From-individual-values constructor
 	 */
-	constexpr Coord${camelcase}Absolute(${formatted_members("const CoordType &{}")}) : ${formatted_members("{0}{{{0}}}")} {}
+	constexpr CoordNeSeUpAbsolute(const CoordType &ne, const CoordType &se, const CoordType &up) : ne{ne}, se{se}, up{up} {}
 
 	// copy constructor + assignment operator
-	constexpr Coord${camelcase}Absolute(const Coord${camelcase}Absolute &other) = default;
-	constexpr Coord${camelcase}Absolute &operator =(const Coord${camelcase}Absolute &other) = default;
+	constexpr CoordNeSeUpAbsolute(const CoordNeSeUpAbsolute &other) = default;
+	constexpr CoordNeSeUpAbsolute &operator =(const CoordNeSeUpAbsolute &other) = default;
 
 	constexpr Absolute operator +(const Relative &other) const {
-		return Absolute(${formatted_members("this->{0} + other.{0}")});
+		return Absolute(this->ne + other.ne, this->se + other.se, this->up + other.up);
 	}
 
 	constexpr Relative operator -(const Absolute &other) const {
-		return Relative(${formatted_members("this->{0} - other.{0}")});
+		return Relative(this->ne - other.ne, this->se - other.se, this->up - other.up);
 	}
 
 	constexpr Absolute operator -(const Relative &other) const {
-		return Absolute(${formatted_members("this->{0} - other.{0}")});
+		return Absolute(this->ne - other.ne, this->se - other.se, this->up - other.up);
 	}
 
 	constexpr Absolute &operator +=(const Relative &other) {
@@ -75,7 +77,7 @@ struct Coord${camelcase}Absolute {
 	}
 
 	friend constexpr bool operator ==(const Absolute &lhs, const Absolute &rhs) {
-		return ${formatted_members("(lhs.{0} == rhs.{0})", join_with=" && ")};
+		return (lhs.ne == rhs.ne) && (lhs.se == rhs.se) && (lhs.up == rhs.up);
 	}
 };
 
@@ -91,54 +93,56 @@ struct Coord${camelcase}Absolute {
  * in etc/gdb_pretty/printers.py.
  */
 template<typename CoordType, typename Absolute, typename Relative>
-struct Coord${camelcase}Relative {
+struct CoordNeSeUpRelative {
 	using elem_t = CoordType;
 
 	// The member variables to store the actual data.
-	${formatted_members("CoordType {0};", join_with="\n\t")}
+	CoordType ne;
+	CoordType se;
+	CoordType up;
 
 	/**
 	 * Default constructor: sets the values to their defaults.
 	 */
-	Coord${camelcase}Relative() : ${formatted_members("{}{{}}")} {}
+	CoordNeSeUpRelative() : ne{}, se{}, up{} {}
 
 	/**
 	 * From-individual-values constructor
 	 */
-	constexpr Coord${camelcase}Relative(${formatted_members("const CoordType &{}")}) : ${formatted_members("{0}{{{0}}}")} {}
+	constexpr CoordNeSeUpRelative(const CoordType &ne, const CoordType &se, const CoordType &up) : ne{ne}, se{se}, up{up} {}
 
 	// copy constructor and assignment operator
-	constexpr Coord${camelcase}Relative(const Coord${camelcase}Relative &other) = default;
-	constexpr Coord${camelcase}Relative &operator =(const Coord${camelcase}Relative &other) = default;
+	constexpr CoordNeSeUpRelative(const CoordNeSeUpRelative &other) = default;
+	constexpr CoordNeSeUpRelative &operator =(const CoordNeSeUpRelative &other) = default;
 
 	constexpr Relative operator +() const {
-		return Relative(${formatted_members("+this->{}")});
+		return Relative(+this->ne, +this->se, +this->up);
 	}
 
 	constexpr Relative operator -() const {
-		return Relative(${formatted_members("-this->{}")});
+		return Relative(-this->ne, -this->se, -this->up);
 	}
 
 	constexpr Absolute operator +(const Absolute &other) const {
-		return Absolute(${formatted_members("this->{0} + other.{0}")});
+		return Absolute(this->ne + other.ne, this->se + other.se, this->up + other.up);
 	}
 
 	constexpr Relative operator +(const Relative &other) const {
-		return Relative(${formatted_members("this->{0} + other.{0}")});
+		return Relative(this->ne + other.ne, this->se + other.se, this->up + other.up);
 	}
 
 	constexpr Relative operator -(const Relative &other) const {
-		return Relative(${formatted_members("this->{0} - other.{0}")});
+		return Relative(this->ne - other.ne, this->se - other.se, this->up - other.up);
 	}
 
 	template<typename ScalarType>
 	constexpr Relative operator *(const ScalarType &scalar) const {
-		return Relative(${formatted_members("this->{0} * scalar")});
+		return Relative(this->ne * scalar, this->se * scalar, this->up * scalar);
 	}
 
 	template<typename ScalarType>
 	constexpr Relative operator /(const ScalarType &scalar) const {
-		return Relative(${formatted_members("this->{} / scalar")});
+		return Relative(this->ne / scalar, this->se / scalar, this->up / scalar);
 	}
 
 	constexpr Relative &operator +=(const Relative &other) {
@@ -164,21 +168,21 @@ struct Coord${camelcase}Relative {
 	}
 
 	friend constexpr bool operator ==(const Relative &lhs, const Relative &rhs) {
-		return ${formatted_members("(lhs.{0} == rhs.{0})", join_with=" && ")};
+		return (lhs.ne == rhs.ne) && (lhs.se == rhs.se) && (lhs.up == rhs.up);
 	}
 };
 
 
 template<typename CoordType, typename Absolute, typename Relative>
-std::ostream &operator <<(std::ostream &os, Coord${camelcase}Absolute<CoordType, Absolute, Relative> coord) {
-	os << "[${formatted_members('{0}: " << coord.{0} << "')}]";
+std::ostream &operator <<(std::ostream &os, CoordNeSeUpAbsolute<CoordType, Absolute, Relative> coord) {
+	os << "[ne: " << coord.ne << ", se: " << coord.se << ", up: " << coord.up << "]";
 	return os;
 }
 
 
 template<typename CoordType, typename Absolute, typename Relative>
-std::ostream &operator <<(std::ostream &os, Coord${camelcase}Relative<CoordType, Absolute, Relative> coord) {
-	os << "(${formatted_members('{0}: " << coord.{0} << "')})";
+std::ostream &operator <<(std::ostream &os, CoordNeSeUpRelative<CoordType, Absolute, Relative> coord) {
+	os << "(ne: " << coord.ne << ", se: " << coord.se << ", up: " << coord.up << ")";
 	return os;
 }
 

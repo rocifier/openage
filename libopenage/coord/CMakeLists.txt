@@ -2,6 +2,10 @@
 
 add_sources(libopenage
 	chunk.cpp
+	coord_xy.cpp
+	coord_xyz.cpp
+	coord_nese.cpp
+	coord_neseup.cpp
 	coord_test.cpp
 	declarations.cpp
 	phys.cpp

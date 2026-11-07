@@ -1,6 +1,6 @@
 // Copyright 2016-2023 the openage authors. See copying.md for legal info.
 
-${"#"}include "coord_${formatted_members("{}", join_with="")}.gen.h"
+#include "coord_nese.h"
 
 #include <cstdio>
 
