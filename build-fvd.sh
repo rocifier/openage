@@ -54,7 +54,7 @@ while (($#)); do
             ;;
         -h|--help) usage; exit 0 ;;
         *)
-            if [[ "$mode" == "legacy-test" || "$mode" == "solo" || "$mode" == "relay" || "$mode" == "python-test" || "$mode" == "test" ]]; then
+            if [[ "$mode" == "solo" || "$mode" == "relay" || "$mode" == "python-test" || "$mode" == "test" ]]; then
                 forwarded+=("$1")
                 shift
             else
