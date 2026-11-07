@@ -404,6 +404,7 @@ endif()
 # Windows; compiling them in a separate executable would fail linking.
 # The release library still excludes every test translation unit.
 set(_fvd_native_cpp_test_sources
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/native_test_runner.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/coord/coord_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/cvar/cvar_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/messages_test.cpp"
