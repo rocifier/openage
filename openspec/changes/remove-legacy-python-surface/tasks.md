@@ -33,12 +33,22 @@ tracked separately under 1.5/6.3.
 
 ## 3. Remove Python code generation, Cython and Python adapters
 
-- [ ] 3.1 Delete `openage/codegen`, its build integration, generated-file cache and generator cleanup targets.
-- [ ] 3.2 Delete all retained `.pyx` and `.pxd` modules and their CMake declarations.
-- [ ] 3.3 Remove `pxdgen`, Cython compilation, in-place extension copying and generated binding cleanup targets from the build system.
-- [ ] 3.4 Remove Python object wrappers, exception translation, filesystem callbacks and other C++ branches used only by the deleted bindings.
-- [ ] 3.5 Remove `FVD_WITH_PYTHON_ADAPTERS`, Python/Mako discovery, Python development headers/libraries and Cython from native build requirements.
+- [x] 3.1 Delete `openage/codegen`, its build integration, generated-file cache and generator cleanup targets.
+- [x] 3.2 Delete all retained `.pyx` and `.pxd` modules and their CMake declarations.
+- [x] 3.3 Remove `pxdgen`, Cython compilation, in-place extension copying and generated binding cleanup targets from the build system.
+- [x] 3.4 Remove Python object wrappers, exception translation, filesystem callbacks and other C++ branches used only by the deleted bindings.
+- [x] 3.5 Remove `FVD_WITH_PYTHON_ADAPTERS`, Python/Mako discovery, Python development headers/libraries and Cython from native build requirements.
 - [ ] 3.6 Verify clean native game, relay and C++ test builds without a Python interpreter installed.
+
+Task 3 implementation: the Python `openage/codegen` subtree, all 44 tracked
+Cython `.pyx` / `.pxd` files, their CMake registration, extension build
+helpers, native Python adapter C++ sources, `pyinterface`, Python filesystem
+constructors and configuration callbacks have been removed. Native CMake no
+longer discovers Python/Mako/Cython or uses the `FVD_WITH_PYTHON_ADAPTERS`
+option. Native-only source audits run in CI. Task 3.6 remains open until
+fresh Windows and Linux native game/relay/C++ test builds are verified on
+machines **without an installed Python interpreter**; disabling Python
+discovery in hosted CI does not itself meet that stricter gate.
 
 ## 4. Remove unsupported upstream workflows
 

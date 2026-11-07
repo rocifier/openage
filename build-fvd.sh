@@ -35,8 +35,8 @@ FVD Linux native release candidate
   bash build-fvd.sh --jobs 4            Limit parallel compilation
 
 Requires an existing Linux C++/Qt/CMake development setup; CMake, CPack,
-a C++ compiler and nyan development dependencies. Python, Cython and the
-declared Python modules are build-time tools and are not shipped.
+a C++ compiler and nyan development dependencies. Building requires no
+Python, Cython or Python packages; only 'python-test' needs Python 3.12+.
 USAGE
 }
 

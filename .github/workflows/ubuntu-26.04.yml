@@ -71,7 +71,7 @@ jobs:
           -G Ninja \
           ..
 
-        cmake --build . --parallel $(nproc) --target openage_native_game openage_native_relay openage_native_cpp_tests
+        cmake --build . --parallel $(nproc) --target openage_native_game openage_native_relay openage_native_cpp_tests openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
 
         # Native C++ registry, no generated test dispatcher or Python callback.
         # Default --all skips asset-bound and deliberately opt-in worker tests;
@@ -100,7 +100,7 @@ jobs:
           exit 1
         fi
         # Inspect the exact files selected for the distribution component.
-        # CMake's normal full install still contains developer Python tools.
+        # The generic installer remains out of scope; audit only FVDNative.
         cmake --install . --prefix "$(pwd)/fvd-native-stage" --component FVDNative
         cmake -DFVD_NATIVE_STAGE="$(pwd)/fvd-native-stage" -DFVD_NATIVE_REQUIRE_MANIFEST=ON -P ../packaging/native_game/AuditNativePackage.cmake
 

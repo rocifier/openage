@@ -2,9 +2,9 @@
 
 The end-user Fast Villager Defense (FVD) runtime uses native C++ entry points:
 `openage-native` for the game and `openage-relay` for the relay. Neither
-runtime loads Python or Cython. Python 3.12+ and the remaining Cython
-modules are **optional development tools**, not runtime dependencies.
-Coordinate C++ code and C++ test dispatch are now tracked, not generated.
+runtime loads Python or Cython. The supported native game, relay and C++
+test builds do not discover or invoke Python, Mako, Cython or Python development
+libraries. Python is optional **only** for separate stdlib developer tests.
 
 ## The normal workflow: one command
 
@@ -48,7 +48,7 @@ different distributions**.
 | Package + smoke-test | `.\build-fvd.cmd` | `bash build-fvd.sh` |
 | Build native game and relay | `.\build-fvd.cmd build` | `bash build-fvd.sh build` |
 | Native tests | `.\build-fvd.cmd test` | `bash build-fvd.sh test` |
-| Pure Python unit tests | `.\\build-fvd.cmd python-test` | `bash build-fvd.sh python-test` |\n| Optional legacy Python/Cython tests | `.\build-fvd.cmd legacy-test` | `bash build-fvd.sh legacy-test` |
+| Pure Python unit tests | `.\build-fvd.cmd python-test` | `bash build-fvd.sh python-test` |
 | Launch packaged solo game | `.\build-fvd.cmd solo` | `bash build-fvd.sh solo` |
 | Run packaged relay | `.\build-fvd.cmd relay` | `bash build-fvd.sh relay` |
 
@@ -92,11 +92,10 @@ live graphical-process observation.
 
 The **build machine** needs compiler/Qt/nyan and the other native
 dependencies described in [building.md](../../doc/building.md).
-Until subsequent source-tree cleanup tasks land, top-level CMake can still
-need the existing Python/Cython developer environment for optional upstream
-modules and tests, installed with `uv sync` using
-[pyproject.toml](../../pyproject.toml). The **shipped native game** does
-not need Python, pip, setuptools, or Cython; the standalone native relay
+No Python interpreter, Python packages, Python headers, Mako or Cython are
+required for the supported CMake build. Optional standalone Python tests
+require Python 3.12+; they are run explicitly via `python-test`. The
+**shipped native game** does not need Python, pip, setuptools or Cython; the standalone native relay
 does not even require Qt, nyan or game assets.
 
 On Windows, 7-Zip and the MSVC `dumpbin.exe` are used by smoke tests.
@@ -119,7 +118,7 @@ the player validates every asset SHA-256 before opening the game.
 For example, on an already configured Windows checkout from the repo root:
 
 ```powershell
-cmake -S . -B .bin\msvc-vcpkg -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_RELEASE=ON
+cmake -S . -B .bin\msvc-vcpkg -DFVD_NATIVE_RELEASE=ON
 cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_game openage_native_relay --parallel 4
 cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z -B dist
 ```
@@ -127,11 +126,12 @@ cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z -B dist
 If the tracked API changes, update the snapshot and its SHA3-256 manifest as a
 reviewed source change. CMake configuration checks those hashes and the API
 version; packaging checks the staged files, and native startup validates the
-release manifest. The legacy API exporter remains temporarily in the tree
-for other workflows but is no longer called by either FVD build wrapper.
+release manifest. The converter's old API exporter remains in Python source until Task 4,
+but is no longer used by any native build or test path.
 
 Coordinate C++ templates were materialized as ordinary source files in
-`libopenage/coord/`. Builds no longer invoke Mako for those types.
+`libopenage/coord/`. The complete Python C++ code generator, .pyx/.pxd
+sources, adapter implementation and CMake extension builders were removed.
 The Python-generated C++ test dispatcher, testlist and Cython test bridge
 have been removed. The retained native test registry now covers FVD gameplay,
 network replication, rendering, audio and utility tests; any remaining
@@ -153,6 +153,5 @@ Windows machine/VM **without Python**. Linux additionally requires
 clean-distribution library portability testing. Do not mistake a
 successful process smoke test for full gameplay acceptance.
 
-The general openage developer build and existing public/legacy
-installer still coexist. The native release candidate does not replace
-those until the acceptance gates pass.
+The native runtime and its C++ tests are the supported build path. The
+old generic packaging configuration remains to be removed in Task 5.

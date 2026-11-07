@@ -51,7 +51,7 @@ jobs:
       - name: Install environment helpers with homebrew
         run: brew install --force ccache ninja
       - name: Install openage dependencies with homebrew
-        run: brew install --force cmake python3 libepoxy freetype fontconfig harfbuzz opus opusfile qt6 libogg libpng toml11 eigen llvm
+        run: brew install --force cmake libepoxy freetype fontconfig harfbuzz opus opusfile qt6 libogg libpng toml11 eigen llvm
       - name: Install nyan dependencies with homebrew
         run: brew install --force flex make
       - name: Select Homebrew LLVM for C++ module dependency scanning
@@ -63,8 +63,8 @@ jobs:
           CMAKE_GENERATOR: Ninja
         run: |
           export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
-          cmake -S . -B bin -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES -DFVD_NATIVE_RELEASE=OFF -DCMAKE_OSX_SYSROOT="$SDKROOT"
+          cmake -S . -B bin -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES -DFVD_NATIVE_RELEASE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE -DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE -DCMAKE_OSX_SYSROOT="$SDKROOT"
       - name: Build native game relay and tests
-        run: cmake --build bin --parallel $(sysctl -n hw.logicalcpu) --target openage_native_game openage_native_relay openage_native_cpp_tests
+        run: cmake --build bin --parallel $(sysctl -n hw.logicalcpu) --target openage_native_game openage_native_relay openage_native_cpp_tests openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
       - name: Test
         run: ctest --test-dir bin -R '^fvd_native_(game|relay)_' --output-on-failure
