@@ -12,6 +12,13 @@ function(add_fvd_native_relay)
 	configure_file("${_root}/packaging/native_relay/config.h.in"
 		"${_generated}/config.h" @ONLY)
 
+	# Portable static musl builds omit optional symbolized C++ backtraces.
+	if(FVD_RELAY_PORTABLE_STATIC)
+		set(_relay_stackanalyzer "${_root}/packaging/native_relay/portable_stackanalyzer.cpp")
+	else()
+		set(_relay_stackanalyzer "${_root}/libopenage/error/stackanalyzer.cpp")
+	endif()
+
 	add_library(fvd_native_relay_core STATIC
 		"${_root}/libopenage/network/relay_service.cpp"
 		"${_root}/libopenage/network/relay.cpp"
@@ -20,7 +27,7 @@ function(add_fvd_native_relay)
 		"${_root}/libopenage/network/serialization.cpp"
 		"${_root}/libopenage/error/error.cpp"
 		"${_root}/libopenage/error/backtrace.cpp"
-		"${_root}/libopenage/error/stackanalyzer.cpp"
+		${_relay_stackanalyzer}
 		"${_root}/libopenage/log/level.cpp"
 		"${_root}/libopenage/log/log.cpp"
 		"${_root}/libopenage/log/logsink.cpp"
