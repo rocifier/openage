@@ -7,6 +7,3 @@ add_sources(libopenage
 )
 
 
-pxdgen(
-	main.h
-)

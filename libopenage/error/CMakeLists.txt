@@ -6,8 +6,4 @@ add_sources(libopenage
 	stackanalyzer.cpp
 )
 
-pxdgen(
-	backtrace.h
-	error.h
-	handlers.h
-)
+
