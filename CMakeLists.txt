@@ -222,8 +222,6 @@ doxygen_configure(libopenage/ openage/ doc/ README.md)
 ##################################################
 # static content
 add_subdirectory(assets/)
-add_subdirectory(dist/)
-add_subdirectory(cfg/)
 
 
 ##################################################

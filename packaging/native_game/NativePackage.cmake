@@ -1,7 +1,6 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 #
-# Separate install component for the Python-free FVD distribution.
-# Qt/vendor runtime deployment and the release asset manifest are future gates.
+# The only supported CPack payload: native game, relay, libraries and FVD assets.
 
 include("${CMAKE_CURRENT_LIST_DIR}/CheckEngineApi.cmake")
 set(_fvd_api_source "${CMAKE_SOURCE_DIR}/assets/fvd/engine_api")
@@ -76,8 +75,7 @@ install(FILES "${_fvd_manifest}"
 
 # Deploy dependencies and audit the *completed* native stage, including the
 # engine API and integrity manifest. Run this at the END of component install.
-# Only the standalone Windows portable game package deploys Qt binaries here.
-# The legacy all-component installer still has its separate Python deployer.
+# Windows deploys Qt using native tools, not the retired installer.
 if(MSVC)
 	# Keep the portable archive runnable on Windows without VS redistributables.
 	include(InstallRequiredSystemLibraries)

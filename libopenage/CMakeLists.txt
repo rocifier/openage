@@ -304,16 +304,7 @@ target_link_libraries(libopenage
 		Qt6::Multimedia
 )
 
-##################################################
-# installation of the library
-install(TARGETS libopenage
-	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-if(WIN32)
-	install(FILES $<TARGET_FILE:nyan::nyan>
-		DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
+# libopenage and nyan ship only via the audited FVDNative component.
 
 
 ##################################################

@@ -1,86 +1,35 @@
-# Copyright 2017-2019 the openage authors. See copying.md for legal info.
-
-# Keeps all required CPack configuration in one place and include(CPack)
-
-
-########################################################################
-# Basic information
-
-set(CPACK_PACKAGE_VENDOR "The openage authors")
-set(CPACK_PACKAGE_CONTACT "openage-Maintainers https://github.com/SFTtech/openage#contact")
-set(CPACK_PACKAGE_DESCRIPTION "Free (as in freedom) open source clone of the Age of Empires II engine 🚀")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A FLOSS RTS-engine in tribute to Genie 🚀")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://openage.dev/")
-
-
-########################################################################
-# CPackOptions for Generators + Version details
+# Copyright 2026 the openage authors. See copying.md for legal info.
+# The sole supported FVD distribution: native C++ game, relay and FVDNative 7Z.
+set(CPACK_PACKAGE_VENDOR "The FVD contributors")
+set(CPACK_PACKAGE_CONTACT "https://github.com/rocifier/openage")
+set(CPACK_PACKAGE_DESCRIPTION "Fast Villager Defense native game and relay")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fast Villager Defense")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/rocifier/openage")
 set(CPACK_VERSION_FULL_STRING "${VERSION_FULL_STRING}")
 set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/packaging/CPackOptions.cmake")
 
-
-########################################################################
-# Environment
-
-if(MSVC)
-	add_executable(openage_launcher WIN32 openage_launcher.cpp)
-	set_target_properties(openage_launcher PROPERTIES OUTPUT_NAME "openage")
-	target_link_libraries(openage_launcher PRIVATE user32)
-	install(TARGETS openage_launcher RUNTIME DESTINATION ".")
-
-	# HACKHACK: Update the following if vcpkg breaks compatibility for
-	# internal directories, scripts, or variables.
+# Windows Qt deployment must not discover Python or run legacy installers.
+if(WIN32)
 	set(vcpkg_dir "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}")
-	set(_python_embed_version "${PYTHON_VERSION_STRING}")
-	# Python 3.12.10 was the final 3.12 release with Windows installers.
-	# Later security releases retain the same extension-module ABI.
-	if(PYTHON_VERSION_STRING VERSION_GREATER "3.12.10"
-	   AND PYTHON_VERSION_STRING VERSION_LESS "3.13")
-		set(_python_embed_version "3.12.10")
-	endif()
-	set(PYTHON_EMBED_VERSION "${_python_embed_version}" CACHE STRING
-		"Python embeddable distribution version used for Windows packages")
-	find_program(windeployqt windeployqt.exe)
-
-	configure_file(
-		"${BUILDSYSTEM_DIR}/templates/ForwardVariables.cmake.in"
-		"${CMAKE_CURRENT_BINARY_DIR}/ForwardVariables.cmake"
-	)
-	install(SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/ForwardVariables.cmake")
-	install(SCRIPT "${BUILDSYSTEM_DIR}/scripts/EmbedWinDependencies.cmake")
-	foreach(_UTILITY ${REQUIRED_UTILITIES})
-		install(FILES "${${_UTILITY}_EXECUTABLE}" DESTINATION "${CMAKE_INSTALL_BINDIR}")
-	endforeach()
-	configure_file(
-		"${BUILDSYSTEM_DIR}/templates/openage.bat.in"
-		"${CMAKE_CURRENT_BINARY_DIR}/openage.bat"
-	)
-	install(FILES "${CMAKE_CURRENT_BINARY_DIR}/openage.bat" DESTINATION ".")
-
-	include(InstallRequiredSystemLibraries)
+	find_program(windeployqt NAMES windeployqt.exe
+		HINTS "${vcpkg_dir}/tools/Qt6/bin" "${vcpkg_dir}/tools/Qt6")
 endif()
-
 
 # The relay is intentionally linked only against the native network core.
 # No Python/Cython, game engine, Qt or nyan dependencies are required.
 include("${CMAKE_CURRENT_SOURCE_DIR}/native_relay/NativeRelay.cmake")
 add_fvd_native_relay()
-install(TARGETS openage_native_relay RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 
-# Native game startup is opt-in until the Python adapter boundary and
-# packaged-asset manifest have passed runtime verification.
+# Native game uses the tracked engine API and strict asset verification.
 find_package(toml11 REQUIRED)
 add_executable(openage_native_game native_game_main.cpp native_game_args.cpp)
 set_target_properties(openage_native_game PROPERTIES OUTPUT_NAME "openage-native")
 target_include_directories(openage_native_game PRIVATE "${CMAKE_SOURCE_DIR}/libopenage")
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core)
 target_link_libraries(openage_native_game PRIVATE libopenage Qt6::Core toml11::toml11)
-install(TARGETS openage_native_game RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
-# Independent staged runtime component excludes Python/Cython artifacts.
+# The sole install payload is the strict FVDNative component.
 include("${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativePackage.cmake")
-# NativePackage.cmake declares FVD_NATIVE_RELEASE; set this only after
-# the release option has been evaluated.
 # Generated from the single CMake compatibility source.
 include("${CMAKE_CURRENT_SOURCE_DIR}/native_game/EngineApiVersion.cmake")
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/native_game/EngineApiVersion.h.in"
@@ -139,36 +88,24 @@ if(BUILD_TESTING AND NOT FVD_NATIVE_RELEASE)
 endif()
 
 ########################################################################
-# Resource files
-
+# Native-only CPack archive; preserve existing Windows/Linux archive naming.
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/copying.md")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
-
-# TODO: Still really blurry, another possibility to get a higher res pic in there?
-#set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/assets/logo\\\\cpack.bmp")
-
-########################################################################
-# File output
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
 set(CPACK_PACKAGE_CHECKSUM "SHA256")
-
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	set(CPACK_SET_DESTDIR ON)
 endif()
-
-########################################################################
-# General package config
-
-if(FVD_NATIVE_RELEASE)
-	# A direct player archive, not the developer or embedded-Python bundle.
-	set(CPACK_GENERATOR "7Z")
-	set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
-	set(CPACK_COMPONENTS_ALL FVDNative)
-	set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
-else()
-	set(CPACK_GENERATOR "NSIS" "7Z")
-endif()
-
-
+set(CPACK_GENERATOR "7Z")
+set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_ALL FVDNative)
+set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
 include(CPack)
+
+if(BUILD_TESTING)
+	add_test(NAME fvd_native_game_package_config
+		COMMAND "${CMAKE_COMMAND}"
+			"-DFVD_CPACK_CONFIG=${CMAKE_BINARY_DIR}/CPackConfig.cmake"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/native_game/NativePackageConfigTest.cmake")
+endif()
