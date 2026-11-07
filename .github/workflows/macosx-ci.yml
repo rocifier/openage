@@ -63,7 +63,15 @@ jobs:
           CMAKE_GENERATOR: Ninja
         run: |
           export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
-          cmake -S . -B bin -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES -DFVD_NATIVE_RELEASE=OFF -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE -DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE -DCMAKE_OSX_SYSROOT="$SDKROOT"
+          llvm_prefix="$(brew --prefix llvm)"
+          # nyan requires C++ module import-graph scanning: select the
+          # Homebrew LLVM compiler, not Apple's default /usr/bin/c++.
+          cmake -S . -B bin -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES -DFVD_NATIVE_RELEASE=OFF \
+            -DCMAKE_C_COMPILER="$llvm_prefix/bin/clang" \
+            -DCMAKE_CXX_COMPILER="$llvm_prefix/bin/clang++" \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE \
+            -DCMAKE_OSX_SYSROOT="$SDKROOT"
       - name: Build native game relay and tests
         run: cmake --build bin --parallel $(sysctl -n hw.logicalcpu) --target openage_native_game openage_native_relay openage_native_cpp_tests openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
       - name: Test

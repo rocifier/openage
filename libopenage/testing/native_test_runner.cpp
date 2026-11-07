@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "error/error.h"
+#include "log/log.h"
 #include "testing/native_test_runner.h"
 #include "testing/testing.h"
 
@@ -204,6 +205,10 @@ int run(const Test &test) {
 } // namespace
 
 int openage::testing::native_test_main(int argc, char **argv) {
+	// Register the global C++ log sink before constructing MSG(err).
+	// Without a sink, MessageBuilder suppresses text formatting and even
+	// deliberate assertion failures lose the expected diagnostic message.
+	openage::log::set_level(openage::log::level::warn);
 	if (argc == 2 && std::string_view{argv[1]} == "--verify-error-report") {
 		return run({"native::failure_diagnostic", diagnostic_failure, false, true});
 	}
