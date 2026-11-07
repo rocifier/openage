@@ -3,30 +3,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 
-# main build configuration file
-
-# text art: figlet -f rounded "[SFT] openage" | sed -e 's/\\/\\\\/g'
-message("
-
- ___  ______ _______ _______ ___
-|  _)/ _____|_______|_______|_  |
-| | ( (____  _____      _     | |    ___  ____  _____ ____  _____  ____ _____
-| |  \\____ \\|  ___)    | |    | |   / _ \\|  _ \\| ___ |  _ \\(____ |/ _  | ___ |
-| |_ _____) ) |        | |   _| |  | |_| | |_| | ____| | | / ___ ( (_| | ____|
-|___|______/|_|        |_|  (___|   \\___/|  __/|_____)_| |_\\_____|\\___ |_____)
-                                         |_|                     (_____|
-
-Welcome to the SFT technologies computer-aided openage build system!
-
-You have chosen, or been chosen, to attempt the daring task of building openage.
-If you have installed all the dependencies that are conveniently listed in
-[doc/building.md], this _might_ just work!
-
-If it doesn't, consider reporting the issue, or ask for help:
-  * GitHub: https://github.com/SFTtech/openage
-  * Matrix: #sfttech:matrix.org
-")
-
+# Fast Villager Defense: native C++ game, relay and C++ tests.
+# The original-game Python/Cython converter and generic upstream launcher
+# are intentionally not part of this build.
+message(STATUS "Configuring Fast Villager Defense native C++")
 
 ##################################################
 # main buildsystem setup entry point
@@ -47,7 +27,6 @@ foreach(pol
         CMP0071  # enable automoc for generated files
         CMP0072  # prefers GLVND by default FindOpenGL
         CMP0048  # project() command manages VERSION variables
-        CMP0094  # take the first satisfying Python version
         CMP0082  # run add_subdirectory() in the declaration order
         CMP0102  # Don't create empty cache entries
        )
@@ -68,7 +47,7 @@ string(TOUPPER "CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}" BUILD_TYPE_CXX_FLAGS)
 
 
 ##################################################
-# options: keep up to date with those in ./configure!
+# Native options: controlled directly by CMake and build-fvd wrappers.
 if(NOT DEFINED WANT_BACKTRACE)
 	set(WANT_BACKTRACE if_available)
 endif()

@@ -18,12 +18,13 @@ Select the vcpkg toolchain in your MSVC CMake environment; `deps/msvc-env.ps1` i
 .\build-fvd.cmd                  # native build, 7Z archive and smoke checks
 .\build-fvd.cmd build            # incremental development build
 .\build-fvd.cmd test             # C++ test runner and CTest
+.\build-fvd.cmd game            # launch latest packaged multiplayer lobby
 .\build-fvd.cmd solo --no-audio # launch latest packaged solo game
 .\build-fvd.cmd relay --port 40000
 .\build-fvd.cmd python-test      # optional Python unittest, no native dependency
 ```
 
-The game `solo` and relay modes use the **latest packaged archive** in `dist`. Rebuild/package after source changes if you want to play the updated code. Pass `-SkipSmoke` for a quicker development archive. Use `--` to forward ambiguous native arguments to the packaged programs.
+The `game`, `solo` and `relay` modes use the **latest packaged archive** in `dist`. Rebuild/package after source changes if you want to play the updated code. Pass `-SkipSmoke` for a quicker development archive. Use `--` to forward ambiguous native arguments to the packaged programs.
 
 The engine API is committed at `assets/fvd/engine_api` and validated at configuration. The installed mount path `share/openage/converted/engine` is not a source-tree conversion cache. Do not run original-game converters; FVD does not support them.
 

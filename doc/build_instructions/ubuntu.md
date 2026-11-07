@@ -20,8 +20,8 @@ From the repository root, build, package, and smoke-test native FVD:
 bash build-fvd.sh
 ```
 
-Then use `bash build-fvd.sh test`, `bash build-fvd.sh solo` or
-`bash build-fvd.sh relay` to test, play or host using the native build.
+Then use `bash build-fvd.sh test`, `bash build-fvd.sh game` (multiplayer lobby),
+`bash build-fvd.sh solo` or `bash build-fvd.sh relay` to test, play or host.
 
 **The native FVD build and distribution require no Python, Cython, Mako or converter.** Optional pure-Python network tests run separately with `bash build-fvd.sh python-test` (Python 3.12+). `uv sync` installs only optional lint/type-check tools.
 
