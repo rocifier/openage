@@ -3,7 +3,7 @@
 # Normal use: .\build-fvd.cmd
 # Engine API is checked in under assets/fvd/engine_api; no export step.
 # Modes: build (default), game, solo, relay, test, python-test, package.
-# test and native runtime options directly after their mode.
+# Runtime and test options are forwarded after the mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "build"
 $Jobs = 4
