@@ -10,15 +10,10 @@
 
 // pxd: from libopenage.util.filelike.filelike cimport FileLike
 #include "filelike/filelike.h"
-// pxd: from libopenage.pyinterface.pyobject cimport PyObj
-// Avoid pulling the Python object implementation into native gameplay headers.
-// The complete type is included only by the developer adapter sources.
 
 // pxd: from libopenage.util.path cimport Path
 
 namespace openage {
-namespace pyinterface { class PyObjectRef; }
-namespace py { using Obj = pyinterface::PyObjectRef; }
 
 
 namespace util {
@@ -27,8 +22,7 @@ class Path;
 
 
 /**
- * Generic File implementation, used in our filesystem-like and file-like
- * abstraction system. Can be created from Python :)
+ * Generic File implementation for native filesystem/filelike adapters.
  *
  * TODO: maybe inherit from std::iostream so we can use it the c++-way
  *
@@ -46,10 +40,7 @@ public:
 	using seek_t = filelike::FileLike::seek_t;
 	using mode_t = filelike::FileLike::mode_t;
 
-	/**
-	 * Empty constructor, pls don't use.
-	 * It only exists because Cython needs it.
-	 */
+	/** Empty file wrapper for optional results. */
 	File();
 
 	/**
@@ -68,15 +59,7 @@ public:
 	 */
 	File(std::shared_ptr<filelike::FileLike> filelike);
 
-	/**
-	 * Wraps a python filelike object that is already open.
-	 * This is called from Cython.
-	 *
-	 * You will probably never call that manually.
-	 */
-	File(const py::Obj &filelike);
-
-	virtual ~File() = default;
+		virtual ~File() = default;
 
 	/**
 	 * Read data from the file and return a string.

@@ -43,7 +43,7 @@ public:
 	/**
 	 * Seek reference point.
 	 *
-	 * Don't change the numbers, they're used from Cython.
+	 * Stable seek constants used by all native files.
 	 */
 	enum class seek_t : int {
 		SET = 0, //!< offset from file beginning
@@ -85,8 +85,6 @@ public:
 	virtual void close() = 0;
 	virtual void flush() = 0;
 	virtual ssize_t get_size() = 0;
-
-	virtual bool is_python_native() const noexcept;
 
 	/** string representation of the filelike */
 	virtual std::ostream &repr(std::ostream &) = 0;
