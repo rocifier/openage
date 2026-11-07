@@ -1557,7 +1557,9 @@ void Presenter::init_input() {
 			         std::pair{"fvdEffectsToggle", HudAction::TOGGLE_EFFECTS},
 			         std::pair{"fvdFlareButton", HudAction::FLARE},
 			         std::pair{"fvdTowerLabelsToggle", HudAction::TOGGLE_TOWER_LABELS},
-			         std::pair{"fvdDeleteFoundationsButton", HudAction::DELETE_FOUNDATIONS}}) {
+			         std::pair{"fvdDeleteFoundationsButton", HudAction::DELETE_FOUNDATIONS},
+			         std::pair{"fvdGarrisonButton", HudAction::GARRISON},
+			         std::pair{"fvdUngarrisonButton", HudAction::UNGARRISON}}) {
 				if (this->gui->contains_item(name, ev.position())) {
 					hovered_action = action;
 					break;
@@ -1607,6 +1609,18 @@ void Presenter::init_input() {
 				break;
 			case HudAction::DELETE_FOUNDATIONS:
 				this->send_fvd_delete_foundations();
+				break;
+			case HudAction::GARRISON:
+				// Same as T; clicking the button again backs out like Esc.
+				if (this->game_controller->is_garrison_mode_active()) {
+					this->game_controller->cancel_garrison_mode();
+				}
+				else {
+					this->game_controller->begin_garrison_mode();
+				}
+				break;
+			case HudAction::UNGARRISON:
+				this->game_controller->issue_ungarrison();
 				break;
 			case HudAction::NONE:
 			case HudAction::OPTIONS:
@@ -1800,6 +1814,9 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("damage", QString{"Not defined"});
 			this->fvd_hud_state->insert("armor", QString{"Not defined"});
 			this->fvd_hud_state->insert("canBuild", false);
+			this->fvd_hud_state->insert("canGarrison", false);
+			this->fvd_hud_state->insert("garrisoning", false);
+			this->fvd_hud_state->insert("canUngarrison", false);
 			this->fvd_hud_state->insert("placementFootprint", QVariantList{});
 			this->fvd_hud_state->insert("siteMarkers", QVariantList{});
 			this->fvd_hud_state->insert("reservedFootprints", QVariantList{});
@@ -2101,9 +2118,10 @@ void Presenter::render() {
 					selection_label = QString{"%1 units selected"}.arg(count);
 			}
 			else if (builder) {
-				selection_label = this->game_controller->is_garrison_mode_active()
-					? QString{"Builder — click a friendly completed tower to garrison (Esc cancels)"}
-					: QString{"Builder"};
+				// The Garrison button shows the "click a tower" prompt; changing
+				// this label too would reflow the panel and move the buttons
+				// out from under the cursor.
+				selection_label = QString{"Builder"};
 			}
 			else if (tower) {
 				selection_label = QString{"Tower"};
@@ -2130,6 +2148,8 @@ void Presenter::render() {
 				             .arg(static_cast<qlonglong>(current))
 				             .arg(selected.render_entity->get_max_health());
 			}
+			// Ungarrison is only offered for a tower holding this player's Builder.
+			bool can_ungarrison = false;
 			// Inspectable allied and Hunter-visible enemy towers may lack a
 			// local RenderEntity pointer. Always display their authoritative HP.
 			if (selected.ids.size() == 1) {
@@ -2147,6 +2167,10 @@ void Presenter::render() {
 						    .arg(static_cast<qlonglong>(*entity->health))
 						    .arg(static_cast<qlonglong>(*entity->maximum_health));
 					}
+					can_ungarrison = tower and controlled >= 2
+						and entity != world->entities.end()
+						and entity->garrison_player
+						and *entity->garrison_player == controlled;
 				}
 			}
 			this->fvd_hud_state->insert("controlled", static_cast<int>(controlled));
@@ -2156,6 +2180,10 @@ void Presenter::render() {
 				selected.kind == input::game::SelectionKind::FOUNDATION);
 			this->fvd_hud_state->insert("health", health);
 			this->fvd_hud_state->insert("canBuild", controlled >= 2 and builder);
+			this->fvd_hud_state->insert("canGarrison",
+				controlled >= 2 and builder and selected.ids.size() == 1);
+			this->fvd_hud_state->insert("garrisoning", this->game_controller->is_garrison_mode_active());
+			this->fvd_hud_state->insert("canUngarrison", can_ungarrison);
 			this->fvd_hud_state->insert("canAttack", controlled == 1 and hunter_horse);
 			this->fvd_hud_state->insert("attacking", this->game_controller->is_attack_move_active());
 			this->fvd_hud_state->insert("patrolling", this->game_controller->is_patrol_active());

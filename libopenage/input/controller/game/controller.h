@@ -186,6 +186,12 @@ public:
 	/** Issue a stance for the currently selected Hunter horses, when permitted. */
 	bool issue_hunter_stance(gamestate::HunterStance stance);
 
+	/** Bind the same local/guest ungarrison command used by the G hotkey to the HUD. */
+	void set_ungarrison_action(std::function<void()> action);
+
+	/** Ungarrison the Builder from the selected tower (same as pressing G). */
+	bool issue_ungarrison();
+
 	/** Called whenever the local player orders their own units (sound feedback). */
 	void set_order_feedback(std::function<void()> feedback);
 
@@ -271,6 +277,7 @@ private:
 	bool garrison_mode = false;
 	HunterTargeting hunter_targeting = HunterTargeting::NONE;
 	std::function<void(gamestate::HunterStance)> hunter_stance_action{};
+	std::function<void()> ungarrison_action{};
 	std::function<void()> order_feedback{};
 
 	/**

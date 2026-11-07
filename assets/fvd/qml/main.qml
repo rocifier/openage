@@ -17,6 +17,9 @@ Item {
 	readonly property string constructionStatus: hud === null ? "" : hud.constructionStatus
 	readonly property int constructionPercent: hud === null ? -1 : hud.constructionPercent
 	readonly property bool canBuild: hud !== null && hud.canBuild
+	readonly property bool canGarrison: hud !== null && hud.canGarrison === true
+	readonly property bool garrisoning: hud !== null && hud.garrisoning === true
+	readonly property bool canUngarrison: hud !== null && hud.canUngarrison === true
 	readonly property bool isTower: hud !== null && hud.isTower
 	readonly property bool isFoundation: hud !== null && hud.isFoundation === true
 	readonly property bool canAttack: hud !== null && hud.canAttack
@@ -908,6 +911,53 @@ Item {
 					font.bold: true
 					font.pixelSize: 14
 					text: root.canAttack ? "Attack-move (A)" : root.placing ? "Cancel (Esc)" : "Build Tower (B)"
+				}
+
+				MouseArea {
+					anchors.fill: parent
+					cursorShape: Qt.PointingHandCursor
+				}
+			}
+			// Clicks are routed by the presenter using these objectNames.
+			Rectangle {
+				objectName: "fvdGarrisonButton"
+				visible: root.canGarrison
+				width: 252
+				height: 32
+				radius: 4
+				color: root.garrisoning ? "#ae6e30" : "#3e7862"
+				border.width: 1
+				border.color: "#b5d9c4"
+
+				Text {
+					anchors.centerIn: parent
+					color: "#ffffff"
+					font.bold: true
+					font.pixelSize: 14
+					text: root.garrisoning ? "Click a tower (Esc cancels)" : "Garrison (T)"
+				}
+
+				MouseArea {
+					anchors.fill: parent
+					cursorShape: Qt.PointingHandCursor
+				}
+			}
+			Rectangle {
+				objectName: "fvdUngarrisonButton"
+				visible: root.canUngarrison
+				width: 252
+				height: 32
+				radius: 4
+				color: "#3e7862"
+				border.width: 1
+				border.color: "#b5d9c4"
+
+				Text {
+					anchors.centerIn: parent
+					color: "#ffffff"
+					font.bold: true
+					font.pixelSize: 14
+					text: "Ungarrison (G)"
 				}
 
 				MouseArea {

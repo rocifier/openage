@@ -286,6 +286,26 @@ bool Controller::issue_hunter_stance(gamestate::HunterStance stance) {
 	return true;
 }
 
+void Controller::set_ungarrison_action(std::function<void()> action) {
+	std::unique_lock lock{this->mutex};
+	this->ungarrison_action = std::move(action);
+}
+
+bool Controller::issue_ungarrison() {
+	std::function<void()> action;
+	{
+		std::unique_lock lock{this->mutex};
+		if (this->active_faction_id < 2 or this->selected.size() != 1
+		    or this->selected_kind != SelectionKind::TOWER or not this->ungarrison_action) {
+			return false;
+		}
+		action = this->ungarrison_action;
+	}
+	// Run outside the lock: the action reads the selection again.
+	action();
+	return true;
+}
+
 void Controller::set_order_feedback(std::function<void()> feedback) {
 	std::unique_lock lock{this->mutex};
 	this->order_feedback = std::move(feedback);
@@ -813,9 +833,9 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
 		          binding_action{forward_action_t::CLEAR, start_garrison});
 
-		binding_func_t ungarrison_selected{[simulation, time_loop, send_guest_command, guest_world](
-		                                        const event_arguments &,
-		                                        const std::shared_ptr<Controller> ctl) {
+		// Shared by the G hotkey and the HUD's Ungarrison button.
+		auto ungarrison = [simulation, time_loop, send_guest_command, guest_world](
+		                      const std::shared_ptr<Controller> &ctl) {
 			const auto selection = ctl->get_selection_details();
 			const auto owner = static_cast<gamestate::player_id_t>(ctl->get_controlled());
 			if (owner < 2 or selection.ids.size() != 1
@@ -834,7 +854,16 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 				"game.send_command", simulation->get_commander(),
 				simulation->get_game()->get_state(),
 				time_loop->get_clock()->get_time(), params);
+		};
+		binding_func_t ungarrison_selected{[ungarrison](const event_arguments &,
+		                                                const std::shared_ptr<Controller> ctl) {
+			ungarrison(ctl);
 		}};
+		controller->set_ungarrison_action([weak_controller, ungarrison]() {
+			if (auto active = weak_controller.lock()) {
+				ungarrison(active);
+			}
+		});
 		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_G,
 		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
 		          binding_action{forward_action_t::CLEAR, ungarrison_selected});

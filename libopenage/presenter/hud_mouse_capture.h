@@ -28,6 +28,8 @@ public:
 		FLARE,
 		TOGGLE_TOWER_LABELS,
 		DELETE_FOUNDATIONS,
+		GARRISON,
+		UNGARRISON,
 	};
 
 	struct Result {
