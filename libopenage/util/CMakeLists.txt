@@ -36,13 +36,6 @@ add_sources(libopenage
 	vector_test.cpp
 )
 
-pxdgen(
-	compiler.h
-	enum.h
-	enum_test.h
-	file.h
-	path.h
-)
 
 # Python filesystem adapters belong to the developer/Cython build only.
 if(FVD_WITH_PYTHON_ADAPTERS)
