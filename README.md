@@ -12,6 +12,7 @@ FVD is a standalone multiplayer RTS fork of openage, with native C++ game and re
 .\build-fvd.cmd             # build, create native archive and smoke-test
 .\build-fvd.cmd build       # incremental native development build
 .\build-fvd.cmd test        # native C++ tests
+.\build-fvd.cmd game        # multiplayer lobby from latest native archive
 .\build-fvd.cmd solo        # play the latest packaged archive
 .\build-fvd.cmd relay       # host relay from the archive
 ```
@@ -22,6 +23,7 @@ FVD is a standalone multiplayer RTS fork of openage, with native C++ game and re
 bash build-fvd.sh           # build and verify native archive
 bash build-fvd.sh build     # development game and relay
 bash build-fvd.sh test      # C++/CTest regression tests
+bash build-fvd.sh game      # multiplayer lobby
 bash build-fvd.sh solo      # play the packaged game
 bash build-fvd.sh relay     # start the packaged relay
 ```

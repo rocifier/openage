@@ -9,8 +9,8 @@ See [the engine architecture](../architecture.md) for the subsystem boundaries a
 ## Startup relay lobby
 
 Launching the FVD game normally opens a Qt Quick multiplayer menu, leaving the
-simulation clock paused at zero. `run game --solo` retains the existing
-local gameplay and `run test` uses the existing test runner.
+simulation clock paused at zero. `build-fvd game` launches the packaged multiplayer lobby, `build-fvd solo`
+starts local gameplay, and `build-fvd test` runs native C++ tests.
 
 The menu asks for a relay DNS/address, port, player name and optional private-alpha token.
 A host supplies a game name and creates an advertised room whose nonzero ID comes from the relay.
@@ -85,10 +85,10 @@ before Internet deployment; the existing TCP relay has no encryption.
 Run the persistent relay and the two game clients in three terminals.
 
 ```sh
-bin/run relay
+bash build-fvd.sh relay
 ```
 
-Start `bin/run game` twice.
+Start `bash build-fvd.sh game` twice.
 Use address `127.0.0.1` and port `40000` in both lobby screens.
 Choose different player names.
 On the first client, enter a game name and select **Host Game**.
@@ -256,10 +256,10 @@ Network code can change connection management without changing horse, projectile
 Run the public relay service separately:
 
 ```sh
-bin/run relay
+bash build-fvd.sh relay
 ```
 
-Launch two copies of `bin/run game` and use relay address `127.0.0.1` and port `40000`.
+Launch two copies of `bash build-fvd.sh game` and use relay address `127.0.0.1` and port `40000`.
 On the first client choose **Host Game**.
 On the second choose **Refresh Games**, enter the listed room ID and choose **Join Room**.
 Click **Start Game** on the host. Both clients reveal the same Hunter/Builder
@@ -269,7 +269,7 @@ acknowledging the initial world.
 Private-alpha mode uses repeatable authorized player tokens:
 
 ```sh
-bin/run relay \
+bash build-fvd.sh relay \
   --player-token HOST_TOKEN_64_HEX \
   --player-token GUEST_TOKEN_64_HEX
 ```
@@ -277,8 +277,8 @@ bin/run relay \
 Enter the corresponding token on each client before hosting, refreshing or joining.
 
 Authority succession safety checks:
-`bin/run test openage::network::tests::authority_succession` and
-`bin/run test openage::network::tests::rehost_ticket`. This verifies
+`bash build-fvd.sh test --exact openage::network::tests::authority_succession` and
+`bash build-fvd.sh test --exact openage::network::tests::rehost_ticket`. This verifies
 Hunter-only termination, monotonic epochs, stale takeover rejection, and the
 all-participant fresh-session barrier required for a pre-game role-preserving
 Hunter rehost. The `relay_multi_host_lobby` test also exercises
@@ -286,9 +286,9 @@ Hunter rehost. The `relay_multi_host_lobby` test also exercises
 These are authority **foundation** checks; they do not validate a live
 Builder-host disconnect or real simulation restoration.
 
-Focused automated checks: `bin/run test openage::network::tests::lobby_relay_client`, `bin/run test openage::network::tests::lobby_capacity`, `bin/run test openage::network::tests::match_disconnect_coordinator`, and `bin/run test openage::network::tests::fvd_multi_session` (requires FVD assets). The `lobby_capacity` regression exercises four and eight separate live client networking workers, both original-room and forced Hunter-owned starts, recipient-private snapshots, concurrent orders, Builder continuation, and terminal Hunter loss. Run the two-PC and visual/gameplay acceptance checks separately using [WINDOWS_MULTIPLAYER_ACCEPTANCE.md](WINDOWS_MULTIPLAYER_ACCEPTANCE.md); this automated test does not replace them. Additional multi-room checks are `bin/run test openage::network::tests::relay_service` and `bin/run test openage::network::tests::relay_multi_host_lobby`; the latter covers a single public room with 3 and 8 participants, shared roster/roles, recipient-bound bootstrap frames and authenticated command/result round trips. The relay test exercises command-generation rejection after close/reconnect, several simultaneous queued/targeted orders, and host acknowledgements. The coordinator test covers Builder survival and terminal Hunter departure with a final replicated notice.
-Relay directory and access-control check: `bin/run test openage::network::tests::relay_service`.
-Local non-network gameplay: `bin/run game --solo`.
+Focused automated checks: `bash build-fvd.sh test --exact openage::network::tests::lobby_relay_client`, `bash build-fvd.sh test --exact openage::network::tests::lobby_capacity`, `bash build-fvd.sh test --exact openage::network::tests::match_disconnect_coordinator`, and `bash build-fvd.sh test --exact openage::network::tests::fvd_multi_session` (requires FVD assets). The `lobby_capacity` regression exercises four and eight separate live client networking workers, both original-room and forced Hunter-owned starts, recipient-private snapshots, concurrent orders, Builder continuation, and terminal Hunter loss. Run the two-PC and visual/gameplay acceptance checks separately using [WINDOWS_MULTIPLAYER_ACCEPTANCE.md](WINDOWS_MULTIPLAYER_ACCEPTANCE.md); this automated test does not replace them. Additional multi-room checks are `bash build-fvd.sh test --exact openage::network::tests::relay_service` and `bash build-fvd.sh test --exact openage::network::tests::relay_multi_host_lobby`; the latter covers a single public room with 3 and 8 participants, shared roster/roles, recipient-bound bootstrap frames and authenticated command/result round trips. The relay test exercises command-generation rejection after close/reconnect, several simultaneous queued/targeted orders, and host acknowledgements. The coordinator test covers Builder survival and terminal Hunter departure with a final replicated notice.
+Relay directory and access-control check: `bash build-fvd.sh test --exact openage::network::tests::relay_service`.
+Local non-network gameplay: `bash build-fvd.sh solo`.
 
 ## Frame format
 

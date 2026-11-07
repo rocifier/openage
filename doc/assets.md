@@ -1,51 +1,16 @@
-openage assets
-==============
+# FVD assets and tracked engine API
 
-The game engine requires assets to actually run a game.
-Any assets may be used, but the common case will be to convert the original media files.
+FVD uses its **own authored graphics, animation atlases, audio and nyan data**. The original Age of Empires asset converter has been deliberately removed; FVD cannot import or convert an original-game installation. Do not install game CD files or invoke legacy `bin/run` commands.
 
+## Source of truth
 
-Asset directories
------------------
+- `assets/fvd/modpack.toml`: FVD game content package.
+- `assets/fvd/graphics/`, `sound/`, `data/`, `qml/`: runtime art, audio, scenarios and FVD UI.
+- `assets/fvd/engine_api/`: **versioned, committed** nyan engine API snapshot and SHA3-256 manifest. Update it only through a reviewed source change.
+- `assets/qml/`, `assets/shaders/`: shared renderer resources retained by the native game.
 
-When launching the game, [assets are converted automatically](/doc/media_convert.md).
+## Runtime and integrity
 
-They will be placed in `assets/`.
+`build-fvd` installs these tracked assets into the audited native 7Z archive. The engine API is mounted at `share/openage/converted/engine` **inside the package** for compatibility with native nyan imports. That path is a runtime mount, not a generated `assets/converted` source-tree directory.
 
-Multiple search paths like `/usr/share/openage`
-and `~/.local/share/openage` are currently not implemented.
-This will hopefully be done soon.
-
-
-Metadata assets
----------------
-
-Metadata assets are used to describe the assets (duh.).
-
-* Media metadata describe:
-  * Which areas of an texture images show what (texture atlases...)
-  * Which animation and unit is stored in the file
-  * How long does the sound last
-  * etc
-* Game metadata files: Describe existing game elements
-  * What media asset metadata shall be used
-  * Where is the storage location of the techtree
-  * Where are all the units stored
-  * What describes the existing ages and technologies
-  * etc...
-* Interface metadata: Used to construct the interface
-
-
-Data assets
------------
-
-- Media assets
-   The media asset files feed the engine with images, sounds, animations, whatever.
-   They are accompanied by metadata assets.
-
-- Game content files: **Describe the game logic**
-     - techtree
-     - civilizations
-     - ages
-     - units
-     - etc, you get the point
+The FVDNative package verifies the engine API version, SHA3-256 source manifest, release SHA-256 asset hashes and required files. Players need neither Python nor any original game. See [building](building.md), [running](running.md) and [native packaging](../packaging/native_game/README.md).

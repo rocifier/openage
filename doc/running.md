@@ -8,6 +8,7 @@ Windows:
 
 ```powershell
 .\build-fvd.cmd           # first create a fresh archive
+.\build-fvd.cmd game          # opens multiplayer lobby
 .\build-fvd.cmd solo --no-audio
 .\build-fvd.cmd relay --listen 0.0.0.0 --port 40000
 ```
@@ -16,6 +17,7 @@ Linux:
 
 ```sh
 bash build-fvd.sh        # first create a fresh archive
+bash build-fvd.sh game      # opens multiplayer lobby
 bash build-fvd.sh solo --no-audio
 bash build-fvd.sh relay --listen 0.0.0.0 --port 40000
 ```
