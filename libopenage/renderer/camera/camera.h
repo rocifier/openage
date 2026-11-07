@@ -135,6 +135,23 @@ public:
 	void zoom_out(float zoom_delta);
 
 	/**
+	 * Limit how far the camera can zoom out. If the camera is currently
+	 * zoomed out further than the new limit, it is pulled back to it.
+	 *
+	 * @param max_zoom_out New maximum zoom out level.
+	 */
+	void set_max_zoom_out(float max_zoom_out);
+
+	/**
+	 * Limit how far the camera can zoom in. If the camera is currently
+	 * zoomed in further than the new limit, it is pushed back out to it.
+	 * Never goes below MAX_ZOOM_IN.
+	 *
+	 * @param max_zoom_in New maximum zoom in level.
+	 */
+	void set_max_zoom_in(float max_zoom_in);
+
+	/**
 	 * Resize the camera viewport.
 	 *
 	 * @param width New width of the viewport.
@@ -267,6 +284,11 @@ private:
 	 * Has to be above 0.0f, otherwise we get zero division errors.
 	 */
 	static constexpr float MAX_ZOOM_IN = 0.005f;
+
+	/**
+	 * Zoom in limit for this camera (never below MAX_ZOOM_IN).
+	 */
+	float max_zoom_in = MAX_ZOOM_IN;
 
 	/**
 	 * Maximum possible zoom out level.

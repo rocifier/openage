@@ -2,6 +2,7 @@
 
 #include "camera.h"
 
+#include <algorithm>
 #include <array>
 #include <numbers>
 #include <string>
@@ -85,8 +86,8 @@ void Camera::move_rel(Eigen::Vector3f direction, float delta, const CameraBounda
 }
 
 void Camera::set_zoom(float zoom) {
-	if (zoom < Camera::MAX_ZOOM_IN) {
-		zoom = Camera::MAX_ZOOM_IN;
+	if (zoom < this->max_zoom_in) {
+		zoom = this->max_zoom_in;
 	}
 	else if (zoom > this->max_zoom_out) {
 		zoom = this->max_zoom_out;
@@ -104,6 +105,20 @@ void Camera::zoom_in(float zoom_delta) {
 void Camera::zoom_out(float zoom_delta) {
 	auto zoom = this->zoom + zoom_delta;
 	this->set_zoom(zoom);
+}
+
+void Camera::set_max_zoom_out(float max_zoom_out) {
+	this->max_zoom_out = std::max(max_zoom_out, this->max_zoom_in);
+	if (this->zoom > this->max_zoom_out) {
+		this->set_zoom(this->max_zoom_out);
+	}
+}
+
+void Camera::set_max_zoom_in(float max_zoom_in) {
+	this->max_zoom_in = std::clamp(max_zoom_in, Camera::MAX_ZOOM_IN, this->max_zoom_out);
+	if (this->zoom < this->max_zoom_in) {
+		this->set_zoom(this->max_zoom_in);
+	}
 }
 
 void Camera::resize(size_t width, size_t height) {

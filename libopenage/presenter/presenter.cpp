@@ -475,6 +475,13 @@ void Presenter::init_graphics(const renderer::window_settings &window_settings) 
 
 	// Camera
 	this->camera = std::make_shared<renderer::camera::Camera>(this->renderer, this->window->get_size());
+	// Engine defaults allow zooming out to 64x (units become specks) and in
+	// to 0.005 (a few giant grass tiles). Default zoom is 1.5: allow zooming
+	// out far enough to see most of the map, and in to a close-up.
+	static constexpr float FVD_MAX_ZOOM_OUT = 6.0f;
+	static constexpr float FVD_MAX_ZOOM_IN = 0.5f;
+	this->camera->set_max_zoom_out(FVD_MAX_ZOOM_OUT);
+	this->camera->set_max_zoom_in(FVD_MAX_ZOOM_IN);
 	this->camera->look_at_coord(coord::scene3{10.0, 10.0, 0}); // Center camera on the map
 	this->window->add_resize_callback([this](size_t w, size_t h, double /*scale*/) {
 		this->camera->resize(w, h);
