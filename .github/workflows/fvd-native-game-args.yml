@@ -66,7 +66,8 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          bash -n build-fvd.sh packaging/native_game/SmokeTestLinuxArchive.sh
+          bash -n build-fvd.sh packaging/native_game/SmokeTestLinuxArchive.sh packaging/native_game/DevWrapperTest.sh
+          bash packaging/native_game/DevWrapperTest.sh
           bash build-fvd.sh --help
           if bash build-fvd.sh --jobs nope; then
             echo "Invalid --jobs input unexpectedly accepted"
