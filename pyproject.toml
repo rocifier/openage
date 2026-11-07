@@ -1,9 +1,4 @@
-# Python project metadata, used by the development tools (uv, ruff, ty, ...).
-#
-# The openage python modules are built and installed by the CMake buildsystem,
-# so this project is not installable and declares no build backend.
-# Dependencies used in the CMake build system are then picked up from the venv.
-
+# Optional pure-Python developer tooling. Native FVD builds do not install this package.
 [project]
 name = "openage"
 version = "0.6.0"
@@ -15,17 +10,7 @@ maintainers = [
     { name = "SFTtech", email = "openage@sft.lol" },
 ]
 
-dependencies = [
-    "cython",
-    "lz4",
-    "mako",
-    "numpy",
-    "pillow",
-    "pygments",
-    "pyreadline3; sys_platform == 'win32'",
-    "setuptools",
-    "tomli-w",
-]
+dependencies = []
 
 [project.urls]
 homepage = "https://github.com/SFTtech/openage"
@@ -35,44 +20,13 @@ releasenotes = "https://github.com/SFTtech/openage/releases"
 
 [dependency-groups]
 dev = [
-    "cython",
     "ruff",
     "ty",
 ]
 
 [tool.uv]
-# the python modules live in the source tree, CMake compiles the C++ and Cython
-# parts; there is nothing to build into a wheel here
+# Native FVD is a C++ application; optional Python tools run from source.
 package = false
-
-[tool.ty.analysis]
-# Cython extension modules and the generated config module only exist in a
-# build tree, so they cannot be resolved from the sources.
-allowed-unresolved-imports = [
-    "**.cabchecksum",
-    "**.config",
-    "**.cpp",
-    "**.cpp_testing",
-    "**.cvar",
-    "**.cython_check",
-    "**.exctranslate",
-    "**.exctranslate_tests",
-    "**.log_cpp",
-    "**.lzxd",
-    "**.main_cpp",
-    "**.opusenc",
-    "**.png_create",
-    "**.pyobject",
-    "**.setup_checker",
-    "**.sld",
-    "**.slp",
-    "**.smp",
-    "**.smx",
-    "**.terrain_merge",
-    "**.texture_merge",
-    "**.versions",
-    "**.visgrep",
-]
 
 [tool.ruff]
 line-length = 110
@@ -103,6 +57,3 @@ ignore = [
 ]
 pylint.max-args = 10
 
-[tool.ruff.lint.per-file-ignores]
-# CAB struct fields are named after the MS-CAB specification
-"openage/cabextract/cab.py" = ["N815"]
