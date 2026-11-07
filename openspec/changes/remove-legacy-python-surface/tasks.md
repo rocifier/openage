@@ -6,7 +6,7 @@
 - [x] 1.2 Replace `FVD_NATIVE_API_ASSET_DIR` bootstrap/export logic with the tracked source directory as the default build and package input.
 - [x] 1.3 Centralize the expected engine API version and validate the tracked snapshot during configuration, package staging and native startup.
 - [x] 1.4 Add regressions for missing, incomplete and version-incompatible tracked API data and for its installed runtime path.
-- [ ] 1.5 Build and smoke-test a Windows and Linux native archive before deleting the exporter.
+- [ ] 1.5 Verify fresh Windows and Linux native archives and extracted-package smoke after retiring the converter/exporter.
 
 ## 2. Replace Python-generated C++ and the Cython test bridge
 
@@ -80,7 +80,7 @@ not a generated source cache.
 
 Static source inspection is complete; full fresh Windows/Linux build and
 archive/graphical smoke acceptance remain tracked under 1.5, 3.6 and 6.
-Generic legacy packaging launcher/NSIS cleanup belongs to Task 5.
+Generic legacy packaging launcher/NSIS cleanup was completed under Task 5.
 
 ## 5. Keep only native FVD packaging
 
@@ -111,8 +111,45 @@ smoke acceptance are separate gates under Tasks 1.5, 3.6 and 6.
 ## 6. Verify and document the fork boundary
 
 - [ ] 6.1 Run clean Windows and Linux native game, relay and C++ test builds without Python, Mako, Cython or Python development libraries installed.
-- [ ] 6.2 Run retained pure Python tests through the documented optional Python environment.
+- [x] 6.2 Run retained pure Python tests through the documented optional Python environment.
 - [ ] 6.3 Build and inspect fresh Windows and Linux FVD archives, then run solo, host, guest, relay, audio and clean-shutdown smoke checks.
-- [ ] 6.4 Update project structure, building, build-system, testing and packaging documentation to describe the FVD-only workflow.
-- [ ] 6.5 Remove stale upstream compatibility instructions and state that original-game asset conversion is unsupported.
-- [ ] 6.6 Run changed-file quality checks and record anything blocked by unavailable platform tooling.
+- [x] 6.4 Update project structure, building, build-system, testing and packaging documentation to describe the FVD-only workflow.
+- [x] 6.5 Remove stale upstream compatibility instructions and state that original-game asset conversion is unsupported.
+- [x] 6.6 Run changed-file quality checks and record anything blocked by unavailable platform tooling.
+
+Task 6 verification record (2026-11-07):
+
+- **6.2 PASS:** the optional pure-Python `unittest` suite runs separately
+  via `build-fvd python-test` (Windows/Linux) or direct Python (macOS), with
+  an isolated Python 3.12 setup. All three runners passed in Actions
+  [42341410986](https://github.com/rocifier/openage/actions/runs/42341410986).
+- **6.4/6.5 DONE:** the root README, docs index, project structure, native
+  build/system/testing, release packaging, editor tasks, contributor/debug,
+  platform setup, game assets, and active multiplayer instructions describe
+  the FVD-only product and its `build-fvd game/solo/relay/test/python-test`
+  commands. Original Age of Empires conversion is explicitly unsupported;
+  historical upstream engine documents are not active setup instructions.
+- **6.6 PASS:** changed-file C++ style, legal headers, file modes, header
+  guards and text-whitespace checks passed against `origin/FVD` in Actions
+  [42341411014](https://github.com/rocifier/openage/actions/runs/42341411014),
+  after normalizing legacy CMake line endings. Native source/Python-boundary
+  CI also passes. Compiler-platform toolchains and real multiplayer audio
+  hardware cannot be substituted by these static checks.
+- **6.1 PARTIAL:** Linux has a dedicated clean Ubuntu Docker CI job
+  `fvd-native-no-python-build.yml` that asserts the actual absence of Python
+  commands/libraries while building native game, relay, C++ tests and a 7Z
+  archive. Record its final pass/fail separately. Windows still needs a
+  **clean build host without Python installed**, not merely disabled CMake
+  discovery; therefore 6.1/3.6 remain unchecked.
+- **6.3 PARTIAL:** Windows/Linux package, asset SHA-256, nyan API and native
+  dependency audits plus automated C++ audio/relay/multiplayer regression
+  coverage exist; CI does not simulate audible playback or complete real
+  graphical host/guest interaction. Fresh Windows and Linux release archives,
+  two-client gameplay, real sound and clean-exit verification must be
+  signed off separately. See
+  `doc/code/network/FVD_RELEASE_ACCEPTANCE.md` for precise commands and
+  evidence requirements. This item and 1.5 remain unchecked.
+
+A passed native headless startup or optional unit test is **not** proof of
+manual graphical/audio acceptance or a completely Python-free Windows
+build. Do not mark 6.1, 6.3, 3.6 or 1.5 complete before that evidence exists.
