@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Linux FVD native candidate: build, package and smoke-test.
-# Usage: bash build-fvd.sh [package|build|test|python-test|legacy-test|solo|relay] [options]
+# Usage: bash build-fvd.sh [package|build|test|python-test|solo|relay] [options]
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -15,7 +15,7 @@ nyan_version="${NYAN_CLONE_VERSION:-v0.3.1}"
 skip_smoke=0
 mode=package
 forwarded=()
-if (($#)) && [[ "$1" =~ ^(package|build|test|python-test|legacy-test|solo|relay)$ ]]; then
+if (($#)) && [[ "$1" =~ ^(package|build|test|python-test|solo|relay)$ ]]; then
     mode="$1"
     shift
 fi
@@ -28,7 +28,6 @@ FVD Linux native release candidate
   bash build-fvd.sh build               Build the native game and relay
   bash build-fvd.sh test                Run native CTest (optional native runner args)
   bash build-fvd.sh python-test         Run pure Python tests, no CMake/Cython
-  bash build-fvd.sh legacy-test         Build and run optional legacy Python/Cython tests
   bash build-fvd.sh solo --no-audio     Launch packaged native solo gameplay
   bash build-fvd.sh relay --port 40000  Start packaged native relay
   bash build-fvd.sh relay -- --help     Pass any native options after --
@@ -183,33 +182,6 @@ if [[ ! -f "$build/CMakeCache.txt" ]]; then
         exit 1
     fi
     initial=(-G Ninja -DDOWNLOAD_NYAN=YES -DCMAKE_BUILD_TYPE=Release)
-fi
-
-if [[ "$mode" == "legacy-test" ]]; then
-    echo "Legacy Python/Cython integration was removed; use test or python-test." >&2
-    exit 2
-fi
-
-if false; then
-    python_args=()
-    if [[ -x "$root/.venv/bin/python" ]]; then
-        python_args=("-DPython3_EXECUTABLE=$root/.venv/bin/python")
-    fi
-    step "Configure Python-enabled developer tests"
-    cmake -S "$root" -B "$build" "${initial[@]}" "${python_args[@]}" \
-        -DFVD_NATIVE_RELEASE=OFF \
-        -DFVD_WITH_PYTHON_ADAPTERS=ON \
-        "-DNYAN_CLONE_VERSION=$nyan_version"
-    step "Build Python-enabled developer tests"
-    cmake --build "$build" --parallel "$jobs"
-    [[ -x "$build/run" ]] || { echo "Cannot locate legacy test runner at $build/run" >&2; exit 1; }
-    test_args=("${forwarded[@]}")
-    if ((${#test_args[@]} == 0)); then
-        test_args=(-a)
-    fi
-    step "Run legacy C++/Python tests"
-    (cd "$build" && ./run test "${test_args[@]}")
-    exit 0
 fi
 
 # The tracked source snapshot replaces the ignored converter output.

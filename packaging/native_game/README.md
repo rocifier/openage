@@ -82,10 +82,7 @@ after the normal CTest run.
 Use `python-test` to run stdlib-only tests through `python -m unittest`,
 without configuring CMake or compiling extensions. To choose another pure
 Python unittest module, supply its dotted module name after `python-test`.
-The optional `legacy-test` command remains for developer Python/Cython
-integration tests during the remaining OpenSpec cleanup; it no longer owns
-or invokes the C++ test registry. Network process integration tests spawn the
-native C++ worker directly.
+Network process integration tests spawn native C++ workers directly; the obsolete Python/Cython test runner is no longer built.
 
 Optional arguments: skip the extracted-package test with `-SkipSmoke` or `--skip-smoke`.
 Windows additionally supports `-ObserveSoloSeconds 0` to disable the

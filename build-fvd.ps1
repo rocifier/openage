@@ -2,7 +2,7 @@
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
 # Engine API is checked in under assets/fvd/engine_api; no export step.
-# Modes: package (default), build, test, python-test, legacy-test, solo, relay. Accept runtime or
+# Modes: package (default), build, test, python-test, solo, relay. Accept runtime or
 # legacy test options directly after their mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "package"
@@ -13,7 +13,7 @@ $NativeArgs = @()
 $tokens = @($args)
 $i = 0
 if ($tokens.Count -gt 0 -and
-    $tokens[0] -in @("package", "build", "test", "python-test", "legacy-test", "solo", "relay")) {
+    $tokens[0] -in @("package", "build", "test", "python-test", "solo", "relay")) {
     $Mode = $tokens[0]
     $i = 1
 }
@@ -45,11 +45,11 @@ while ($i -lt $tokens.Count) {
             continue
         }
         default {
-            if ($Mode -in @("python-test", "legacy-test", "solo", "relay", "test")) {
+            if ($Mode -in @("python-test", "solo", "relay", "test")) {
                 $NativeArgs += $token
             }
             else {
-                throw "Unknown argument '$token'. Commands: package, build, test, python-test, legacy-test, solo, relay."
+                throw "Unknown argument '$token'. Commands: package, build, test, python-test, solo, relay."
             }
         }
     }
@@ -212,35 +212,6 @@ try {
     if (-not (Get-Command "cmake.exe" -ErrorAction SilentlyContinue)) {
         throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
     }
-    if ($Mode -eq "legacy-test") {
-        throw "Legacy Python/Cython integration was removed; use test or python-test."
-    }
-    if ($false) {
-        $python = Join-Path $root ".venv\Scripts\python.exe"
-        if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
-            throw "Python developer environment missing. Run 'uv sync' from $root first."
-        }
-
-        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=ON",
-            "-DPython3_EXECUTABLE=$python") "Configure Python-enabled developer tests"
-        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--parallel", "$Jobs") "Build Python-enabled developer tests"
-
-        $runner = Join-Path $build "RelWithDebInfo\run.exe"
-        if (-not (Test-Path -LiteralPath $runner -PathType Leaf)) {
-            throw "Python-enabled test runner missing: $runner"
-        }
-        $testArgs = @($NativeArgs)
-        if ($testArgs.Count -eq 0) { $testArgs = @("-a") }
-        Push-Location $build
-        try {
-            Invoke-Checked $runner (@("test") + $testArgs) "Run legacy C++/Python tests"
-        }
-        finally { Pop-Location }
-        return
-    }
-
     if ($Mode -eq "test") {
         if (-not (Test-Path -LiteralPath (Join-Path $build "CMakeCache.txt") -PathType Leaf)) {
             throw "No configured Windows build; first run: .\build-fvd.cmd build"
