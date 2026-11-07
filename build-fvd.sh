@@ -182,7 +182,7 @@ case "$mode" in
         cpack --config "$build/CPackConfig.cmake" -C Release -G 7Z -B "$dist"
         archive="$dist/fvd.7z"
         [[ -f "$archive" ]] || { echo "CPack produced no $archive" >&2; exit 1; }
-        printf '\\nRelease archive: %s\\n' "$archive"
+        printf '\nRelease archive: %s\n' "$archive"
         echo "Archive extraction and smoke tests are separate manual deployment/acceptance steps."
         ;;
 esac
