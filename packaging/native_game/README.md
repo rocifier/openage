@@ -72,9 +72,7 @@ Run `test` to incrementally build native test targets and execute CTest.
 Run `legacy-test` to configure Python adapters, build the developer runner and execute the traditional C++/Python suite.
 With no test name it passes `-a` to the legacy runner and executes every test that does not require external game assets.
 
-Optional arguments: refresh an outdated exported API with
-`.\build-fvd.cmd -ReexportApi` or `bash build-fvd.sh --reexport-api`;
-skip the extracted-package test with `-SkipSmoke` or `--skip-smoke`.
+Optional arguments: skip the extracted-package test with `-SkipSmoke` or `--skip-smoke`.
 Windows additionally supports `-ObserveSoloSeconds 0` to disable the
 live graphical-process observation.
 
