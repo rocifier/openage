@@ -15,7 +15,7 @@ nyan_version="${NYAN_CLONE_VERSION:-v0.3.1}"
 skip_smoke=0
 mode=package
 forwarded=()
-if (($#)) && [[ "$1" =~ ^(package|build|test|legacy-test|solo|relay)$ ]]; then
+if (($#)) && [[ "$1" =~ ^(package|build|test|python-test|legacy-test|solo|relay)$ ]]; then
     mode="$1"
     shift
 fi
@@ -26,8 +26,9 @@ FVD Linux native release candidate
 
   bash build-fvd.sh                     Build, package and verify
   bash build-fvd.sh build               Build the native game and relay
-  bash build-fvd.sh test                Run native CTest (optional native runner args)\n  bash build-fvd.sh python-test         Run pure Python tests, no CMake/Cython
-  bash build-fvd.sh legacy-test         Build and run the legacy C++/Python tests
+  bash build-fvd.sh test                Run native CTest (optional native runner args)
+  bash build-fvd.sh python-test         Run pure Python tests, no CMake/Cython
+  bash build-fvd.sh legacy-test         Build and run optional legacy Python/Cython tests
   bash build-fvd.sh solo --no-audio     Launch packaged native solo gameplay
   bash build-fvd.sh relay --port 40000  Start packaged native relay
   bash build-fvd.sh relay -- --help     Pass any native options after --
