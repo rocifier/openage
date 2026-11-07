@@ -100,6 +100,34 @@ if(BUILD_TESTING)
 	set_tests_properties(fvd_native_game_invalid_options PROPERTIES WILL_FAIL TRUE)
 endif()
 
+# First C++-owned test registry; expand as Python bridge fixtures are ported.
+# Compiling test translation units only into this executable keeps the
+# release engine library free of test bodies and avoids Cython entirely.
+if(BUILD_TESTING)
+	add_executable(openage_native_cpp_tests
+		native_cpp_tests_main.cpp
+		"${CMAKE_SOURCE_DIR}/libopenage/coord/coord_test.cpp"
+		"${CMAKE_SOURCE_DIR}/libopenage/cvar/cvar_test.cpp"
+		"${CMAKE_SOURCE_DIR}/libopenage/network/messages_test.cpp"
+		"${CMAKE_SOURCE_DIR}/libopenage/testing/testing_test.cpp"
+		"${CMAKE_SOURCE_DIR}/libopenage/util/fixed_point_test.cpp"
+		"${CMAKE_SOURCE_DIR}/libopenage/util/matrix_test.cpp")
+	target_compile_features(openage_native_cpp_tests PRIVATE cxx_std_20)
+	target_include_directories(openage_native_cpp_tests PRIVATE
+		"${CMAKE_SOURCE_DIR}/libopenage"
+		"${CMAKE_BINARY_DIR}/libopenage")
+	target_link_libraries(openage_native_cpp_tests PRIVATE libopenage)
+	add_test(NAME fvd_native_game_cpp_all
+		COMMAND openage_native_cpp_tests --all)
+	add_test(NAME fvd_native_game_cpp_exact
+		COMMAND openage_native_cpp_tests --exact openage::testing::tests::comparison)
+	add_test(NAME fvd_native_game_cpp_prefix
+		COMMAND openage_native_cpp_tests --prefix openage::util::tests::)
+	add_test(NAME fvd_native_game_cpp_missing
+		COMMAND openage_native_cpp_tests --exact openage::not_a_test)
+	set_tests_properties(fvd_native_game_cpp_missing PROPERTIES WILL_FAIL TRUE)
+endif()
+
 ########################################################################
 # Resource files
 

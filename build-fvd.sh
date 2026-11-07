@@ -144,7 +144,7 @@ if [[ "$mode" == "test" ]]; then
     [[ -f "$build/CMakeCache.txt" ]] || { echo "No configured build. First run: bash build-fvd.sh build" >&2; exit 1; }
     step "Build native test targets (incremental)"
     cmake --build "$build" --parallel "$jobs" \
-        --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test
+        --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test openage_native_cpp_tests
     step "Run native game/relay CTest suite"
     ctest --test-dir "$build" --output-on-failure -R '^fvd_native_(game|relay)_'
     echo "Native Linux tests passed."
