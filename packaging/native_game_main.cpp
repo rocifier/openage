@@ -142,7 +142,7 @@ void validate_release_manifest(const fs::path &assets) {
 		throw std::runtime_error{
 			"Packaged FVD release integrity manifest missing: " + manifest.string()};
 #else
-		// Non-release developer checkouts can use loose converted assets.
+		// Non-release developer checkouts can use tracked source assets.
 		return;
 #endif
 	}
@@ -217,10 +217,10 @@ void validate_assets(const fs::path &assets) {
 	    not fs::is_regular_file(engine_dir / "manifest.toml")) {
 		throw std::runtime_error{
 			"Tracked nyan API or manifest is missing from " + engine_dir.string()
-			+ "; export assets during release preparation, not at runtime"};
+			+ "; restore the tracked source snapshot or package files"};
 	}
 	const auto api = toml::find<toml::table>(toml::parse(engine.string()), "info");
-		if (api.at("name").as_string() != "engine" or
+	if (api.at("name").as_string() != "engine" or
 	    api.at("version").as_string() != openage::native_game::engine_api_version) {
 		throw std::runtime_error{
 			"Incompatible tracked nyan API at " + engine.string()
