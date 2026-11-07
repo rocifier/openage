@@ -250,8 +250,7 @@ try {
         "Configure Python-free native developer build"
     }
     Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-        "-DFVD_NATIVE_RELEASE=$nativeRelease", "-DFVD_WITH_PYTHON_ADAPTERS=OFF",
-        ) $configureDescription
+        "-DFVD_NATIVE_RELEASE=$nativeRelease", "-DFVD_WITH_PYTHON_ADAPTERS=OFF") $configureDescription
     Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
         "--target", "openage_native_game", "openage_native_relay",
         "--parallel", "$Jobs") "Build native game and relay"
