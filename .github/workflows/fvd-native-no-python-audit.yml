@@ -82,4 +82,29 @@ jobs:
             echo "::error::Native build attempts to use generated source-tree assets"
             exit 1
           fi
+          echo "== Reject legacy Python installer and generic package paths =="
+          for old in \
+            packaging/openage_launcher.cpp \
+            buildsystem/scripts/EmbedPython.cmake \
+            buildsystem/scripts/EmbedWinDependencies.cmake \
+            buildsystem/scripts/deploy_qt.py \
+            buildsystem/templates/ForwardVariables.cmake.in \
+            buildsystem/templates/openage.bat.in; do
+            if test -e "$old"; then
+              echo "::error::Legacy installer/launcher survived: $old"
+              exit 1
+            fi
+          done
+          if git grep -nE 'openage_launcher|CPACK_GENERATOR.*NSIS|PYTHON_EMBED_VERSION|EmbedWinDependencies|deploy_qt[.]py' -- \
+            packaging/CMakeLists.txt packaging/CPackOptions.cmake \
+            packaging/native_game/DeployWindows.cmake.in; then
+            echo "::error::Native CPack still refers to a deprecated installer"
+            exit 1
+          fi
+          if git grep -nE '^[[:space:]]*install[[:space:]]*\(' -- \
+            CMakeLists.txt assets/CMakeLists.txt libopenage/CMakeLists.txt \
+            packaging/CMakeLists.txt; then
+            echo "::error::Generic/unscoped FVD install command remains"
+            exit 1
+          fi
           echo "Native-only source and command boundary verified."
