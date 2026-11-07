@@ -4,7 +4,7 @@ The game, relay and engine tests run **natively in C++**. The old `run.py`/`bin/
 
 ## Native developer tests
 
-On Windows first configure the native targets with `.\\build-fvd.cmd build`, then run `.\\build-fvd.cmd test`. On Linux use `bash build-fvd.sh build` followed by `bash build-fvd.sh test`. Both use CTest and `openage_native_cpp_tests` (developer-only, never packaged for players).
+On Windows run `.\\build-fvd.cmd test`; on Linux run `bash build-fvd.sh test`. Both automatically configure/build their required native targets and use CTest and `openage_native_cpp_tests` (developer-only, never packaged for players).
 
 ```sh
 bash build-fvd.sh test --list
