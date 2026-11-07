@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # One-command Linux FVD native candidate: build, package and smoke-test.
-# Usage: bash build-fvd.sh [package|build|test|legacy-test|solo|relay] [options]
+# Usage: bash build-fvd.sh [package|build|test|python-test|legacy-test|solo|relay] [options]
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -26,7 +26,7 @@ FVD Linux native release candidate
 
   bash build-fvd.sh                     Build, package and verify
   bash build-fvd.sh build               Build the native game and relay
-  bash build-fvd.sh test                Run native CTest
+  bash build-fvd.sh test                Run native CTest (optional native runner args)\n  bash build-fvd.sh python-test         Run pure Python tests, no CMake/Cython
   bash build-fvd.sh legacy-test         Build and run the legacy C++/Python tests
   bash build-fvd.sh solo --no-audio     Launch packaged native solo gameplay
   bash build-fvd.sh relay --port 40000  Start packaged native relay
@@ -54,7 +54,7 @@ while (($#)); do
             ;;
         -h|--help) usage; exit 0 ;;
         *)
-            if [[ "$mode" == "legacy-test" || "$mode" == "solo" || "$mode" == "relay" ]]; then
+            if [[ "$mode" == "legacy-test" || "$mode" == "solo" || "$mode" == "relay" || "$mode" == "python-test" || "$mode" == "test" ]]; then
                 forwarded+=("$1")
                 shift
             else
@@ -65,6 +65,20 @@ while (($#)); do
             ;;
     esac
 done
+
+# This optional suite is pure stdlib Python and needs no configured build.
+if [[ "$mode" == "python-test" ]]; then
+    python_bin="$root/.venv/bin/python"
+    if [[ ! -x "$python_bin" ]]; then
+        python_bin="$(command -v python3 || true)"
+    fi
+    [[ -n "$python_bin" ]] || { echo "Python 3 is not installed" >&2; exit 1; }
+    if (("${#forwarded[@]}" == 0)); then
+        forwarded=("openage.testing.test_fvd_network_benchmark")
+    fi
+    (cd "$root" && "$python_bin" -m unittest -v "${forwarded[@]}")
+    exit 0
+fi
 
 for tool in cmake c++; do
     if ! command -v "$tool" >/dev/null 2>&1; then
@@ -149,6 +163,11 @@ if [[ "$mode" == "test" ]]; then
         --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test openage_native_cpp_tests
     step "Run native game/relay CTest suite"
     ctest --test-dir "$build" --output-on-failure -R '^fvd_native_(game|relay)_'
+    if (("${#forwarded[@]}" > 0)); then
+        runner="$build/packaging/openage_native_cpp_tests"
+        [[ -x "$runner" ]] || { echo "Missing native C++ runner: $runner" >&2; exit 1; }
+        "$runner" "${forwarded[@]}"
+    fi
     echo "Native Linux tests passed."
     exit 0
 fi

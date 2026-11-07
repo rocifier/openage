@@ -60,17 +60,28 @@
             }
         },
         {
-            "label": "Run Tests",
+            "label": "FVD Native C++ Tests",
             "type": "shell",
-            "command": "make",
-            "args": [
-                "test"
-            ],
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "test"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "test"]
+            },
+            "group": {"kind": "test", "isDefault": true},
+            "presentation": {"reveal": "always", "panel": "new"}
+        },
+        {
+            "label": "FVD Pure Python Tests",
+            "type": "shell",
+            "command": "bash",
+            "args": ["${workspaceFolder}/build-fvd.sh", "python-test"],
+            "windows": {
+                "command": "powershell.exe",
+                "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/build-fvd.ps1", "python-test"]
+            },
             "group": "test",
-            "presentation": {
-                "reveal": "always",
-                "panel": "new"
-            }
+            "presentation": {"reveal": "always", "panel": "new"}
         },
         {
             "label": "Clean",

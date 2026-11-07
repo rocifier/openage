@@ -2,7 +2,7 @@
 # One-command Windows FVD native release build for an MSVC/vcpkg checkout.
 # Normal use: .\build-fvd.cmd
 # Engine API is checked in under assets/fvd/engine_api; no export step.
-# Modes: package (default), build, test, legacy-test, solo, relay. Accept runtime or
+# Modes: package (default), build, test, python-test, legacy-test, solo, relay. Accept runtime or
 # legacy test options directly after their mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
 $Mode = "package"
@@ -13,7 +13,7 @@ $NativeArgs = @()
 $tokens = @($args)
 $i = 0
 if ($tokens.Count -gt 0 -and
-    $tokens[0] -in @("package", "build", "test", "legacy-test", "solo", "relay")) {
+    $tokens[0] -in @("package", "build", "test", "python-test", "legacy-test", "solo", "relay")) {
     $Mode = $tokens[0]
     $i = 1
 }
@@ -45,11 +45,11 @@ while ($i -lt $tokens.Count) {
             continue
         }
         default {
-            if ($Mode -in @("legacy-test", "solo", "relay")) {
+            if ($Mode -in @("python-test", "legacy-test", "solo", "relay", "test")) {
                 $NativeArgs += $token
             }
             else {
-                throw "Unknown argument '$token'. Commands: package, build, test, legacy-test, solo, relay."
+                throw "Unknown argument '$token'. Commands: package, build, test, python-test, legacy-test, solo, relay."
             }
         }
     }
@@ -187,6 +187,23 @@ try {
         return
     }
 
+    # Pure Python tests are optional tools, wholly independent of CMake,
+    # the native engine and the old Cython test dispatcher.
+    if ($Mode -eq "python-test") {
+        $python = Join-Path $root ".venv\\Scripts\\python.exe"
+        if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+            $command = Get-Command "python.exe" -ErrorAction SilentlyContinue
+            if (-not $command) { throw "Python unavailable; install Python 3.12+ or run 'uv sync'." }
+            $python = $command.Source
+        }
+        $testArgs = @($NativeArgs)
+        if ($testArgs.Count -eq 0) {
+            $testArgs = @("openage.testing.test_fvd_network_benchmark")
+        }
+        Invoke-Checked $python (@("-m", "unittest", "-v") + $testArgs) "Run pure Python tests"
+        return
+    }
+
     # This optional local developer environment is not shipped in the release.
     $envScript = Join-Path $root "deps\msvc-env.ps1"
     if (Test-Path -LiteralPath $envScript -PathType Leaf) {
@@ -232,6 +249,13 @@ try {
             "openage_native_relay_network_test", "openage_native_cpp_tests", "--parallel", "$Jobs") "Build native test targets"
         Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
             "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
+        if ($NativeArgs.Count -gt 0) {
+            $nativeRunner = Join-Path $build "packaging\\RelWithDebInfo\\openage_native_cpp_tests.exe"
+            if (-not (Test-Path -LiteralPath $nativeRunner -PathType Leaf)) {
+                $nativeRunner = Join-Path $build "packaging\\openage_native_cpp_tests.exe"
+            }
+            Invoke-Checked $nativeRunner @($NativeArgs) "Run selected native C++ tests"
+        }
         Write-Host "FVD native tests passed." -ForegroundColor Green
         return
     }

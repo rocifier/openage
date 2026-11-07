@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from pathlib import Path
@@ -62,14 +61,21 @@ def _wait_for_port(ready_path: Path, process: subprocess.Popen, role: str) -> in
 
 
 def _worker_command(worker: str) -> list[str]:
-    """Build a command that starts one internal C++ process-test worker."""
-    runner = Path(config.BUILD_BIN_DIR) / "run.py"
-    if not runner.is_file():
-        raise TestError(f"network process test runner does not exist: {runner}")
-
-    if Path(sys.executable).stem.casefold() == "run":
-        return [sys.executable, "test", worker]
-    return [sys.executable, str(runner), "test", worker]
+    """Run the C++ process worker directly, without Python/Cython dispatch."""
+    build_dir = Path(config.BUILD_BIN_DIR)
+    executable = "openage_native_cpp_tests.exe" if os.name == "nt" else "openage_native_cpp_tests"
+    candidates = [
+        build_dir / "packaging" / executable,
+        build_dir / "packaging" / "RelWithDebInfo" / executable,
+        build_dir / "packaging" / "Release" / executable,
+        build_dir / "packaging" / "Debug" / executable,
+    ]
+    runner = next((path for path in candidates if path.is_file()), None)
+    if runner is None:
+        raise TestError(
+            "native network test runner does not exist; first run build-fvd test"
+        )
+    return [str(runner), "--exact", worker]
 
 
 def test() -> None:
