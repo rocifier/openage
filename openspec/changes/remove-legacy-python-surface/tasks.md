@@ -60,11 +60,27 @@ discovery in hosted CI does not itself meet that stricter gate.
 
 ## 4. Remove unsupported upstream workflows
 
-- [ ] 4.1 Delete `openage/convert`, converter-only cab/media modules, conversion commands, tests and configuration data.
-- [ ] 4.2 Remove converter-only Python and native dependencies from CMake, `pyproject.toml`, lock files, platform instructions and packaging metadata.
-- [ ] 4.3 Delete `run.py`, the Python command dispatcher and Python game, relay, main and demo entry points that have no retained use.
-- [ ] 4.4 Replace documentation and scripts that invoke `bin/run` with native game, relay, C++ test or explicit pure Python commands.
-- [ ] 4.5 Confirm no supported build or startup path reads or writes `assets/converted` as a generated source-tree cache.
+- [x] 4.1 Delete `openage/convert`, converter-only cab/media modules, conversion commands, tests and configuration data.
+- [x] 4.2 Remove converter-only Python and native dependencies from CMake, `pyproject.toml`, lock files, platform instructions and packaging metadata.
+- [x] 4.3 Delete `run.py`, the Python command dispatcher and Python game, relay, main and demo entry points that have no retained use.
+- [x] 4.4 Replace documentation and scripts that invoke `bin/run` with native game, relay, C++ test or explicit pure Python commands.
+- [x] 4.5 Confirm no supported build or startup path reads or writes `assets/converted` as a generated source-tree cache.
+
+Task 4 implementation: removed the upstream original-game converter and CAB
+extractor, converter configuration/commands/tests, legacy Python game/relay/main
+entry points and `run.py`. The optional stdlib network shaper now launches
+the native C++ test registry, not `bin/run`. Python project/lock metadata,
+Nix development expressions, Ubuntu CI Docker dependencies and platform docs
+no longer prescribe converter-only Python/Cython tools; pure-Python unittest
+remains optional. The native boundary CI audit rejects legacy paths and
+source-tree `assets/converted` cache usage. The installed
+`share/openage/converted/engine` directory remains an intentional runtime
+mount sourced directly from the tracked `assets/fvd/engine_api` snapshot,
+not a generated source cache.
+
+Static source inspection is complete; full fresh Windows/Linux build and
+archive/graphical smoke acceptance remain tracked under 1.5, 3.6 and 6.
+Generic legacy packaging launcher/NSIS cleanup belongs to Task 5.
 
 ## 5. Keep only native FVD packaging
 

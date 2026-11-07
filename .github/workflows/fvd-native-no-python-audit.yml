@@ -7,6 +7,14 @@ on:
       - 'libopenage/**'
       - 'buildsystem/**'
       - 'openage/**'
+      - 'cfg/**'
+      - 'packaging/**'
+      - 'build-fvd*'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'nix/**'
+      - 'shell.nix'
+      - 'flake.nix'
       - '.github/workflows/fvd-native-no-python-audit.yml'
   pull_request:
     paths:
@@ -14,6 +22,14 @@ on:
       - 'libopenage/**'
       - 'buildsystem/**'
       - 'openage/**'
+      - 'cfg/**'
+      - 'packaging/**'
+      - 'build-fvd*'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - 'nix/**'
+      - 'shell.nix'
+      - 'flake.nix'
       - '.github/workflows/fvd-native-no-python-audit.yml'
 
 jobs:
@@ -42,4 +58,28 @@ jobs:
             exit 1
           fi
           echo "== Any surviving generator content =="
-          find openage/codegen -maxdepth 3 -type f -print 2>/dev/null || true
+          for removed in \
+            openage/codegen openage/convert openage/cabextract openage/cppinterface \
+            cfg/converter run.py.in configure openage/__main__.py \
+            openage/game/main.py openage/main/main.py openage/relay/main.py; do
+            if test -e "$removed"; then
+              echo "::error::Unsupported legacy path remains: $removed"
+              exit 1
+            fi
+          done
+          echo "== Source-tree cache and retired command audit =="
+          if test -e assets/converted; then
+            echo "::error::Generated assets/converted source tree is not supported"
+            exit 1
+          fi
+          if git grep -nE 'bin/run|run[.]py|convert-export-api|FVD_NATIVE_API_ASSET_DIR' -- \
+            build-fvd.sh build-fvd.ps1 build-fvd.cmd Makefile; then
+            echo "::error::Native build wrapper references a retired command"
+            exit 1
+          fi
+          if git grep -nF -e 'assets/converted' -- \
+            build-fvd.sh build-fvd.ps1 build-fvd.cmd CMakeLists.txt; then
+            echo "::error::Native build attempts to use generated source-tree assets"
+            exit 1
+          fi
+          echo "Native-only source and command boundary verified."
