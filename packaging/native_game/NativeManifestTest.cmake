@@ -99,9 +99,9 @@ set(_integrity "${CMAKE_CURRENT_LIST_DIR}/VerifyNativeManifest.cmake")
 function(_check_integrity _expected _label)
 	execute_process(COMMAND "${CMAKE_COMMAND}" "-DFVD_NATIVE_STAGE=${_stage}"
 		-P "${_integrity}"
-		RESULT_VARIABLE _rc OUTPUT_QUIET ERROR_QUIET)
+		RESULT_VARIABLE _rc OUTPUT_VARIABLE _output ERROR_VARIABLE _error)
 	if(_expected AND NOT _rc EQUAL 0)
-		message(FATAL_ERROR "${_label}: valid native asset stage rejected")
+		message(FATAL_ERROR "${_label}: valid native asset stage rejected:\n${_output}\n${_error}")
 	endif()
 	if(NOT _expected AND _rc EQUAL 0)
 		message(FATAL_ERROR "${_label}: compromised stage accepted")
@@ -120,7 +120,7 @@ file(COPY "${_root}/assets/shaders/identity.vert.glsl"
 file(APPEND "${_stage}/share/openage/fvd-native-manifest.toml"
 	"[[file]]\npath = \"../unsafe\"\nsha256 = \"a\"\n")
 _check_integrity(FALSE "invalid manifest record")
-file(COPY "${_manifest}" DESTINATION "${_stage}/share/openage")
+file(WRITE "${_stage}/share/openage/fvd-native-manifest.toml" "${_original_manifest}")
 _check_integrity(TRUE "restored manifest")
 
 # Both the checked-in path and the installed runtime path use the same
