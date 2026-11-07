@@ -225,6 +225,8 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path $build "CMakeCache.txt") -PathType Leaf)) {
             throw "No configured Windows build; first run: .\build-fvd.cmd build"
         }
+        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
+            "-DFVD_NATIVE_RELEASE=OFF", "-DFVD_WITH_PYTHON_ADAPTERS=OFF") "Configure native-only C++ tests"
         Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
             "--target", "openage_native_game_args_test", "openage_native_relay_args_test",
             "openage_native_relay_network_test", "openage_native_cpp_tests", "--parallel", "$Jobs") "Build native test targets"

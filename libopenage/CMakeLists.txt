@@ -399,6 +399,19 @@ if(APPLE)
 	endif()
 endif()
 
+# Keep a curated native C++ suite in the developer engine DLL. C++ tests
+# call engine-internal methods that are deliberately not DLL-exported on
+# Windows; compiling them in a separate executable would fail linking.
+# The release library still excludes every test translation unit.
+set(_fvd_native_cpp_test_sources
+	"${CMAKE_SOURCE_DIR}/libopenage/coord/coord_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/cvar/cvar_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/messages_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/renderer/resources/texture_data_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/testing/testing_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/fixed_point_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/util/matrix_test.cpp")
+
 # The player build must not compile developer test objects into libopenage.
 # In particular, texture_data_test.cpp constructs a Python-backed Path.
 # The native codegen SCU excludes the matching test dispatch table.
@@ -411,7 +424,10 @@ if(NOT FVD_WITH_PYTHON_ADAPTERS)
 		# while other files are *_test.cpp or *_tests.cpp.
 		if(_source MATCHES "/(test|tests)/"
 		   OR _filename MATCHES "(^test|_test)[A-Za-z0-9_-]*[.]cpp$")
-			continue()
+			if(FVD_NATIVE_RELEASE OR NOT BUILD_TESTING
+			   OR NOT _source IN_LIST _fvd_native_cpp_test_sources)
+				continue()
+			endif()
 		endif()
 		list(APPEND _native_engine_sources "${_source}")
 	endforeach()

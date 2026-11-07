@@ -142,6 +142,8 @@ fi
 
 if [[ "$mode" == "test" ]]; then
     [[ -f "$build/CMakeCache.txt" ]] || { echo "No configured build. First run: bash build-fvd.sh build" >&2; exit 1; }
+    step "Configure native-only C++ test suite"
+    cmake -S "$root" -B "$build" -DFVD_NATIVE_RELEASE=OFF -DFVD_WITH_PYTHON_ADAPTERS=OFF
     step "Build native test targets (incremental)"
     cmake --build "$build" --parallel "$jobs" \
         --target openage_native_game_args_test openage_native_relay_args_test openage_native_relay_network_test openage_native_cpp_tests
