@@ -1,6 +1,11 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
 # Validate the checked-in engine API, including the original SHA3-256 manifest.
 # Can be used by CMake configuration, packaging, audit and standalone regression tests.
+cmake_policy(PUSH)
+if(POLICY CMP0057)
+	cmake_policy(SET CMP0057 NEW)
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/EngineApiVersion.cmake")
 
 function(fvd_validate_engine_api _api)
@@ -86,3 +91,5 @@ endfunction()
 if(DEFINED FVD_ENGINE_API_ROOT)
 	fvd_validate_engine_api("${FVD_ENGINE_API_ROOT}")
 endif()
+
+cmake_policy(POP)

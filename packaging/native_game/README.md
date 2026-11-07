@@ -56,13 +56,13 @@ Arguments following `solo` or `relay` go directly to the native executable:
 
 ```powershell
 .\build-fvd.cmd solo --no-audio --window-mode fullscreen
-.\build-fvd.cmd relay --listen 127.0.0.1 --port 32456
+.\build-fvd.cmd relay --listen 127.0.0.1 --port 40000
 .\build-fvd.cmd relay -- --help
 ```
 
 ```bash
 bash build-fvd.sh solo --no-audio
-bash build-fvd.sh relay --listen 127.0.0.1 --port 32456
+bash build-fvd.sh relay --listen 127.0.0.1 --port 40000
 ```
 
 The launch commands use the most recent archive, extracted to `dist/run/`; they do **not** reconfigure or compile.

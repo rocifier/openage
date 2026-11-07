@@ -24,7 +24,7 @@ def init_subparser(cli: ArgumentParser) -> None:
     cli.add_argument(
         "--port",
         type=int,
-        default=32456,
+        default=40000,
         help="TCP port on which the relay accepts connections",
     )
     cli.add_argument(

@@ -24,7 +24,7 @@ void print_help() {
 	std::cout
 		<< "Usage: openage-relay [options]\n"
 		<< "  --listen ADDRESS        Listen address (default: 0.0.0.0)\n"
-		<< "  --port PORT             TCP port (default: 32456)\n"
+		<< "  --port PORT             TCP port (default: 40000)\n"
 		<< "  --player-token HEX      Authorized 32-byte token, repeatable (default: public)\n"
 		<< "  --max-rooms COUNT       Maximum advertised rooms (default: 64; max: 4096)\n"
 		<< "  --max-connections COUNT Maximum concurrent connections (default: 128)\n"

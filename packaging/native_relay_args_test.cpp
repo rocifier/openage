@@ -38,7 +38,7 @@ void rejects(const std::vector<std::string> &args) {
 int main() {
 	auto defaults = parse({"openage-relay"});
 	expect(defaults.listen == "0.0.0.0");
-	expect(defaults.port == 32456);
+	expect(defaults.port == 40000);
 	expect(defaults.max_rooms == 64);
 	expect(defaults.max_connections == 128);
 	expect(defaults.player_tokens.empty());

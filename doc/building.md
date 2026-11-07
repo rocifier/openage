@@ -66,12 +66,12 @@ Game/relay options can follow the mode and are forwarded to the executable:
 
 ```powershell
 .\build-fvd.cmd solo --no-audio --window-mode fullscreen
-.\build-fvd.cmd relay --listen 0.0.0.0 --port 32456
+.\build-fvd.cmd relay --listen 0.0.0.0 --port 40000
 ```
 
 ```bash
 bash build-fvd.sh solo --no-audio
-bash build-fvd.sh relay --listen 0.0.0.0 --port 32456
+bash build-fvd.sh relay --listen 0.0.0.0 --port 40000
 ```
 
 The `build` command configures and builds the native game and relay for development without creating or inspecting an archive.
@@ -184,6 +184,26 @@ For generic openage distribution packagers, the traditional CMake install
 path still exists. Use `cmake --install` and your package manager's staging
 mechanism when deliberately packaging the generic developer build. The
 `FVDNative` CMake component is distinct and excludes Python.
+
+## Relay deployment
+
+```
+cd /mnt/g/OpenFVD
+
+cmake -S packaging/native_relay \
+      -B build/native-relay \
+      -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release
+
+cmake --build build/native-relay --parallel
+ctest --test-dir build/native-relay --output-on-failure
+
+cmake --install build/native-relay \
+      --prefix relay-distribution \
+      --config Release
+```
+
+Then the deployable file is /relay-distribution/bin/openage-relay
 
 ## Troubleshooting
 

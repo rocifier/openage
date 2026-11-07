@@ -62,7 +62,7 @@ exported API is reused unless explicitly refreshed.
 .\build-fvd.cmd solo
 .\build-fvd.cmd solo --no-audio --window-mode fullscreen
 .\build-fvd.cmd relay
-.\build-fvd.cmd relay --listen 127.0.0.1 --port 32456
+.\build-fvd.cmd relay --listen 127.0.0.1 --port 40000
 ```
 
 The `solo` and `relay` modes reuse the latest archive under `dist/` without

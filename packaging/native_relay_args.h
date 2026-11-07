@@ -14,7 +14,7 @@ namespace openage::native_relay {
  */
 struct Options {
 	std::string listen = "0.0.0.0";
-	uint16_t port = 32456;
+	uint16_t port = 40000;
 	std::vector<std::string> player_tokens{};
 	size_t max_rooms = 64;
 	size_t max_connections = 128;

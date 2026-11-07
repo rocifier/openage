@@ -89,7 +89,7 @@ bin/run relay
 ```
 
 Start `bin/run game` twice.
-Use address `127.0.0.1` and port `32456` in both lobby screens.
+Use address `127.0.0.1` and port `40000` in both lobby screens.
 Choose different player names.
 On the first client, enter a game name and select **Host Game**.
 On the second client, select **Refresh Games** and then **Join Room** to use the first result, or enter another displayed room ID before joining.
@@ -259,7 +259,7 @@ Run the public relay service separately:
 bin/run relay
 ```
 
-Launch two copies of `bin/run game` and use relay address `127.0.0.1` and port `32456`.
+Launch two copies of `bin/run game` and use relay address `127.0.0.1` and port `40000`.
 On the first client choose **Host Game**.
 On the second choose **Refresh Games**, enter the listed room ID and choose **Join Room**.
 Click **Start Game** on the host. Both clients reveal the same Hunter/Builder

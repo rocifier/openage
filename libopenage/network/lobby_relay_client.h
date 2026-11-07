@@ -30,7 +30,7 @@ class RelayMultiHostLobby;
  */
 struct RelayLobbyConfig {
 	std::string address{"127.0.0.1"};
-	uint16_t port{32456};
+	uint16_t port{40000};
 	uint64_t room_id{0};
 	std::string room_name{"FVD Game"};
 	std::string token_hex{};

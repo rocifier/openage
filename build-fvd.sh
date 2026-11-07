@@ -24,15 +24,15 @@ usage() {
     cat <<'USAGE'
 FVD Linux native release candidate
 
-  bash build-fvd.sh                  Build, package and verify
-  bash build-fvd.sh build            Build the native game and relay
-  bash build-fvd.sh test             Run native CTest
-  bash build-fvd.sh legacy-test      Build and run the legacy C++/Python tests
-  bash build-fvd.sh solo --no-audio  Launch packaged native solo gameplay
-  bash build-fvd.sh relay --port 32456  Start packaged native relay
-  bash build-fvd.sh relay -- --help  Pass any native options after --
-  bash build-fvd.sh --skip-smoke     Create the archive without extracting it
-  bash build-fvd.sh --jobs 4         Limit parallel compilation
+  bash build-fvd.sh                     Build, package and verify
+  bash build-fvd.sh build               Build the native game and relay
+  bash build-fvd.sh test                Run native CTest
+  bash build-fvd.sh legacy-test         Build and run the legacy C++/Python tests
+  bash build-fvd.sh solo --no-audio     Launch packaged native solo gameplay
+  bash build-fvd.sh relay --port 40000  Start packaged native relay
+  bash build-fvd.sh relay -- --help     Pass any native options after --
+  bash build-fvd.sh --skip-smoke        Create the archive without extracting it
+  bash build-fvd.sh --jobs 4            Limit parallel compilation
 
 Requires an existing Linux C++/Qt/CMake development setup; CMake, CPack,
 a C++ compiler and nyan development dependencies. Python, Cython and the
