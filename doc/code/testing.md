@@ -4,7 +4,7 @@ The game, relay and engine tests run **natively in C++**. The old `run.py`/`bin/
 
 ## Native developer tests
 
-On Windows first configure the native targets with `.\\build-fvd.cmd build`, then run `.\\build-fvd.cmd test`. On Linux use `bash build-fvd.sh build` followed by `bash build-fvd.sh test`. Both use CTest and `openage_native_cpp_tests` (developer-only, never packaged for players).
+On Windows run `.\\build-fvd.cmd test`; on Linux run `bash build-fvd.sh test`. Both automatically configure/build their required native targets and use CTest and `openage_native_cpp_tests` (developer-only, never packaged for players).
 
 ```sh
 bash build-fvd.sh test --list
@@ -28,7 +28,7 @@ These `unittest` cases verify network proxy/bandwidth-shaping helpers and use on
 
 ## Native release checks
 
-`build-fvd` with no arguments creates a 7Z archive and runs packaged-file audits. Those checks include native libraries, versioned nyan API, the SHA3 engine manifest, SHA-256 content hashes and platform-specific library closure. They **do not** replace actual two-client visual/audio/multiplayer tests. See [release acceptance](network/FVD_RELEASE_ACCEPTANCE.md) and [network impairment testing](network/FVD_SIMULATED_NETWORK_TESTING.md).
+Only an explicit `build-fvd ... package` creates a release 7Z and runs native staging checks; it never extracts the result. Archive smoke-test scripts must be invoked separately for release acceptance. The release checks include native libraries, versioned nyan API, the SHA3 engine manifest, SHA-256 content hashes and platform-specific library closure. They **do not** replace actual two-client visual/audio/multiplayer tests. See [release acceptance](network/FVD_RELEASE_ACCEPTANCE.md) and [network impairment testing](network/FVD_SIMULATED_NETWORK_TESTING.md).
 
 ## Changed-file checks
 

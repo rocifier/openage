@@ -116,11 +116,17 @@ fs::path user_config_dir() {
 	throw std::runtime_error{"Cannot find user configuration directory; use --cfg-dir"};
 }
 
-void seed_default_config(const fs::path &exe, const fs::path &cfg) {
+void seed_default_config(const fs::path &exe, const fs::path &assets, const fs::path &cfg) {
 	const auto dir = exe.parent_path();
 	for (const auto &candidate : {
 	         dir / "etc" / "openage",
-	         dir.parent_path() / "etc" / "openage"}) {
+	         dir.parent_path() / "etc" / "openage",
+#if !FVD_NATIVE_RELEASE
+	         // Developer runs use assets from the checkout, not an install
+	         // tree, so seed the same default audio/keybinding configuration.
+	         assets.parent_path() / "cfg",
+#endif
+	         }) {
 		if (not fs::is_directory(candidate)) {
 			continue;
 		}
@@ -285,7 +291,7 @@ int run(const openage::native_game::Options &options) {
 		? user_config_dir()
 		: fs::absolute(options.cfg_dir).lexically_normal();
 	fs::create_directories(cfg);
-	seed_default_config(exe, cfg);
+	seed_default_config(exe, assets, cfg);
 
 	openage::main_arguments args{};
 	args.root_path = std::make_shared<openage::util::fslike::MountedDirectories>(

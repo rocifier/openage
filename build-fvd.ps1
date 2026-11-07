@@ -1,13 +1,11 @@
 # Copyright 2026 the openage authors. See copying.md for legal info.
-# One-command Windows FVD native release build for an MSVC/vcpkg checkout.
+# Windows FVD developer build/run; package is an explicit release-only operation.
 # Normal use: .\build-fvd.cmd
 # Engine API is checked in under assets/fvd/engine_api; no export step.
-# Modes: package (default), build, test, python-test, game, solo, relay. Accept runtime or
-# test and native runtime options directly after their mode.
+# Modes: build (default), game, solo, relay, test, python-test, package.
+# Runtime and test options are forwarded after the mode.
 # Manual parsing preserves unknown --native-options under Windows PowerShell 5.1.
-$Mode = "package"
-$SkipSmoke = $false
-$ObserveSoloSeconds = 30
+$Mode = "build"
 $Jobs = 4
 $NativeArgs = @()
 $tokens = @($args)
@@ -20,16 +18,6 @@ if ($tokens.Count -gt 0 -and
 while ($i -lt $tokens.Count) {
     $token = [string] $tokens[$i]
     switch ($token) {
-        "-SkipSmoke" { $SkipSmoke = $true; break }
-        "-ObserveSoloSeconds" {
-            if ($i + 1 -ge $tokens.Count) { throw "$token requires a number" }
-            $i++
-            $ObserveSoloSeconds = [int] $tokens[$i]
-            if ($ObserveSoloSeconds -lt 0 -or $ObserveSoloSeconds -gt 600) {
-                throw "-ObserveSoloSeconds must be 0..600"
-            }
-            break
-        }
         "-Jobs" {
             if ($i + 1 -ge $tokens.Count) { throw "$token requires a number" }
             $i++
@@ -71,122 +59,61 @@ function Invoke-Checked([string] $Executable, [string[]] $Arguments, [string] $D
     }
 }
 
-function Find-SevenZip {
-    $command = Get-Command "7z.exe" -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
-    foreach ($base in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
-        if (-not $base) { continue }
-        $candidate = Join-Path $base "7-Zip\7z.exe"
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
-    }
-    throw "7-Zip not found. Install 7-Zip (7z.exe), or rerun with -SkipSmoke."
-}
-
-function Find-Dumpbin {
-    $command = Get-Command "dumpbin.exe" -ErrorAction SilentlyContinue
-    if ($command) { return $command.Source }
-
-    if ($env:VCToolsInstallDir) {
-        $candidate = Join-Path $env:VCToolsInstallDir "bin\Hostx64\x64\dumpbin.exe"
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
-    }
-
-    # A configured MSVC checkout already knows the VS linker location.
+function Get-CMakeCacheValue([string] $Key) {
     $cache = Join-Path $build "CMakeCache.txt"
-    if (Test-Path -LiteralPath $cache -PathType Leaf) {
-        $line = Get-Content -LiteralPath $cache |
-            Where-Object { $_ -match '^CMAKE_LINKER:[^=]*=' } |
-            Select-Object -First 1
-        if ($line) {
-            $linker = ($line -split '=', 2)[1]
-            $candidate = Join-Path (Split-Path -Parent $linker) "dumpbin.exe"
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
-        }
-    }
-
-    foreach ($base in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
-        if (-not $base) { continue }
-        $vs = Join-Path $base "Microsoft Visual Studio"
-        if (-not (Test-Path -LiteralPath $vs -PathType Container)) { continue }
-        $found = Get-ChildItem -LiteralPath $vs -Filter dumpbin.exe -File -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match 'Hostx64\\x64\\dumpbin[.]exe$' } |
-            Select-Object -First 1
-        if ($found) { return $found.FullName }
-    }
-    throw "Visual Studio dumpbin.exe not found. Install the MSVC C++ build tools."
+    if (-not (Test-Path -LiteralPath $cache -PathType Leaf)) { return $null }
+    $pattern = "^$([regex]::Escape($Key)):[^=]*=(.*)$"
+    $line = Get-Content -LiteralPath $cache |
+        Where-Object { $_ -match $pattern } | Select-Object -First 1
+    if ($line -and $line -match $pattern) { return $Matches[1] }
+    return $null
 }
 
-function Get-CompatibleWindowsArchives {
-    if (-not (Test-Path -LiteralPath $dist -PathType Container)) { return @() }
-
-    $sevenZip = Find-SevenZip
-    $compatible = @()
-    foreach ($archive in @(Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File)) {
-        $listing = & $sevenZip l -ba -slt $archive.FullName 2>$null
-        if ($LASTEXITCODE -eq 0 -and
-            $listing -match '^Path = (?:.*[\\/])?bin[\\/]openage-native[.]exe$') {
-            $compatible += $archive
-        }
+function Ensure-NativeConfigured([bool] $Release) {
+    $expected = if ($Release) { "ON" } else { "OFF" }
+    # CMake's build step handles changed CMakeLists automatically. Reconfigure
+    # only on first use, after switching build/release modes, or for packaging
+    # (which must refresh the source-asset integrity manifest).
+    if ((Get-CMakeCacheValue "FVD_NATIVE_RELEASE") -ne $expected -or $Release) {
+        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
+            "-DFVD_NATIVE_RELEASE=$expected") "Configure native FVD ($expected)"
     }
-    return $compatible
 }
 
-function Get-LatestArchive {
-    $archive = @(Get-CompatibleWindowsArchives) |
-        Sort-Object LastWriteTimeUtc -Descending |
-        Select-Object -First 1
-    if (-not $archive) {
-        throw "No Windows native 7Z found in $dist. First run: .\build-fvd.cmd"
+function Get-LocalExecutable([string] $Name) {
+    foreach ($candidate in @(
+        (Join-Path $build "packaging\\RelWithDebInfo\\$Name"),
+        (Join-Path $build "packaging\\$Name"))) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
     }
-    return $archive
+    throw "Native build did not produce $Name under $build\\packaging"
 }
 
-function Get-ExtractedRunStage {
-    $archive = Get-LatestArchive
-    $sevenZip = Find-SevenZip
-    $runDir = Join-Path $dist "run"
-    $stampFile = Join-Path $runDir ".archive-stamp"
-    $expectedStamp = "$($archive.FullName):$($archive.Length):$($archive.LastWriteTimeUtc.Ticks)"
-    $actualStamp = ""
-    if (Test-Path -LiteralPath $stampFile -PathType Leaf) {
-        $actualStamp = Get-Content -LiteralPath $stampFile -Raw
+function Set-DeveloperQtEnvironment {
+    # Use the already-installed vcpkg developer Qt runtime in-place, without
+    # running windeployqt, extracting a package or copying the Qt distribution.
+    $installed = Get-CMakeCacheValue "_VCPKG_INSTALLED_DIR"
+    $triplet = Get-CMakeCacheValue "VCPKG_TARGET_TRIPLET"
+    if (-not $installed -or -not $triplet) { return }
+    $vcpkg = Join-Path $installed $triplet
+    $qt = Join-Path $vcpkg "Qt6"
+    if (Test-Path -LiteralPath (Join-Path $vcpkg "bin") -PathType Container) {
+        $env:PATH = "$(Join-Path $vcpkg 'bin');$env:PATH"
     }
-    if ($actualStamp.Trim() -ne $expectedStamp) {
-        Write-Host "==> Extracting latest native archive to $runDir" -ForegroundColor Cyan
-        if (Test-Path -LiteralPath $runDir) {
-            Remove-Item -LiteralPath $runDir -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-        & $sevenZip x "-o$runDir" -y $archive.FullName | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "7-Zip failed to extract the archive" }
-        Set-Content -LiteralPath $stampFile -Value $expectedStamp
+    if (Test-Path -LiteralPath (Join-Path $qt "plugins") -PathType Container) {
+        $env:QT_PLUGIN_PATH = Join-Path $qt "plugins"
     }
-    $games = @(Get-ChildItem -LiteralPath $runDir -Recurse -File -Filter "openage-native.exe" |
-        Where-Object { $_.Directory.Name -eq "bin" })
-    if ($games.Count -ne 1) { throw "Expected one packaged openage-native.exe; found $($games.Count)" }
-    return $games[0].Directory.FullName
+    if (Test-Path -LiteralPath (Join-Path $qt "qml") -PathType Container) {
+        $env:QML_IMPORT_PATH = Join-Path $qt "qml"
+        $env:QML2_IMPORT_PATH = $env:QML_IMPORT_PATH
+    }
+    if (Test-Path -LiteralPath (Join-Path $vcpkg "etc\\fonts") -PathType Container) {
+        $env:FONTCONFIG_PATH = Join-Path $vcpkg "etc\\fonts"
+    }
 }
 
 Push-Location $root
 try {
-    if ($Mode -in @("game", "solo", "relay")) {
-        # Run the actual packaged binary, not a developer launcher. No compilation.
-        $bin = Get-ExtractedRunStage
-        $name = if ($Mode -eq "relay") { "openage-relay.exe" } else { "openage-native.exe" }
-        $exe = Join-Path $bin $name
-        $runArgs = @()
-        if ($Mode -eq "solo") { $runArgs += "--solo" }
-        $runArgs += $NativeArgs
-        Write-Host "==> Running packaged $Mode. Use Ctrl+C to stop." -ForegroundColor Cyan
-        Push-Location $bin
-        try {
-            & $exe @runArgs
-            if ($LASTEXITCODE -ne 0) { throw "$Mode exited with code $LASTEXITCODE" }
-        }
-        finally { Pop-Location }
-        return
-    }
-
     # Pure Python tests are optional tools, wholly independent of CMake,
     # the native engine and the old Cython test dispatcher.
     if ($Mode -eq "python-test") {
@@ -212,89 +139,81 @@ try {
     if (-not (Get-Command "cmake.exe" -ErrorAction SilentlyContinue)) {
         throw "CMake not found. Set up the Windows MSVC/vcpkg development environment first."
     }
-    if ($Mode -eq "test") {
-        if (-not (Test-Path -LiteralPath (Join-Path $build "CMakeCache.txt") -PathType Leaf)) {
-            throw "No configured Windows build; first run: .\build-fvd.cmd build"
-        }
-        Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-            "-DFVD_NATIVE_RELEASE=OFF") "Configure native-only C++ tests"
-        Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-            "--target", "openage_native_game", "openage_native_relay",
-            "openage_native_game_args_test", "openage_native_relay_args_test",
-            "openage_native_relay_network_test", "openage_native_cpp_tests", "--parallel", "$Jobs") "Build native test targets"
-        Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
-            "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
-        if ($NativeArgs.Count -gt 0) {
-            $nativeRunner = Join-Path $build "packaging\RelWithDebInfo\openage_native_cpp_tests.exe"
-            if (-not (Test-Path -LiteralPath $nativeRunner -PathType Leaf)) {
-                $nativeRunner = Join-Path $build "packaging\openage_native_cpp_tests.exe"
-            }
-            Invoke-Checked $nativeRunner @($NativeArgs) "Run selected native C++ tests"
-        }
-        Write-Host "FVD native tests passed." -ForegroundColor Green
-        return
-    }
-
-    # The engine API is a committed source asset. No Python/Cython export
-    # bootstrap may run in a supported native build or package command.
+    # The source API must be present for every native build, not just release.
     foreach ($required in @("modpack.toml", "manifest.toml", "root.nyan")) {
         if (-not (Test-Path -LiteralPath (Join-Path $api $required) -PathType Leaf)) {
             throw "Tracked FVD engine API incomplete: missing $required under $api"
         }
     }
 
-    $nativeRelease = if ($Mode -eq "package") { "ON" } else { "OFF" }
-    $configureDescription = if ($Mode -eq "package") {
-        "Configure Python-free native release"
+    Ensure-NativeConfigured ($Mode -eq "package")
+
+    if ($Mode -eq "test") {
+        $targets = @("openage_native_game_dev_runtime", "openage_native_relay",
+            "openage_native_game_args_test", "openage_native_relay_args_test",
+            "openage_native_relay_network_test", "openage_native_cpp_tests")
+    }
+    elseif ($Mode -in @("solo", "game")) {
+        $targets = @("openage_native_game_dev_runtime")
+    }
+    elseif ($Mode -eq "relay") {
+        $targets = @("openage_native_relay")
     }
     else {
-        "Configure Python-free native developer build"
+        $targets = @("openage_native_game", "openage_native_relay")
     }
-    Invoke-Checked "cmake.exe" @("-S", $root, "-B", $build,
-        "-DFVD_NATIVE_RELEASE=$nativeRelease") $configureDescription
-    Invoke-Checked "cmake.exe" @("--build", $build, "--config", "RelWithDebInfo",
-        "--target", "openage_native_game", "openage_native_relay",
-        "--parallel", "$Jobs") "Build native game and relay"
+    Invoke-Checked "cmake.exe" (@("--build", $build, "--config", "RelWithDebInfo",
+        "--target") + $targets + @("--parallel", "$Jobs")) "Incremental native $Mode build"
 
-    if ($Mode -eq "build") {
-        Write-Host "FVD native game and relay build completed." -ForegroundColor Green
+    if ($Mode -in @("game", "solo", "relay")) {
+        $name = if ($Mode -eq "relay") { "openage-relay.exe" } else { "openage-native.exe" }
+        $exe = Get-LocalExecutable $name
+        $runArgs = @()
+        if ($Mode -ne "relay") {
+            Set-DeveloperQtEnvironment
+            # Source assets are authoritative in developer mode. Explicit user
+            # --asset-dir options can still override this default.
+            $runArgs += @("--asset-dir", (Join-Path $root "assets"))
+        }
+        if ($Mode -eq "solo") { $runArgs += "--solo" }
+        $runArgs += $NativeArgs
+        Write-Host "==> Running freshly built $name (no archive)" -ForegroundColor Cyan
+        & $exe @runArgs
+        if ($LASTEXITCODE -ne 0) { throw "$Mode exited with code $LASTEXITCODE" }
         return
     }
 
+    if ($Mode -eq "test") {
+        Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
+            "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
+        if ($NativeArgs.Count -gt 0) {
+            $nativeRunner = Get-LocalExecutable "openage_native_cpp_tests.exe"
+            Invoke-Checked $nativeRunner @($NativeArgs) "Run selected native C++ tests"
+        }
+        Write-Host "FVD native tests passed." -ForegroundColor Green
+        return
+    }
+
+    if ($Mode -eq "build") {
+        Write-Host "FVD local native game and relay are up to date." -ForegroundColor Green
+        return
+    }
+
+    # Packaging is deliberately separate. No developer mode depends on
+    # archives, and packaging does not unpack or launch the release archive.
     if (-not (Get-Command "cpack.exe" -ErrorAction SilentlyContinue)) {
         throw "CPack not found; it is installed with CMake."
     }
-
     New-Item -ItemType Directory -Path $dist -Force | Out-Null
     Invoke-Checked "cpack.exe" @("--config", (Join-Path $build "CPackConfig.cmake"),
-        "-C", "RelWithDebInfo", "-G", "7Z", "-B", $dist) "Package Python-free Windows 7Z"
-
+        "-C", "RelWithDebInfo", "-G", "7Z", "-B", $dist) "Create native release 7Z"
     $archive = Get-ChildItem -LiteralPath $dist -Filter "*.7z" -File |
         Sort-Object LastWriteTimeUtc -Descending |
         Select-Object -First 1
-    if (-not $archive) {
-        throw "CPack finished but no 7Z archive was found in $dist"
-    }
+    if (-not $archive) { throw "CPack finished but no 7Z archive was found in $dist" }
     Write-Host ""
-    Write-Host "Package: $($archive.FullName)" -ForegroundColor Green
-
-    if (-not $SkipSmoke) {
-        $sevenZip = Find-SevenZip
-        $dumpbin = Find-Dumpbin
-        Write-Host ""
-        Write-Host "==> Audit extracted archive, CLI, assets, and solo process" -ForegroundColor Cyan
-        & (Join-Path $root "packaging\native_game\SmokeTestWindowsArchive.ps1") `
-            -Archive $archive.FullName -SevenZip $sevenZip -Dumpbin $dumpbin `
-            -KeepExtracted -ObserveSoloSeconds $ObserveSoloSeconds
-        if (-not $?) { throw "Extracted archive smoke test failed." }
-    }
-    else {
-        Write-Host "Smoke test skipped (-SkipSmoke)." -ForegroundColor Yellow
-    }
-
-    Write-Host ""
-    Write-Host "FVD native release package is ready: $($archive.FullName)" -ForegroundColor Green
-    Write-Host "Before publishing, complete the manual gameplay/multiplayer and clean-machine checks."
+    Write-Host "Release archive: $($archive.FullName)" -ForegroundColor Green
+    Write-Host "Archive extraction and release smoke tests are separate manual deployment/acceptance steps."
 }
 finally {
     Pop-Location
