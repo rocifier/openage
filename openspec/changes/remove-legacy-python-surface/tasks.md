@@ -10,13 +10,18 @@
 
 ## 2. Replace Python-generated C++ and the Cython test bridge
 
-- [ ] 2.1 Generate the four coordinate header/source pairs one final time, remove generated-file warnings and commit them as ordinary C++ source.
-- [ ] 2.2 Compile the committed coordinate `.cpp` files directly and remove their Mako templates and generated single-compilation-unit wrapper.
-- [ ] 2.3 Add a native C++ test executable that lists tests, runs one exact or prefixed name and runs all registered C++ tests.
-- [ ] 2.4 Report the active test name, source failure location and uncaught C++ exception details without Python exception translation.
+- [x] 2.1 Generate the four coordinate header/source pairs one final time, remove generated-file warnings and commit them as ordinary C++ source.
+- [x] 2.2 Compile the committed coordinate `.cpp` files directly and remove their Mako templates and generated single-compilation-unit wrapper.
+- [x] 2.3 Add a native C++ test executable that lists tests, runs one exact or prefixed name and runs all registered C++ tests.
+- [x] 2.4 Report the active test name, source failure location and uncaught C++ exception details without Python exception translation.
 - [ ] 2.5 Move C++ test registration out of the Python test list and generated dispatcher into a C++-owned source of truth.
 - [ ] 2.6 Port retained tests that use Python-backed paths or callbacks to native fixtures.
 - [ ] 2.7 Update `build-fvd` and editor tasks to run native C++ tests and pure Python tests as separate commands.
+
+Task 2 migration note: the C++-owned runner now registers nine native tests,
+including texture metadata on a native FSLike fixture. The remaining legacy
+C++ registrations and Python-dependent tests still need to move before
+2.5–2.7 can be checked. Windows/Linux full native builds remain a gate.
 
 ## 3. Remove Python code generation, Cython and Python adapters
 

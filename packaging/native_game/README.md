@@ -68,7 +68,14 @@ bash build-fvd.sh relay --listen 127.0.0.1 --port 40000
 The launch commands use the most recent archive, extracted to `dist/run/`; they do **not** reconfigure or compile.
 Run `build` for an incremental native game and relay build without creating or inspecting an archive.
 The developer game accepts loose source assets through `--asset-dir assets`; packaged builds retain strict release manifest validation.
-Run `test` to incrementally build native test targets and execute CTest.
+Run `test` to reconfigure the developer (non-release) native library, build
+the C++-owned test executable and native protocol tests, and execute CTest.
+`openage_native_cpp_tests` accepts `--list`, `--all`, `--exact NAME`, and
+`--prefix PREFIX`. This initial nine-test registry includes coordinate
+operations, native config, network messages, numeric utilities, assertions
+and texture parsing. It lives in `libopenage/testing/native_test_runner.cpp`
+rather than the Python-generated test dispatcher. More engine tests will be
+ported before the old Cython test bridge disappears.
 Run `legacy-test` to configure Python adapters, build the developer runner and execute the traditional C++/Python suite.
 With no test name it passes `-a` to the legacy runner and executes every test that does not require external game assets.
 
@@ -117,6 +124,11 @@ reviewed source change. CMake configuration checks those hashes and the API
 version; packaging checks the staged files, and native startup validates the
 release manifest. The legacy API exporter remains temporarily in the tree
 for other workflows but is no longer called by either FVD build wrapper.
+
+Coordinate C++ templates were materialized as ordinary source files in
+`libopenage/coord/`. Builds no longer invoke Mako for those types.
+The old Python test dispatcher and optional legacy test mode still exist
+until the remaining native test registrations and fixtures are migrated.
 
 The FVDNative CMake install component stages the native game/relay, C++
 engine libraries, Qt/QML runtime, FVD data, shaders, config and tracked
