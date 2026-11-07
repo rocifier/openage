@@ -190,7 +190,7 @@ try {
     # Pure Python tests are optional tools, wholly independent of CMake,
     # the native engine and the old Cython test dispatcher.
     if ($Mode -eq "python-test") {
-        $python = Join-Path $root ".venv\\Scripts\\python.exe"
+        $python = Join-Path $root ".venv\Scripts\python.exe"
         if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
             $command = Get-Command "python.exe" -ErrorAction SilentlyContinue
             if (-not $command) { throw "Python unavailable; install Python 3.12+ or run 'uv sync'." }
@@ -250,9 +250,9 @@ try {
         Invoke-Checked "ctest.exe" @("--test-dir", $build, "-C", "RelWithDebInfo",
             "-R", "^fvd_native_(game|relay)_", "--output-on-failure") "Run native CTest suite"
         if ($NativeArgs.Count -gt 0) {
-            $nativeRunner = Join-Path $build "packaging\\RelWithDebInfo\\openage_native_cpp_tests.exe"
+            $nativeRunner = Join-Path $build "packaging\RelWithDebInfo\openage_native_cpp_tests.exe"
             if (-not (Test-Path -LiteralPath $nativeRunner -PathType Leaf)) {
-                $nativeRunner = Join-Path $build "packaging\\openage_native_cpp_tests.exe"
+                $nativeRunner = Join-Path $build "packaging\openage_native_cpp_tests.exe"
             }
             Invoke-Checked $nativeRunner @($NativeArgs) "Run selected native C++ tests"
         }
