@@ -109,7 +109,7 @@ the player validates every asset SHA-256 before opening the game.
 For example, on an already configured Windows checkout from the repo root:
 
 ```powershell
-cmake -S . -B .bin\msvc-vcpkg -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_RELEASE=ON -DFVD_NATIVE_API_ASSET_DIR="$((Resolve-Path .\assets\converted\engine).Path)"
+cmake -S . -B .bin\msvc-vcpkg -DFVD_WITH_PYTHON_ADAPTERS=OFF -DFVD_NATIVE_RELEASE=ON
 cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_game openage_native_relay --parallel 4
 cpack --config .bin\msvc-vcpkg\CPackConfig.cmake -C RelWithDebInfo -G 7Z -B dist
 ```
