@@ -17,9 +17,9 @@ Status: **in verification**, 7 November 2026. This document distinguishes CI evi
 
 ## Windows — clean machine and two-client test
 
-1. Install only MSVC C++ Build Tools, CMake/CPack, vcpkg's native Qt/nyan dependencies and 7-Zip on a fresh Windows build VM **without Python, Cython, Mako or Python development headers**. Confirm the Python commands are absent, then run `.\\build-fvd.cmd`. Save the configuration log and archive path.
+1. Install only MSVC C++ Build Tools, CMake/CPack, vcpkg's native Qt/nyan dependencies and 7-Zip on a fresh Windows build VM **without Python, Cython, Mako or Python development headers**. Confirm the Python commands are absent, then run `.\\build-fvd.cmd package`. Save the configuration log and archive path.
 2. On a clean player VM without Python, extract that **same** portable 7Z archive. Run `bin\\openage-native.exe --verify-assets`, then `bin\\openage-native.exe` to open the lobby. Confirm UI, music, attack/build/death sounds, sprites and the absence of missing QML or DLL messages.
-3. Run `bin\\openage-relay.exe --listen 0.0.0.0 --port 40000` on the trusted host. On two Windows PCs launch `.\\build-fvd.cmd game` (using the same packaged build on both), host and join a lobby, start a game, test Builder tower building/garrison, Hunter movement/combat, replicated sound/animation and a rematch. Use [multiplayer acceptance details](WINDOWS_MULTIPLAYER_ACCEPTANCE.md).
+3. Run `bin\\openage-relay.exe --listen 0.0.0.0 --port 40000` on the trusted host. On two Windows development PCs launch `.\\build-fvd.cmd game` (using matching source revisions on both), host and join a lobby, start a game, test Builder tower building/garrison, Hunter movement/combat, replicated sound/animation and a rematch. Use [multiplayer acceptance details](WINDOWS_MULTIPLAYER_ACCEPTANCE.md).
 4. Close the game normally; check it exits code 0 and releases its room. Stop the relay normally and confirm no port/room leak. Repeat with the Hunter hosted by either PC. Store logs and note any graphics/audio differences.
 
 ## Linux — clean container and native archive test
