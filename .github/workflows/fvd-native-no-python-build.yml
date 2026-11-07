@@ -1,0 +1,88 @@
+name: FVD Python-absent Linux native build and archive
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'packaging/**'
+      - 'assets/fvd/**'
+      - 'assets/qml/**'
+      - 'assets/shaders/**'
+      - 'cfg/**'
+      - 'buildsystem/**'
+      - '.github/workflows/fvd-native-no-python-build.yml'
+      - 'packaging/docker/devenv/Dockerfile.ubuntu.2604.no-python'
+  push:
+    branches: [fvd-track-engine-api-20261107]
+    paths:
+      - 'CMakeLists.txt'
+      - 'libopenage/**'
+      - 'packaging/**'
+      - 'assets/fvd/**'
+      - 'assets/qml/**'
+      - 'assets/shaders/**'
+      - 'cfg/**'
+      - 'buildsystem/**'
+      - '.github/workflows/fvd-native-no-python-build.yml'
+      - 'packaging/docker/devenv/Dockerfile.ubuntu.2604.no-python'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  native-without-python:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build clean native-only toolchain image
+        run: docker build --file packaging/docker/devenv/Dockerfile.ubuntu.2604.no-python --tag fvd-no-python:ci .
+      - name: Compile and test game, relay, audio and archive with no Python installed
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$PWD:/workspace" -w /workspace fvd-no-python:ci bash -euo pipefail -c '
+            # This is an isolated OS filesystem, not merely FindPython disabled.
+            for tool in python python3 python3.12 python3.13 cython cython3; do
+              if command -v "$tool" >/dev/null 2>&1; then
+                echo "Forbidden interpreter/compiler installed: $tool" >&2
+                exit 1
+              fi
+            done
+            if find /usr/lib /usr/local/lib -type f -name "libpython3*.so*" -print -quit | grep -q .; then
+              echo "Python runtime or development shared library in native image" >&2
+              exit 1
+            fi
+            echo "PASS: Python is physically absent from the native build image"
+            cmake -S . -B build/no-python-ci -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release -DDOWNLOAD_NYAN=YES \
+              -DFVD_NATIVE_RELEASE=OFF \
+              -DCMAKE_DISABLE_FIND_PACKAGE_Python=TRUE \
+              -DCMAKE_DISABLE_FIND_PACKAGE_Python3=TRUE
+            cmake --build build/no-python-ci --parallel 3 --target \
+              openage_native_game openage_native_relay openage_native_cpp_tests \
+              openage_native_game_args_test openage_native_relay_args_test \
+              openage_native_relay_network_test
+            ctest --test-dir build/no-python-ci \
+              -R "^fvd_native_(game|relay)_" --output-on-failure
+            runner=build/no-python-ci/packaging/openage_native_cpp_tests
+            "$runner" --exact openage::audio::tests::fvd_audio_bank
+            "$runner" --exact openage::network::tests::relay_multi_host_lobby
+            "$runner" --exact openage::network::tests::fvd_multi_session
+            cmake -S . -B build/no-python-ci -DFVD_NATIVE_RELEASE=ON
+            cmake --build build/no-python-ci --parallel 3 \
+              --target openage_native_game openage_native_relay
+            mkdir -p build/no-python-release
+            cpack --config build/no-python-ci/CPackConfig.cmake \
+              -C Release -G 7Z -B build/no-python-release
+            test -f build/no-python-release/fvd.7z
+            bash packaging/native_game/SmokeTestLinuxArchive.sh \
+              build/no-python-release/fvd.7z
+            for tool in python python3 cython cython3; do
+              if command -v "$tool" >/dev/null 2>&1; then
+                echo "Python appeared during native build: $tool" >&2
+                exit 1
+              fi
+            done
+            echo "PASS: native Linux package and tests built and smoked without Python"
+          '
