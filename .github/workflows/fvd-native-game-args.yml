@@ -10,6 +10,7 @@ on:
       - "packaging/native_game/*.cmake"
       - "packaging/native_game/*.h.in"
       - "assets/fvd/engine_api/**"
+      - ".gitattributes"
       - "build-fvd.ps1"
       - "build-fvd.cmd"
       - "build-fvd.sh"
