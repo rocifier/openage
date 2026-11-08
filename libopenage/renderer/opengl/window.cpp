@@ -37,10 +37,7 @@ GlWindow::GlWindow(const std::string &title,
 	QSurfaceFormat format{};
 	format.setProfile(QSurfaceFormat::OpenGLContextProfile::CoreProfile);
 	format.setSwapBehavior(QSurfaceFormat::SwapBehavior::DoubleBuffer);
-
-	if (not settings.vsync) {
-		format.setSwapInterval(0);
-	}
+	format.setSwapInterval(settings.vsync ? 1 : 0);
 
 	format.setMajorVersion(gl_specs.major_version);
 	format.setMinorVersion(gl_specs.minor_version);
@@ -82,7 +79,10 @@ GlWindow::GlWindow(const std::string &title,
 	this->window->installEventFilter(this->event_handler.get());
 
 	this->window->setVisible(true);
-	log::log(MSG(info) << "Created Qt window with OpenGL context.");
+	log::log(MSG(info) << "Created Qt window with OpenGL context (VSync "
+	                   << (settings.vsync ? "enabled" : "disabled")
+	                   << ", swap interval "
+	                   << this->context->get_raw_context()->format().swapInterval() << ").");
 
 	// Scaling factor if highDPI
 	this->scale_dpr = this->window->devicePixelRatio();

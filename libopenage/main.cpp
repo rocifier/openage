@@ -38,6 +38,7 @@ int run_game(const main_arguments &args) {
 	win_settings.width = args.window_args.width;
 	win_settings.height = args.window_args.height;
 	win_settings.vsync = args.window_args.vsync;
+	win_settings.max_fps = args.window_args.max_fps;
 
 	renderer::window_mode wmode;
 	if (args.window_args.mode == "fullscreen") {

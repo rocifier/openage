@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <utility>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "audio/fvd_audio.h"
@@ -155,9 +156,17 @@ void Presenter::run(const renderer::window_settings window_settings,
 	if (on_initialized) {
 		on_initialized();
 	}
+	const auto frame_rate_limit = window_settings.max_fps > 0
+	                            ? static_cast<double>(window_settings.max_fps)
+	                            : this->window->get_refresh_rate();
+	const auto frame_period = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+		std::chrono::duration<double>{1.0 / frame_rate_limit});
+	auto next_frame = std::chrono::steady_clock::now();
+	log::log(INFO << "Presenter: Frame rate capped at " << frame_rate_limit << " FPS"
+	              << (window_settings.vsync ? " with VSync" : " without VSync"));
 
 	std::exception_ptr frame_error{};
-	this->gui_app->run_event_loop([this, &frame_error]() {
+	this->gui_app->run_event_loop([this, &frame_error, &next_frame, frame_period]() {
 		if (this->stop_requested) {
 			return false;
 		}
@@ -184,6 +193,14 @@ void Presenter::run(const renderer::window_settings window_settings,
 			{
 				util::StallProfiler profile{"presenter.window_present"};
 				this->window->present();
+			}
+			next_frame += frame_period;
+			const auto now = std::chrono::steady_clock::now();
+			if (now < next_frame) {
+				std::this_thread::sleep_until(next_frame);
+			}
+			else {
+				next_frame = now;
 			}
 		}
 		catch (...) {

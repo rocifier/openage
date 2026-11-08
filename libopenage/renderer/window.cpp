@@ -5,6 +5,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QResizeEvent>
+#include <QScreen>
 #include <QWheelEvent>
 #include <QWindow>
 
@@ -35,6 +36,16 @@ const util::Vector2s &Window::get_size() const {
 
 double Window::get_scale() const {
 	return this->scale_dpr;
+}
+
+double Window::get_refresh_rate() const {
+	if (this->window and this->window->screen()) {
+		const auto refresh_rate = this->window->screen()->refreshRate();
+		if (refresh_rate >= 1.0 and refresh_rate <= 1000.0) {
+			return refresh_rate;
+		}
+	}
+	return 60.0;
 }
 
 bool Window::should_close() const {

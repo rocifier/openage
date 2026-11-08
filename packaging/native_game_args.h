@@ -15,7 +15,9 @@ struct Options {
 	bool headless = false;
 	bool solo = false;
 	bool no_audio = false;
-	bool vsync = false;
+	bool vsync = true;
+	/** Zero selects the active display's refresh rate. */
+	int max_fps = 0;
 	int network_update_interval_ms = 50;
 	int width = 1331;
 	int height = 998;

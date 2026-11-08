@@ -42,6 +42,8 @@ struct window_settings {
 	graphics_api_t backend = graphics_api_t::DEFAULT;
 	// If true, enable vsync.
 	bool vsync = true;
+	// Maximum rendered frames per second. Zero uses the display refresh rate.
+	size_t max_fps = 0;
 	// If true, enable debug logging for the selected backend.
 	bool debug = false;
 	// Display mode for the window.
@@ -80,6 +82,9 @@ public:
 	 * @return Scaling factor.
 	 */
 	double get_scale() const;
+
+	/** Get the refresh rate of the display currently presenting the window. */
+	double get_refresh_rate() const;
 
 	/**
 	 * Returns \p true if this window should be closed.

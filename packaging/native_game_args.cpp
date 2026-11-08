@@ -70,6 +70,9 @@ Options parse_arguments(int argc, const char *const argv[]) {
 		else if (arg == "--vsync") {
 			options.vsync = true;
 		}
+		else if (arg == "--no-vsync") {
+			options.vsync = false;
+		}
 		else if (arg == "-v" or arg == "--verbose") {
 			++options.verbosity;
 		}
@@ -87,6 +90,10 @@ Options parse_arguments(int argc, const char *const argv[]) {
 			else if (name == "--network-update-interval-ms") {
 				options.network_update_interval_ms = positive_number(
 					option_value(arg, index, argc, argv), name, 60000);
+			}
+			else if (name == "--max-fps") {
+				options.max_fps = positive_number(
+					option_value(arg, index, argc, argv), name, 1000);
 			}
 			else if (name == "--window-mode") {
 				options.window_mode = option_value(arg, index, argc, argv);

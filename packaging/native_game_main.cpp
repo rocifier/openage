@@ -262,7 +262,8 @@ void print_help() {
 		<< "  --network-update-interval-ms MS   Replication interval (default: 50)\n"
 		<< "  --window-size WIDTH HEIGHT       Window size (default: 1331 998)\n"
 		<< "  --window-mode MODE               windowed, borderless or fullscreen\n"
-		<< "  --vsync                           Enable vertical synchronization\n"
+		<< "  --vsync / --no-vsync              Vertical synchronization (default: on)\n"
+		<< "  --max-fps FPS                      Frame cap (default: display refresh rate)\n"
 		<< "  --modpacks fvd                    FVD only\n"
 		<< "  -v, --verbose / -q, --quiet       Logging verbosity\n"
 		<< "  -h, --help / -V, --version        Show information and exit\n";
@@ -302,7 +303,8 @@ int run(const openage::native_game::Options &options) {
 	args.no_audio = options.no_audio;
 	args.network_update_interval_ms = options.network_update_interval_ms;
 	args.mods = {"fvd"};
-	args.window_args = {options.width, options.height, options.vsync, options.window_mode};
+	args.window_args = {
+		options.width, options.height, options.vsync, options.max_fps, options.window_mode};
 	args.native_runtime = true;
 
 	openage::log::log(INFO << "Launching FVD native game from " << assets.string());

@@ -22,6 +22,7 @@ bash build-fvd.sh test
 ```
 
 Both wrappers build their required native executable before launching it directly from the build directory, with the checkout's `assets/` for games. Arguments after `game`, `solo` or `relay` are passed to the executable; use `game --help` or `relay --help` to see options.
+Graphical launches enable VSync and independently cap rendering to the active display's refresh rate by default; use `--max-fps FPS` to select a lower cap or `--no-vsync` to diagnose swap synchronization without removing the frame cap.
 
 ## Release distribution is separate
 

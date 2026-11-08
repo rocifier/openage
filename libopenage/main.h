@@ -25,12 +25,14 @@ namespace openage {
  *     int width
  *     int height
  *     bool vsync
+ *     int max_fps
  *     string mode
  */
 struct window_arguments {
 	int width;
 	int height;
 	bool vsync;
+	int max_fps;
 	std::string mode;
 };
 

@@ -15,6 +15,7 @@
 | Release archive | `.\build-fvd.cmd package` | `bash build-fvd.sh package` |
 
 Each native launch builds only its needed targets **incrementally**, then executes the local CMake build-tree binary (Windows: `.bin/msvc-vcpkg/packaging/RelWithDebInfo`; Linux: `build/packaging` or `bin/packaging`). The game uses the live checkout's `assets/` through `--asset-dir`; extra flags are forwarded.
+The game enables VSync and caps rendering to the active display refresh rate by default, with `--max-fps FPS` available for a lower explicit limit.
 
 ```powershell
 .\build-fvd.cmd solo --no-audio --window-mode windowed
