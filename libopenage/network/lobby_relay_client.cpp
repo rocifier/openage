@@ -1764,7 +1764,7 @@ void RelayLobbyClient::run_refresh(RelayLobbyConfig settings) {
 		const auto token = parse_token(settings.token_hex);
 		const auto deadline = std::chrono::steady_clock::now()
 		                    + ROOM_REFRESH_SETTLE_TIMEOUT;
-		std::vector<RelayRoomSummary> rooms{};
+		RelayRoomListing listing{};
 		size_t attempts = 0;
 		do {
 			auto socket = std::make_shared<TcpConnection>(
@@ -1774,33 +1774,35 @@ void RelayLobbyClient::run_refresh(RelayLobbyConfig settings) {
 				this->connection = socket;
 			}
 			if (this->stopping) return;
-			rooms = list_relay_rooms(*socket, token);
+			listing = list_relay_rooms(*socket, token);
 			socket->close();
 			++attempts;
-			if (not rooms.empty()
+			if (not listing.rooms.empty()
 			    or std::chrono::steady_clock::now() >= deadline) break;
 			std::this_thread::sleep_for(ROOM_REFRESH_RETRY_INTERVAL);
 		} while (not this->stopping);
 		if (this->stopping) return;
 		if (attempts > 1) {
 			log::log(INFO << "[FVD/lobby] room_refresh_settled attempts=" << attempts
-			              << " rooms=" << rooms.size());
+			              << " rooms=" << listing.rooms.size());
 		}
-		std::string listing{};
-		for (const auto &room : rooms) {
-			if (not listing.empty()) {
-				listing += "\n";
+		std::string rooms{};
+		for (const auto &room : listing.rooms) {
+			if (not rooms.empty()) {
+				rooms += "\n";
 			}
-			listing += "#" + std::to_string(room.room_id) + "  "
+			rooms += "#" + std::to_string(room.room_id) + "  "
 			        + room.room_name + "  (" + room.host_name + ")";
 		}
 		this->publish(RelayLobbyStatus{
 			.phase = "menu",
-			.message = rooms.empty()
+			.message = listing.rooms.empty()
 			           ? "No games are waiting."
 			           : "The first room is selected; choose Join Room or enter another ID.",
-			.rooms = std::move(listing),
-			.suggested_room_id = rooms.empty() ? 0 : rooms.front().room_id,
+			.rooms = std::move(rooms),
+			.relay_network_version = std::to_string(listing.protocol_version.major)
+			                       + "." + std::to_string(listing.protocol_version.minor),
+			.suggested_room_id = listing.rooms.empty() ? 0 : listing.rooms.front().room_id,
 		});
 	}
 	catch (const std::exception &error) {
@@ -1808,6 +1810,7 @@ void RelayLobbyClient::run_refresh(RelayLobbyConfig settings) {
 			this->publish(RelayLobbyStatus{
 				.phase = "error",
 				.message = error.what(),
+				.relay_network_version = "Unavailable",
 			});
 		}
 	}

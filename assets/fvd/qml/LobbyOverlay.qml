@@ -68,6 +68,18 @@ Item {
 
                 Text {
                     width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "NETWORK  "
+                          + (menu.lobby ? menu.lobby.networkVersion : "")
+                          + "    RELAY  "
+                          + (menu.lobby ? menu.lobby.relayNetworkVersion : "Not checked")
+                    color: "#d7c998"
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                Text {
+                    width: parent.width
                     wrapMode: Text.WordWrap
                     text: "Host a public game or refresh the relay room list and join by room ID. Enter an access token only when the relay runs in private-alpha mode."
                     color: "#bdd0c5"
@@ -96,7 +108,7 @@ Item {
                         border.color: "#688478"; border.width: 1
                         TextInput {
                             anchors.fill: parent; anchors.margins: 9
-                            text: menu.lobby ? menu.lobby.address : "127.0.0.1"; color: "white"; font.pixelSize: 14
+                            text: menu.lobby ? menu.lobby.address : "60.234.5.16"; color: "white"; font.pixelSize: 14
                             onTextEdited: if (menu.lobby) menu.lobby.address = text
                         }
                     }

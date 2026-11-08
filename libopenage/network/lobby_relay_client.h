@@ -29,7 +29,7 @@ class RelayMultiHostLobby;
  * One host or guest request to a relay-managed public room directory.
  */
 struct RelayLobbyConfig {
-	std::string address{"127.0.0.1"};
+	std::string address{"60.234.5.16"};
 	uint16_t port{40000};
 	uint64_t room_id{0};
 	std::string room_name{"FVD Game"};
@@ -68,6 +68,8 @@ struct RelayLobbyStatus {
 	/** Authenticated gameplay heartbeat replies, useful for link diagnostics. */
 	uint32_t heartbeat_acknowledgements{0};
 	std::string rooms{};
+	/** Network version reported by the most recent room-directory response. */
+	std::string relay_network_version{};
 	uint64_t suggested_room_id{0};
 	/** The same name/role assignments on every peer, established by StartMatch. */
 	std::string roles{};

@@ -72,6 +72,12 @@ struct RelayRoomSummary {
 	std::string host_name{};
 };
 
+/** A room-directory response and the network version advertised by its relay. */
+struct RelayRoomListing {
+	ProtocolVersion protocol_version{};
+	std::vector<RelayRoomSummary> rooms{};
+};
+
 /** A newly advertised room and its still-connected host socket. */
 struct HostedRelayRoom {
 	uint64_t room_id{};
@@ -241,13 +247,13 @@ void await_relay_room(TcpConnection &connection, uint64_t room_id,
                       gamestate::player_id_t slot = 2);
 
 /** Fetch the current public room list, authenticating when required. */
-std::vector<RelayRoomSummary> list_relay_rooms(TcpConnection &connection,
-                                               const RelayToken &token);
+RelayRoomListing list_relay_rooms(TcpConnection &connection,
+                                  const RelayToken &token);
 
 /** Connect and fetch the current public room list. */
-std::vector<RelayRoomSummary> list_relay_rooms(const std::string &address,
-                                               uint16_t port,
-                                               const RelayToken &token);
+RelayRoomListing list_relay_rooms(const std::string &address,
+                                  uint16_t port,
+                                  const RelayToken &token);
 
 /** Join a listed room and wait until the relay connects it to the host. */
 /** Join one available room slot, receiving the assigned provisional participant ID. */

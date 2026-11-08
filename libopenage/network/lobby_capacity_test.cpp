@@ -177,7 +177,7 @@ void run_capacity_case(size_t count, bool force_builder_creator, bool benchmark 
 		await_condition("original room listening", [&]() {
 			return creator.status().phase == "waiting";
 		});
-		auto advertised = list_relay_rooms(host.address, host.port, RelayToken{});
+		auto advertised = list_relay_rooms(host.address, host.port, RelayToken{}).rooms;
 		auto found = std::find_if(advertised.begin(), advertised.end(),
 			[&host](const auto &room) { return room.room_name == host.room_name; });
 		TESTEQUALS(found != advertised.end(), true);

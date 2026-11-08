@@ -537,8 +537,8 @@ void await_relay_room(TcpConnection &connection, uint64_t room_id,
 	require_relay_ready(response.payload, expected);
 }
 
-std::vector<RelayRoomSummary> list_relay_rooms(TcpConnection &connection,
-                                               const RelayToken &token) {
+RelayRoomListing list_relay_rooms(TcpConnection &connection,
+                                  const RelayToken &token) {
 	connection.send_frame(relay_frame(
 		MessageType::RELAY_LIST_ROOMS,
 		encode_token_request(token)));
@@ -547,12 +547,15 @@ std::vector<RelayRoomSummary> list_relay_rooms(TcpConnection &connection,
 		throw Error{MSG(err) << "Expected FVD relay room list, received message "
 		                     << static_cast<uint16_t>(response.message_type)};
 	}
-	return decode_room_list(response.payload);
+	return {
+		{response.protocol_major, response.protocol_minor},
+		decode_room_list(response.payload),
+	};
 }
 
-std::vector<RelayRoomSummary> list_relay_rooms(const std::string &address,
-                                               uint16_t port,
-                                               const RelayToken &token) {
+RelayRoomListing list_relay_rooms(const std::string &address,
+                                  uint16_t port,
+                                  const RelayToken &token) {
 	auto connection = TcpConnection::connect(address, port);
 	return list_relay_rooms(connection, token);
 }

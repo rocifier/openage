@@ -47,9 +47,9 @@ void test_room_forwarding() {
 	try {
 		auto hosted = create_relay_room("127.0.0.1", port, host_token,
 		                                "Native relay", "Host");
-		auto rooms = list_relay_rooms("127.0.0.1", port, guest_token);
-		require(rooms.size() == 1, "native relay did not advertise room");
-		require(rooms.front().room_id == hosted.room_id, "native room ID mismatch");
+		auto listing = list_relay_rooms("127.0.0.1", port, guest_token);
+		require(listing.rooms.size() == 1, "native relay did not advertise room");
+		require(listing.rooms.front().room_id == hosted.room_id, "native room ID mismatch");
 
 		auto guest = join_relay_room("127.0.0.1", port, guest_token, hosted.room_id);
 		await_relay_room(hosted.connection, hosted.room_id);

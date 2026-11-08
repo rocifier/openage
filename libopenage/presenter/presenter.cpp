@@ -52,6 +52,7 @@
 #include "network/construction_presentation.h"
 #include "network/lobby_relay_client.h"
 #include "network/order_presentation.h"
+#include "network/protocol.h"
 #include "network/replication.h"
 #include "renderer/camera/camera.h"
 #include "renderer/gui/gui.h"
@@ -759,6 +760,7 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 			this->fvd_lobby_hosting = false;
 			this->fvd_lobby_suggested_room_id = 0;
 			this->fvd_lobby_state->insert("roomId", QString{});
+			this->fvd_lobby_state->insert("relayNetworkVersion", QString{"Checking..."});
 			this->fvd_lobby_client->refresh(std::move(config));
 			return;
 		}
@@ -1066,6 +1068,10 @@ void Presenter::refresh_fvd_lobby_state() {
 		this->fvd_lobby_local_error.empty() ? state.message : this->fvd_lobby_local_error));
 	update("participants", QString::fromStdString(state.participants));
 	update("rooms", QString::fromStdString(state.rooms));
+	if (not state.relay_network_version.empty()) {
+		update("relayNetworkVersion",
+		       QString::fromStdString(state.relay_network_version));
+	}
 	if (state.suggested_room_id != this->fvd_lobby_suggested_room_id) {
 		this->fvd_lobby_suggested_room_id = state.suggested_room_id;
 		update("roomId", state.suggested_room_id == 0
@@ -1853,7 +1859,7 @@ void Presenter::init_input() {
 				QSettings saved{QSettings::IniFormat, QSettings::UserScope,
 				                QStringLiteral("openage"), QStringLiteral("fvd")};
 				for (const auto &[key, default_value] : {
-					std::pair{"address", "127.0.0.1"},
+					std::pair{"address", "60.234.5.16"},
 					std::pair{"port", "40000"},
 					std::pair{"roomName", "FVD Game"},
 					std::pair{"maxPlayers", "2"},
@@ -1882,7 +1888,8 @@ void Presenter::init_input() {
 				}
 				QObject::connect(this->fvd_lobby_state.get(), &QQmlPropertyMap::valueChanged,
 				                 this->fvd_lobby_state.get(),
-				                 [](const QString &key, const QVariant &value) {
+				                 [state = this->fvd_lobby_state.get()](
+				                     const QString &key, const QVariant &value) {
 					// Only user-editable, non-sensitive fields are retained.
 					// In particular, never store a private relay access token.
 					if (key != QStringLiteral("address")
@@ -1891,6 +1898,10 @@ void Presenter::init_input() {
 					    and key != QStringLiteral("maxPlayers")
 					    and key != QStringLiteral("roomId")
 					    and key != QStringLiteral("name")) return;
+					if (key == QStringLiteral("address")
+					    or key == QStringLiteral("port")) {
+						state->insert("relayNetworkVersion", QString{"Not checked"});
+					}
 					QSettings settings{QSettings::IniFormat, QSettings::UserScope,
 					                   QStringLiteral("openage"), QStringLiteral("fvd")};
 					settings.setValue(QStringLiteral("lobby/") + key,
@@ -1905,8 +1916,13 @@ void Presenter::init_input() {
 				this->fvd_lobby_state->insert("departureNotice", QString{});
 				this->fvd_lobby_state->insert("pendingOrders", 0);
 				this->fvd_lobby_state->insert("builderDisconnected", false);
+				this->fvd_lobby_state->insert(
+					"networkVersion",
+					QString{"%1.%2"}.arg(network::PROTOCOL_MAJOR).arg(network::PROTOCOL_MINOR));
+				this->fvd_lobby_state->insert("relayNetworkVersion", QString{"Checking..."});
 				this->fvd_lobby_state->insert("enabled", true);
 				this->gui->set_context_property("fvdLobby", this->fvd_lobby_state.get());
+				this->handle_fvd_lobby_action("refresh");
 			}
 		}
 	}

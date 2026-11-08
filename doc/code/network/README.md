@@ -193,6 +193,7 @@ attachment, rather than using the public zero guest token.
 The relay sends `RelayReady` with the room ID and provisional guest player ID 2 after both sockets are paired.
 Normal `ClientHello` and gameplay frames follow `RelayReady` unchanged.
 Room listing sends a pre-session heartbeat to waiting hosts so cleanly disconnected rooms can be removed instead of remaining advertised.
+The lobby refreshes the configured relay automatically when it opens and displays both the client's current network version and the version advertised by the room-directory response.
 
 An empty relay authorization list enables public room creation, listing and joining.
 A nonempty list restricts all three operations to repeatable 256-bit player bearer tokens supplied through `--player-token`.

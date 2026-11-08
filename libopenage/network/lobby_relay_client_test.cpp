@@ -155,7 +155,7 @@ void lobby_rematch_room_visibility() {
 		bool room_removed = false;
 		for (size_t attempt = 0; attempt < 50; ++attempt) {
 			if (list_relay_rooms(
-			        rematch.address, rematch.port, RelayToken{}).empty()) {
+			        rematch.address, rematch.port, RelayToken{}).rooms.empty()) {
 				room_removed = true;
 				break;
 			}
@@ -237,6 +237,8 @@ void lobby_relay_client() {
 	// The old positional publish() construction silently coupled their order.
 	const auto room_listing = guest.status();
 	TESTEQUALS(room_listing.rooms.find("Automated Test") != std::string::npos, true);
+	TESTEQUALS(room_listing.relay_network_version,
+	           std::to_string(PROTOCOL_MAJOR) + "." + std::to_string(PROTOCOL_MINOR));
 	TESTEQUALS(room_listing.suggested_room_id != 0, true);
 	TESTEQUALS(room_listing.roles.empty(), true);
 	TESTEQUALS(room_listing.local_role.empty(), true);

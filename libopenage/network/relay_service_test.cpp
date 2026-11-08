@@ -56,10 +56,12 @@ void relay_service() {
 	TESTEQUALS(directory.room_count(), size_t{1});
 
 	auto rooms = list_relay_rooms("127.0.0.1", port, guest_token);
-	TESTEQUALS(rooms.size(), size_t{1});
-	TESTEQUALS(rooms[0].room_id, hosted.room_id);
-	TESTEQUALS(rooms[0].room_name, std::string{"Test Room"});
-	TESTEQUALS(rooms[0].host_name, std::string{"Host Player"});
+	TESTEQUALS(rooms.protocol_version.major, PROTOCOL_MAJOR);
+	TESTEQUALS(rooms.protocol_version.minor, PROTOCOL_MINOR);
+	TESTEQUALS(rooms.rooms.size(), size_t{1});
+	TESTEQUALS(rooms.rooms[0].room_id, hosted.room_id);
+	TESTEQUALS(rooms.rooms[0].room_name, std::string{"Test Room"});
+	TESTEQUALS(rooms.rooms[0].host_name, std::string{"Host Player"});
 	TESTTHROWS(join_relay_room("127.0.0.1", port, host_token, hosted.room_id));
 	TESTEQUALS(directory.room_count(), size_t{1});
 
@@ -67,7 +69,7 @@ void relay_service() {
 		"127.0.0.1", port, guest_token, hosted.room_id);
 	await_relay_room(hosted.connection, hosted.room_id);
 	TESTEQUALS(directory.room_count(), size_t{0});
-	TESTEQUALS(list_relay_rooms("127.0.0.1", port, guest_token).empty(), true);
+	TESTEQUALS(list_relay_rooms("127.0.0.1", port, guest_token).rooms.empty(), true);
 
 	Frame frame{};
 	frame.message_type = MessageType::PING;
@@ -92,13 +94,13 @@ void relay_service() {
 	TESTEQUALS(attach_relay_room(host_four, host_token, group.room_id),
 	           gamestate::player_id_t{4});
 	TESTEQUALS(directory.room_count(), size_t{1});
-	TESTEQUALS(list_relay_rooms("127.0.0.1", port, guest_token).size(), size_t{1});
+	TESTEQUALS(list_relay_rooms("127.0.0.1", port, guest_token).rooms.size(), size_t{1});
 	auto guest_two = TcpConnection::connect("127.0.0.1", port);
 	TESTEQUALS(join_relay_room_slot(guest_two, guest_token, group.room_id),
 	           gamestate::player_id_t{2});
 	await_relay_room(group.connection, group.room_id);
 	TESTEQUALS(directory.room_count(), size_t{1});
-	TESTEQUALS(list_relay_rooms("127.0.0.1", port, guest_token_two).size(), size_t{1});
+	TESTEQUALS(list_relay_rooms("127.0.0.1", port, guest_token_two).rooms.size(), size_t{1});
 	TESTTHROWS(join_relay_room("127.0.0.1", port, guest_token, group.room_id));
 	auto guest_three = TcpConnection::connect("127.0.0.1", port);
 	TESTEQUALS(join_relay_room_slot(guest_three, guest_token_two, group.room_id),
@@ -142,7 +144,7 @@ void relay_service() {
 	abandoned.connection.close();
 	bool expired = false;
 	for (size_t attempt = 0; attempt < 50; ++attempt) {
-		if (list_relay_rooms("127.0.0.1", port, guest_token).empty()) {
+		if (list_relay_rooms("127.0.0.1", port, guest_token).rooms.empty()) {
 			expired = true;
 			break;
 		}
