@@ -26,7 +26,8 @@ namespace qtgui {
 GuiRendererImpl::GuiRendererImpl(std::shared_ptr<openage::renderer::Window> window) :
 	QObject{},
 	gui_context{window},
-	render_control{} {
+	render_control{},
+	scale_dpr{window->get_scale()} {
 	// use of undocumented as of qt6.4 constructor
 	// QQuickWindow(QQuickRenderControl *renderControl)
 	// which associates the render controller with a qwindow.
@@ -71,7 +72,7 @@ GuiRendererImpl::GuiRendererImpl(std::shared_ptr<openage::renderer::Window> wind
 	});
 
 	auto size = window->get_qt_window()->size();
-	this->resize(size.width(), size.height());
+	this->resize(size.width(), size.height(), this->scale_dpr);
 
 	this->gui_context.pre_render();
 	// TODO: switch for vulkan support
@@ -91,7 +92,9 @@ void GuiRendererImpl::set_texture(const std::shared_ptr<openage::renderer::Textu
 	// TODO switch here for vulkan surface draw support.
 	auto tex_gl = std::dynamic_pointer_cast<openage::renderer::opengl::GlTexture2d>(texture);
 	auto tex_gl_id = tex_gl->get_handle();
-	this->target_window->setRenderTarget(QQuickRenderTarget::fromOpenGLTexture(tex_gl_id, tex_size));
+	auto render_target = QQuickRenderTarget::fromOpenGLTexture(tex_gl_id, tex_size);
+	render_target.setDevicePixelRatio(this->scale_dpr);
+	this->target_window->setRenderTarget(render_target);
 	this->gui_context.post_render();
 }
 
@@ -116,8 +119,9 @@ GuiRendererImpl *GuiRendererImpl::impl(GuiRenderer *renderer) {
 	return renderer->impl.get();
 }
 
-void GuiRendererImpl::resize(const size_t width, const size_t height) {
+void GuiRendererImpl::resize(const size_t width, const size_t height, double scale) {
 	this->gui_context.pre_render();
+	this->scale_dpr = scale;
 	this->target_window->setGeometry(0, 0, width, height);
 	emit this->resized(QSize(width, height));
 	this->gui_context.post_render();

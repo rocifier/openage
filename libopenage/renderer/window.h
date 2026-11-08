@@ -77,6 +77,23 @@ public:
 	const util::Vector2s &get_size() const;
 
 	/**
+	 * Get the dimensions of the window's drawable surface in device pixels.
+	 *
+	 * @return (width, height) as a size-2 vector.
+	 */
+	util::Vector2s get_physical_size() const;
+
+	/**
+	 * Convert logical window dimensions to device-pixel dimensions.
+	 *
+	 * @param width Logical width.
+	 * @param height Logical height.
+	 * @param scale Device pixel ratio.
+	 * @return Device-pixel dimensions.
+	 */
+	static util::Vector2s get_physical_size(size_t width, size_t height, double scale);
+
+	/**
 	 * Get the scaling factor of the window.
 	 *
 	 * @return Scaling factor.

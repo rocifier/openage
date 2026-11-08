@@ -2,6 +2,8 @@
 
 #include "window.h"
 
+#include <cmath>
+
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QResizeEvent>
@@ -32,6 +34,16 @@ Window::Window(size_t width, size_t height) :
 
 const util::Vector2s &Window::get_size() const {
 	return this->size;
+}
+
+util::Vector2s Window::get_physical_size() const {
+	return Window::get_physical_size(this->size[0], this->size[1], this->scale_dpr);
+}
+
+util::Vector2s Window::get_physical_size(size_t width, size_t height, double scale) {
+	return {
+		static_cast<size_t>(std::lround(static_cast<double>(width) * scale)),
+		static_cast<size_t>(std::lround(static_cast<double>(height) * scale))};
 }
 
 double Window::get_scale() const {
@@ -90,6 +102,14 @@ void Window::process_events() {
 			this->size = {width, height};
 			for (auto &cb : this->on_resize) {
 				cb(width, height, this->scale_dpr);
+			}
+		} break;
+		case QEvent::DevicePixelRatioChange: {
+			this->scale_dpr = this->window->devicePixelRatio();
+			log::log(MSG(dbg) << "Window device pixel ratio changed to: " << this->scale_dpr);
+
+			for (auto &cb : this->on_resize) {
+				cb(this->size[0], this->size[1], this->scale_dpr);
 			}
 		} break;
 		case QEvent::Close: {

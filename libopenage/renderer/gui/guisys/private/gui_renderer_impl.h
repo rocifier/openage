@@ -56,8 +56,9 @@ public:
 	 *
 	 * @param width Target width.
 	 * @param height Target height.
+	 * @param scale Device pixel ratio of the target texture.
 	 */
-	void resize(const size_t width, const size_t height);
+	void resize(const size_t width, const size_t height, double scale);
 
 	/**
 	 * Set the texture that the GUI is rendered into.
@@ -102,6 +103,9 @@ private:
 	 * GUI texture that is targeted by the render control.
 	 */
 	std::shared_ptr<openage::renderer::Texture2d> texture;
+
+	/** Device pixel ratio of the GUI render target. */
+	double scale_dpr;
 };
 
 } // namespace qtgui

@@ -18,8 +18,8 @@ void GuiRenderer::render() {
 	this->impl->render();
 }
 
-void GuiRenderer::resize(int w, int h) {
-	this->impl->resize(w, h);
+void GuiRenderer::resize(int w, int h, double scale) {
+	this->impl->resize(w, h, scale);
 }
 
 void GuiRenderer::set_texture(const std::shared_ptr<openage::renderer::Texture2d> &texture) {

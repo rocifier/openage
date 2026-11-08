@@ -32,6 +32,7 @@ public:
 	 *     - Mouse button presses
 	 *     - Mouse moves
 	 *     - Window resize
+	 *     - Device pixel ratio changes
 	 *     - Window close events
 	 *
 	 * @param object Window that received the event.

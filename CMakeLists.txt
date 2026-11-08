@@ -174,9 +174,15 @@ include(util)
 if(USED_GIT_VERSION)
 	# VERSION_FULL_STRING is the full git describe
 	set(VERSION_FULL_STRING "${PROJECT_VERSION}")
-	# PROJECT_VERSION is MAJOR.MINOR.PATCH.TWEAK with Commit-Count as Tweak
-	STRING(REGEX REPLACE "v(([0-9]+.|[0-9]+)+)-([0-9]+)-g([a-f0-9]+)"
-			"\\1.\\3" PROJECT_VERSION "${VERSION_FULL_STRING}")
+	# Increment PATCH by the number of commits since the version tag.
+	if(VERSION_FULL_STRING MATCHES "^[^0-9]*([0-9]+)\\.([0-9]+)\\.([0-9]+)-([0-9]+)-g[a-f0-9]+$")
+		set(VERSION_MAJOR "${CMAKE_MATCH_1}")
+		set(VERSION_MINOR "${CMAKE_MATCH_2}")
+		math(EXPR VERSION_PATCH "${CMAKE_MATCH_3} + ${CMAKE_MATCH_4}")
+		set(PROJECT_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+	else()
+		message(FATAL_ERROR "Unsupported git version: ${VERSION_FULL_STRING}")
+	endif()
 endif()
 if(NOT VERSION_FULL_STRING)
 	set(VERSION_FULL_STRING "${PROJECT_VERSION}")

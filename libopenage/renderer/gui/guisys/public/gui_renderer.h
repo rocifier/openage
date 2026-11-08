@@ -26,7 +26,7 @@ public:
 	~GuiRenderer();
 
 	void render();
-	void resize(int w, int h);
+	void resize(int w, int h, double scale);
 	void set_texture(const std::shared_ptr<openage::renderer::Texture2d> &texture);
 	std::shared_ptr<QQuickWindow> get_window();
 

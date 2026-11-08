@@ -65,13 +65,14 @@ GUI::GUI(std::shared_ptr<qtgui::GuiApplication> app,
 
 	auto size = window->get_size();
 	// create the appropriate texture
-	this->resize(size[0], size[1]);
+	this->resize(size[0], size[1], window->get_scale());
 
 	util::Path shaderdir = assetdir["shaders"];
-	this->initialize_render_pass(size[0], size[1], shaderdir);
+	auto physical_size = window->get_physical_size();
+	this->initialize_render_pass(physical_size[0], physical_size[1], shaderdir);
 
-	window->add_resize_callback([this](size_t width, size_t height, double /*scale*/) {
-		this->resize(width, height);
+	window->add_resize_callback([this](size_t width, size_t height, double scale) {
+		this->resize(width, height, scale);
 	});
 }
 
@@ -143,21 +144,19 @@ void GUI::initialize_render_pass(size_t width,
 }
 
 
-void GUI::resize(size_t width, size_t height) {
-	// TODO: this texture has to be bigger because of highdpi scaling
-	//       width and height are not the real window pixel surface.
-	// Hint: Use effectiveDevicePixelRatio() method
+void GUI::resize(size_t width, size_t height, double scale) {
+	auto physical_size = Window::get_physical_size(width, height, scale);
 	this->texture = this->renderer->add_texture(
-		resources::Texture2dInfo(width, height, resources::pixel_format::rgba8));
+		resources::Texture2dInfo(physical_size[0], physical_size[1], resources::pixel_format::rgba8));
 
 	// update new texture to gui renderer
-	this->gui_renderer->resize(width, height);
+	this->gui_renderer->resize(width, height, scale);
 	this->gui_renderer->set_texture(this->texture);
 
 	// update the fbo size of the render pass
 	if (this->render_pass) {
 		auto output_texture = this->renderer->add_texture(
-			resources::Texture2dInfo(width, height, resources::pixel_format::rgba8));
+			resources::Texture2dInfo(physical_size[0], physical_size[1], resources::pixel_format::rgba8));
 		auto fbo = renderer->create_texture_target({output_texture});
 
 		// pass the new texture to shader uniform

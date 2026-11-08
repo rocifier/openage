@@ -107,8 +107,9 @@ private:
 	 *
 	 * @param width New width of the GUI.
 	 * @param height New height of the GUI.
+	 * @param scale Device pixel ratio of the GUI surface.
 	 */
-	void resize(size_t width, size_t height);
+	void resize(size_t width, size_t height, double scale);
 
 	/**
 	 * Reference to the Qt GUI application singleton.

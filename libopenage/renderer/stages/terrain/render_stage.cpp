@@ -41,14 +41,15 @@ TerrainRenderStage::TerrainRenderStage(const std::shared_ptr<Window> &window,
 	clock{clock} {
 	renderer::opengl::GlContext::check_error();
 
-	auto size = window->get_size();
+	auto size = window->get_physical_size();
 	this->initialize_render_pass(size[0], size[1], shaderdir);
 	this->fog_texture = this->renderer->add_texture(resources::Texture2dData{
 		resources::Texture2dInfo{1, 1, resources::pixel_format::rgba8},
 		std::vector<uint8_t>{255, 255, 255, 255}});
 
-	window->add_resize_callback([this](size_t width, size_t height, double /*scale*/) {
-		this->resize(width, height);
+	window->add_resize_callback([this](size_t width, size_t height, double scale) {
+		auto size = Window::get_physical_size(width, height, scale);
+		this->resize(size[0], size[1]);
 	});
 
 	this->model->set_camera(this->camera);
