@@ -21,7 +21,7 @@ foreach ($dir in @($QmlRoot, $qml, $plugins)) {
 $result = & $Scanner -rootPath $QmlRoot -importPath $qml
 if ($LASTEXITCODE -ne 0) { throw "qmlimportscanner exit $LASTEXITCODE" }
 try {
-    $modules = @(($result -join [Environment]::NewLine) | ConvertFrom-Json)
+    $modules = ($result -join [Environment]::NewLine) | ConvertFrom-Json
 }
 catch {
     throw "Invalid Qt scanner JSON: $_"
