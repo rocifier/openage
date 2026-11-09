@@ -116,17 +116,6 @@ Item {
 		return ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2)
 	}
 
-	// The HUD stays in logical window coordinates; the renderer handles DPI.
-	Rectangle {
-		id: topBarShadow
-		anchors.fill: topBar
-		anchors.topMargin: 4
-		z: 9
-		visible: topBar.visible
-		radius: 14
-		color: "#24000000"
-	}
-
 	Rectangle {
 		id: topBar
 		objectName: "fvdTopBar"
@@ -249,15 +238,6 @@ Item {
 			font.pixelSize: 22
 			text: "⚙"
 		}
-	}
-
-	Rectangle {
-		anchors.fill: optionsPanel
-		anchors.topMargin: 4
-		z: 10
-		visible: optionsPanel.visible
-		radius: 11
-		color: "#24000000"
 	}
 
 	Rectangle {
@@ -736,17 +716,6 @@ Item {
 		}
 	}
 
-	// Minimap, bottom right. The viewer's own fog and state only; the
-	// presenter paints it top-down and this item turns it into an AoE2-style
-	// diamond. Clicks are routed by the presenter ("fvdMinimapSurface").
-	Rectangle {
-		anchors.fill: minimapPanel
-		anchors.topMargin: 5
-		visible: minimapPanel.visible
-		radius: 13
-		color: "#24000000"
-	}
-
 	Rectangle {
 		id: minimapPanel
 		objectName: "fvdMinimapPanel"
@@ -857,13 +826,6 @@ Item {
 			target: root
 			function onMinimapFlaresChanged() { minimapFlareLayer.requestPaint() }
 		}
-	}
-
-	Rectangle {
-		anchors.fill: buildPanel
-		anchors.topMargin: 5
-		radius: 14
-		color: "#24000000"
 	}
 
 	Rectangle {
