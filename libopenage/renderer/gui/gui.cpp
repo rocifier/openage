@@ -5,6 +5,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 
+#include "error/error.h"
 #include "renderer/gui/guisys/public/gui_engine.h"
 #include "renderer/gui/guisys/public/gui_input.h"
 #include "renderer/gui/guisys/public/gui_renderer.h"
@@ -85,6 +86,22 @@ bool GUI::contains_item(const QString &object_name, const QPointF &scene_positio
 	auto item = find_visual_item(window->contentItem(), object_name);
 	return item and item->isVisible() and item->isEnabled()
 	       and item->contains(item->mapFromScene(scene_position));
+}
+
+std::optional<RoundedItemGeometry> GUI::rounded_item_geometry(const QString &object_name) const {
+	auto window = this->gui_renderer->get_window();
+	auto item = find_visual_item(window->contentItem(), object_name);
+	if (not item or not item->isVisible() or item->width() <= 0 or item->height() <= 0) {
+		return std::nullopt;
+	}
+	const auto radius = item->property("radius");
+	if (not radius.isValid()) {
+		throw Error{MSG(err) << "GUI glass panel is missing its corner radius"};
+	}
+	return RoundedItemGeometry{
+		item->mapRectToScene(QRectF{0, 0, item->width(), item->height()}),
+		radius.toDouble(),
+	};
 }
 
 bool GUI::map_to_item(const QString &object_name, const QPointF &scene_position, QPointF &local) const {

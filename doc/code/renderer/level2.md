@@ -24,6 +24,7 @@ There are currently 6 stages in the level 2 rendering pipeline:
 1. `ScreenRenderer`: Alpha composites the framebuffer data of previous stages and draws them onto the screen (i.e. it overlays the outputs from the other stages).
 
 With the exception of the `ScreenRenderer`, all stages are independent from each other, i.e. the order in which they are rendered each frame does not matter. To render the current frame for a stage, call its `update()` method. The `ScreenRenderer` must be rendered last as it combines the output of all other stages into the result shown on screen.
+For FVD, it uses Dual Kawase downsample and upsample passes before drawing the blurred scene within the visible Qt panel bounds and compositing the GUI layer.
 
 The `WorldRenderer` uses ordered layers for structure occlusion.
 After drawing the scene normally, it writes opaque structure pixels to depth without changing color, then draws player-colored unit contours only where that depth is closer than the unit.

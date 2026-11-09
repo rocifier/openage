@@ -34,6 +34,7 @@ The prompts used for the initial set are recorded in [prompts.md](prompts.md).
 ## Match HUD
 
 The translucent top bar shows the player's authoritative total kills, the match countdown, and current order or error feedback.
+The top and bottom panels blur the game scene beneath their rounded backgrounds.
 Errors, rejected orders, and disconnect notices appear red in its status area.
 Its left corner displays the combined crest and FVD wordmark from `qml/fvd-logo.png`.
 The bottom strip shows selection health and details, icon-labelled actions, and the assigned player names with their in-game colours.

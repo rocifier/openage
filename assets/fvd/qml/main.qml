@@ -138,7 +138,7 @@ Item {
 		visible: root.hud !== null
 		height: 46
 		radius: 13
-		color: "#af212b28"
+		color: "#50212b28"
 		readonly property int contentVerticalOffset: -3
 		border.width: 1
 		border.color: "#7ccbd6d0"
@@ -758,7 +758,7 @@ Item {
 		height: 164
 		width: 236
 		radius: 13
-		color: "#80232f2a"
+		color: "#50232f2a"
 		border.width: 1
 		border.color: "#a4e0e8d7"
 
@@ -877,7 +877,7 @@ Item {
 		anchors.bottomMargin: 16
 		height: 164
 		radius: 13
-		color: "#8022302a"
+		color: "#5022302a"
 		border.width: 1
 		border.color: "#8bcbd9cc"
 

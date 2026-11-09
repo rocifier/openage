@@ -2,11 +2,13 @@
 
 #pragma once
 
-#include "renderer/texture.h"
+#include <QRectF>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "renderer/gui/guisys/public/gui_subtree.h"
+#include "renderer/texture.h"
 
 class QObject;
 class QString;
@@ -32,6 +34,12 @@ class Window;
 class UniformInput;
 
 namespace gui {
+
+/** Scene bounds and corner radius of a Qt Quick Rectangle. */
+struct RoundedItemGeometry {
+	QRectF rect;
+	double radius;
+};
 
 /**
  * Interface (= HUD) of the game.
@@ -65,6 +73,9 @@ public:
 
 	/** Hit test a named QML control in current scene coordinates. */
 	bool contains_item(const QString &object_name, const QPointF &scene_position) const;
+
+	/** Get the visible bounds and radius of a named QML Rectangle. */
+	std::optional<RoundedItemGeometry> rounded_item_geometry(const QString &object_name) const;
 
 	/** Move keyboard focus away from an editable QML control. */
 	void clear_input_focus();

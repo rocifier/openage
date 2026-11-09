@@ -4,6 +4,7 @@
 
 #include <eigen3/Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <exception>
 #include <QBuffer>
@@ -1992,6 +1993,7 @@ void Presenter::init_input() {
 
 void Presenter::init_final_render_pass() {
 	// Final output to window
+	const size_t source_pass_count = this->render_passes.size();
 	this->screen_renderer = std::make_shared<renderer::screen::ScreenRenderStage>(
 		this->window,
 		this->renderer,
@@ -2001,15 +2003,18 @@ void Presenter::init_final_render_pass() {
 		targets.push_back(pass->get_target());
 	}
 	this->screen_renderer->set_render_targets(targets);
+	for (const auto &blur_pass : this->screen_renderer->get_blur_passes()) {
+		this->render_passes.push_back(blur_pass);
+	}
 	this->render_passes.push_back(this->screen_renderer->get_render_pass());
 
 	// Update final render pass if the textures are reassigned on resize
 	// TODO: This REQUIRES that all other render passes have already been
 	//       resized
-	this->window->add_resize_callback([this](size_t, size_t, double /*scale*/) {
+	this->window->add_resize_callback([this, source_pass_count](size_t, size_t, double /*scale*/) {
 		// Acquire the render targets for all previous passes
 		std::vector<std::shared_ptr<renderer::RenderTarget>> targets{};
-		for (size_t i = 0; i < this->render_passes.size() - 1; ++i) {
+		for (size_t i = 0; i < source_pass_count; ++i) {
 			targets.push_back(this->render_passes[i]->get_target());
 		}
 		this->screen_renderer->set_render_targets(targets);
@@ -2857,6 +2862,31 @@ void Presenter::render() {
 		util::StallProfiler profile{"render.gui"};
 		this->gui->render();
 	}
+	std::array<renderer::screen::GlassPanel, 4> glass_panels{};
+	if (this->fvd_hud_state) {
+		const auto size = this->window->get_size();
+		if (size[0] > 0 and size[1] > 0) {
+			constexpr std::array<const char *, 4> panel_items{
+				"fvdTopBar",
+				"fvdBuildPanel",
+				"fvdMinimapPanel",
+				"fvdOptionsPanel",
+			};
+			for (size_t i = 0; i < panel_items.size(); ++i) {
+				if (const auto panel = this->gui->rounded_item_geometry(panel_items[i])) {
+					const auto &rect = panel->rect;
+					glass_panels[i].rect = Eigen::Vector4f{
+						static_cast<float>(rect.left() / size[0]),
+						static_cast<float>(1.0 - rect.bottom() / size[1]),
+						static_cast<float>(rect.width() / size[0]),
+						static_cast<float>(rect.height() / size[1]),
+					};
+					glass_panels[i].radius = panel->radius * this->window->get_scale();
+				}
+			}
+		}
+	}
+	this->screen_renderer->set_glass_panels(glass_panels);
 
 	{
 		util::StallProfiler profile{"render.passes"};
