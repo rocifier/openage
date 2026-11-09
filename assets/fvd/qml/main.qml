@@ -47,6 +47,45 @@ Item {
 	                                            ? 0 : hud.deletableFoundations
 	readonly property var flareMarkers: hud === null || hud.flareMarkers === undefined ? [] : hud.flareMarkers
 	readonly property var minimapFlares: hud === null || hud.minimapFlares === undefined ? [] : hud.minimapFlares
+	readonly property real healthFraction: {
+		var parts = hud !== null && hud.health ? String(hud.health).split("/") : []
+		var current = parts.length === 2 ? Number(parts[0]) : 0
+		var maximum = parts.length === 2 ? Number(parts[1]) : 0
+		return maximum > 0 ? Math.max(0, Math.min(1, current / maximum)) : 0
+	}
+	readonly property var playerRoster: {
+		var lines = lobby !== null && lobby.roles ? lobby.roles.split("\n") : []
+		var players = []
+		for (var i = 0; i < lines.length && players.length < 8; ++i) {
+			var slot = lines[i].match(/\(Player ([1-8])\)/)
+			if (slot) players.push({ number: Number(slot[1]), name: lines[i].split(" — ")[0] })
+		}
+		if (players.length === 0 && hud !== null) {
+			players.push({ number: 1, name: "Hunter" })
+			players.push({ number: 2, name: "Builder" })
+		}
+		players.sort(function(a, b) { return a.number - b.number })
+		return players
+	}
+	readonly property var quickStatus: {
+		if (ungarrisonErrorTimer.running && hud !== null && hud.ungarrisonError)
+			return { text: hud.ungarrisonError, error: true }
+		if (lobby !== null && lobby.builderDisconnected)
+			return { text: "Builder disconnected — match continues", error: true }
+		if (lobby !== null && lobby.departureNotice && lobby.departureNotice.length > 0)
+			return { text: lobby.departureNotice, error: true }
+		if (lobby !== null && lobby.orderFeedback && lobby.orderFeedback.length > 0)
+			return { text: lobby.orderFeedback,
+			         error: lobby.orderFeedback.indexOf(" rejected") !== -1 }
+		if (placing)
+			return { text: placementValid ? "Tower site ready · Click to build" : "Choose a clear tower site",
+			         error: false }
+		if (garrisoning) return { text: "Click a friendly tower to garrison", error: false }
+		if (attacking) return { text: "Attack move · Click a destination", error: false }
+		if (patrolling) return { text: "Patrol · Click the far end of the route", error: false }
+		if (flaring) return { text: "Flare · Click the map", error: false }
+		return { text: "Fast Villager Defense", error: false }
+	}
 
 	// Five-pointed star path, centred on (x, y).
 	function starPath(ctx, x, y, outer, inner) {
@@ -77,30 +116,148 @@ Item {
 		return ("0" + minutes).slice(-2) + ":" + ("0" + seconds).slice(-2)
 	}
 
-	// Options (sound on/off). Clicks are routed by the presenter using the
-	// objectNames below, like the build panel buttons.
+	// The HUD stays in logical window coordinates; the renderer handles DPI.
+	Rectangle {
+		id: topBarShadow
+		anchors.fill: topBar
+		anchors.topMargin: 4
+		z: 9
+		visible: topBar.visible
+		radius: 14
+		color: "#24000000"
+	}
+
+	Rectangle {
+		id: topBar
+		objectName: "fvdTopBar"
+		anchors.top: parent.top
+		anchors.left: parent.left
+		anchors.right: parent.right
+		anchors.margins: 6
+		z: 10
+		visible: root.hud !== null
+		height: 46
+		radius: 13
+		color: "#af212b28"
+		readonly property int contentVerticalOffset: -3
+		border.width: 1
+		border.color: "#7ccbd6d0"
+
+		Image {
+			anchors.left: parent.left
+			anchors.leftMargin: 34
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: 0
+			width: 80
+			source: "fvd-logo.png"
+			sourceClipRect: Qt.rect(78, 179, 1615, 557)
+			fillMode: Image.PreserveAspectFit
+			mipmap: true
+		}
+		Rectangle {
+			x: 146
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: topBar.contentVerticalOffset
+			width: 1
+			height: 23
+			color: "#80e1e7dd"
+		}
+		Text {
+			id: statusLabel
+			x: 165
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: topBar.contentVerticalOffset
+			width: Math.max(110, parent.width - 555)
+			text: root.quickStatus.text
+			elide: Text.ElideRight
+			color: root.quickStatus.error ? "#ff7575"
+			       : text === "Fast Villager Defense" ? "#f2f1ea" : "#f2d4a3"
+			font.pixelSize: 15
+			font.bold: true
+		}
+		Text {
+			anchors.right: timerSeparator.left
+			anchors.rightMargin: 24
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: topBar.contentVerticalOffset
+			text: "☠  " + (root.hud !== null && root.hud.playerKillsAvailable ? root.hud.playerKills : "—")
+			color: "#ffffff"
+			font.pixelSize: 19
+			font.bold: true
+		}
+		Rectangle {
+			id: timerSeparator
+			anchors.right: timerLabel.left
+			anchors.rightMargin: 18
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: topBar.contentVerticalOffset
+			width: 1
+			height: 23
+			color: "#80e1e7dd"
+		}
+		Text {
+			id: timerLabel
+			anchors.right: parent.right
+			anchors.rightMargin: 112
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: topBar.contentVerticalOffset
+			text: root.matchTimeRemaining >= 0
+			      ? root.formatMatchTime(root.matchTimeRemaining) : "--:--"
+			color: "#ffffff"
+			font.pixelSize: 18
+		}
+		Rectangle {
+			objectName: "fvdMenuButton"
+			anchors.right: parent.right
+			anchors.rightMargin: 8
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: topBar.contentVerticalOffset
+			width: 30
+			height: 32
+			visible: root.hud !== null
+			color: "transparent"
+			Text {
+				anchors.centerIn: parent
+				text: "☰"
+				color: "#ffffff"
+				font.pixelSize: 23
+			}
+			MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
+		}
+	}
+
+	// Options (sound on/off). Clicks are routed by the presenter.
 	Rectangle {
 		id: optionsButton
 		objectName: "fvdOptionsButton"
 		anchors.top: parent.top
 		anchors.right: parent.right
-		anchors.margins: 8
+		anchors.topMargin: 11
+		anchors.rightMargin: 50
 		z: 11
 		visible: root.hud !== null
-		width: 92
+		width: 28
 		height: 28
-		radius: 4
-		color: root.optionsOpen ? "#ae6e30" : "#ee182824"
+		radius: 7
+		color: root.optionsOpen ? "#6b8a7a" : "#282b3934"
 		border.width: 1
-		border.color: "#b5d9c4"
+		border.color: root.optionsOpen ? "#c8e6d6" : "transparent"
 
 		Text {
 			anchors.centerIn: parent
 			color: "#ffffff"
-			font.bold: true
-			font.pixelSize: 13
-			text: "Options"
+			font.pixelSize: 22
+			text: "⚙"
 		}
+	}
+
+	Rectangle {
+		anchors.fill: optionsPanel
+		anchors.topMargin: 4
+		z: 10
+		visible: optionsPanel.visible
+		radius: 11
+		color: "#24000000"
 	}
 
 	Rectangle {
@@ -114,10 +271,10 @@ Item {
 		visible: optionsButton.visible && root.optionsOpen
 		width: 220
 		height: optionsContent.implicitHeight + 20
-		radius: 6
-		color: "#f2182824"
+		radius: 11
+		color: "#d1273530"
 		border.width: 1
-		border.color: "#72918b"
+		border.color: "#9ad7e3d7"
 
 		Column {
 			id: optionsContent
@@ -186,46 +343,23 @@ Item {
 				font.pixelSize: 11
 				text: "M mutes everything during a match."
 			}
+			Rectangle {
+				objectName: "fvdLeaveButton"
+				visible: root.lobby !== null && root.lobby.phase === "playing"
+				width: 200
+				height: visible ? 30 : 0
+				radius: 5
+				color: "#604d3e38"
+				border.color: "#9ad7e3d7"
+				Text {
+					anchors.centerIn: parent
+					text: "Leave match (F10)"
+					color: "#f2e9e3"
+					font.pixelSize: 12
+				}
+				MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
+			}
 		}
-	}
-
-	Text {
-		anchors.top: parent.top
-		anchors.right: optionsButton.visible ? optionsButton.left : parent.right
-		anchors.topMargin: 13
-		anchors.rightMargin: 13
-		z: 10
-		visible: root.lobby !== null && root.lobby.phase === "playing"
-		text: "F10 — LEAVE MATCH"
-		color: "#dce9df"
-		font.pixelSize: 13
-		font.bold: true
-	}
-
-	Text {
-		anchors.top: parent.top
-		anchors.right: parent.right
-		anchors.topMargin: 44
-		anchors.rightMargin: 13
-		z: 10
-		visible: root.lobby !== null && root.lobby.builderDisconnected
-		text: "BUILDER DISCONNECTED — MATCH CONTINUES"
-		color: "#f4c78c"
-		font.pixelSize: 13
-		font.bold: true
-	}
-
-	Text {
-		anchors.top: parent.top
-		anchors.right: parent.right
-		anchors.topMargin: 65
-		anchors.rightMargin: 13
-		z: 10
-		visible: root.lobby !== null && root.lobby.departureNotice.length > 0
-		text: root.lobby !== null ? root.lobby.departureNotice : ""
-		color: "#f4c78c"
-		font.pixelSize: 13
-		font.bold: true
 	}
 
 	// Terminal result comes exclusively from the replicated Hunter state.
@@ -433,26 +567,6 @@ Item {
 		repeat: false
 	}
 	onUngarrisonErrorSerialChanged: if (ungarrisonErrorSerial > 0) ungarrisonErrorTimer.restart()
-	Rectangle {
-		z: 15
-		anchors.horizontalCenter: parent.horizontalCenter
-		anchors.top: parent.top
-		anchors.topMargin: 105
-		width: ungarrisonErrorText.implicitWidth + 36
-		height: 40
-		radius: 6
-		color: "#df342f29"
-		border.color: "#ed9f8e"
-		visible: ungarrisonErrorTimer.running
-		Text {
-			id: ungarrisonErrorText
-			anchors.centerIn: parent
-			font.pixelSize: 16
-			font.bold: true
-			color: "#fff1e7"
-			text: root.hud === null ? "" : root.hud.ungarrisonError
-		}
-	}
 
 	// Active orders come from the authoritative world snapshot. Target rings
 	// follow replicated entities; ground rings use the authored destination.
@@ -589,15 +703,16 @@ Item {
 
 	Rectangle {
 		id: countdownBanner
-		anchors.top: parent.top
+		anchors.top: topBar.bottom
+		anchors.topMargin: 8
 		anchors.horizontalCenter: parent.horizontalCenter
 		visible: root.hunterCountdown > 0
 		width: 250
 		height: visible ? 74 : 0
-		color: "#ed182824"
+		color: "#bd212e29"
 		border.width: 1
-		border.color: root.hunterCountdown <= 5 ? "#f4a861" : "#72918b"
-		radius: 7
+		border.color: root.hunterCountdown <= 5 ? "#f4c993" : "#a4e0e8d7"
+		radius: 10
 
 		Column {
 			anchors.centerIn: parent
@@ -621,88 +736,37 @@ Item {
 		}
 	}
 
-	Rectangle {
-		id: matchTimerBanner
-		anchors.top: parent.top
-		anchors.horizontalCenter: parent.horizontalCenter
-		visible: root.matchTimeRemaining >= 0
-		         && root.hunterCountdown <= 0
-		         && !(root.hud !== null && root.hud.matchEnded === true)
-		width: matchTimerLabel.implicitWidth + 28
-		height: visible ? 32 : 0
-		color: "#dc182824"
-		border.width: 1
-		border.color: root.hunter ? "#a66e62" : "#668e78"
-		radius: 6
-
-		Text {
-			id: matchTimerLabel
-			anchors.centerIn: parent
-			text: (root.hunter ? "Kill all builders: " : "Survive: ")
-			      + root.formatMatchTime(Math.max(0, root.matchTimeRemaining))
-			      + " minutes"
-			color: "#f2f5f2"
-			font.pixelSize: 14
-			font.bold: true
-		}
-	}
-
-	Rectangle {
-		anchors.top: root.hunterCountdown > 0
-		             ? countdownBanner.bottom : matchTimerBanner.bottom
-		anchors.topMargin: root.hunterCountdown > 0 || matchTimerBanner.visible ? 6 : 0
-		anchors.horizontalCenter: parent.horizontalCenter
-		width: help.width + 32
-		height: help.height + 20
-		color: "#d0203020"
-		radius: 6
-
-		Text {
-			id: help
-			anchors.centerIn: parent
-			color: "#ffffff"
-			font.pixelSize: 14
-			text: root.placing
-			    ? "Build: click to place | Shift+click to queue | Shift+drag: tower line | Esc cancels"
-			    : root.attacking ? "Attack-move: click destination | Right-click or Esc cancels"
-			    : root.patrolling ? "Patrol: click the far end of the route | Right-click or Esc cancels"
-			    : root.canAttack
-			    ? "Hunter: right-click enemy to focus attack | Right-click ground to move | A: Attack-move | P: Patrol\n"
-			      + "Stance: Z Aggressive | X Defensive | C Observe"
-			    : root.canBuild
-			    ? "Builder: right-click foundation to resume | B: Build Tower | Shift+drag: line"
-			    : root.isTower && root.hunter
-			    ? "Hunter: selected enemy tower is inspection only"
-			    : (root.isTower || root.isFoundation) && !root.hunter
-			    ? "Builder: Shift+click allied same-type structures | Double-click to select owner's on-screen structures"
-			    : "Drag to select units | Builders: Shift+click allied structures, double-click to group"
-			horizontalAlignment: Text.AlignHCenter
-		}
-	}
-
-	// Minimap, bottom left. The viewer's own fog and state only; the
+	// Minimap, bottom right. The viewer's own fog and state only; the
 	// presenter paints it top-down and this item turns it into an AoE2-style
 	// diamond. Clicks are routed by the presenter ("fvdMinimapSurface").
 	Rectangle {
+		anchors.fill: minimapPanel
+		anchors.topMargin: 5
+		visible: minimapPanel.visible
+		radius: 13
+		color: "#24000000"
+	}
+
+	Rectangle {
 		id: minimapPanel
 		objectName: "fvdMinimapPanel"
-		anchors.left: parent.left
+		anchors.right: parent.right
 		anchors.bottom: parent.bottom
+		anchors.rightMargin: 16
+		anchors.bottomMargin: 16
 		visible: root.hud !== null && root.minimapPixels > 0
-		// Same height as the build panel beside it (which grows with its
-		// buttons); the diamond is 2:1, so the width follows the height.
-		height: buildPanel.height
-		width: minimapDiamond.width + 16
-		radius: 6
-		color: "#ee182824"
+		height: 164
+		width: 236
+		radius: 13
+		color: "#80232f2a"
 		border.width: 1
-		border.color: "#72918b"
+		border.color: "#a4e0e8d7"
 
 		Item {
 			id: minimapDiamond
 			anchors.centerIn: parent
 			// 2:1 diamond, centred in the full-height panel.
-			height: Math.min(parent.height - 16, 200)
+			height: Math.min((parent.width - 12) / 2, parent.height - 14)
 			width: height * 2
 			// Side of the square image before it is turned into the diamond.
 			readonly property real side: width / Math.SQRT2
@@ -756,6 +820,17 @@ Item {
 				}
 			}
 		}
+		Text {
+			anchors.top: parent.top
+			anchors.right: parent.right
+			anchors.topMargin: 7
+			anchors.rightMargin: 9
+			text: "N\n▲"
+			color: "#f5f7ed"
+			font.pixelSize: 11
+			font.bold: true
+			horizontalAlignment: Text.AlignHCenter
+		}
 	}
 
 	// Flares on the minimap, drawn above the diamond so stars keep their shape.
@@ -785,302 +860,234 @@ Item {
 	}
 
 	Rectangle {
+		anchors.fill: buildPanel
+		anchors.topMargin: 5
+		radius: 14
+		color: "#24000000"
+	}
+
+	Rectangle {
 		id: buildPanel
 		objectName: "fvdBuildPanel"
-		anchors.left: minimapPanel.visible ? minimapPanel.right : parent.left
+		anchors.left: parent.left
+		anchors.right: minimapPanel.visible ? minimapPanel.left : parent.right
 		anchors.bottom: parent.bottom
-		width: 284
-		// Always the size of its tallest layout (measured: a Builder with a
-		// tower selected while placing, or the Hunter targeting with
-		// horses), so the HUD never jumps. Grows only if text wraps further.
-		height: Math.max(panelContent.implicitHeight + 24, 360)
-		radius: 6
-		color: "#ee182824"
+		anchors.leftMargin: 16
+		anchors.rightMargin: 14
+		anchors.bottomMargin: 16
+		height: 164
+		radius: 13
+		color: "#8022302a"
 		border.width: 1
-		border.color: "#72918b"
+		border.color: "#8bcbd9cc"
 
-		Column {
-			id: panelContent
-			anchors.top: parent.top
-			anchors.left: parent.left
-			anchors.right: parent.right
-			anchors.margins: 12
+		Row {
+			id: hudRow
+			anchors.fill: parent
+			anchors.margins: 11
 			spacing: 8
 
-			Text {
-				color: "#ffffff"
-				font.bold: true
-				font.pixelSize: 16
-				text: root.hud === null ? "FVD" : "Player " + root.hud.controlled
-			      + (root.hunter ? " — Hunter" : " — Builder")
-			}
-			Text {
-				// Long hints ("Builder — click a friendly completed tower to
-				// garrison (Esc cancels)") wrap inside the panel.
-				width: parent.width
-				wrapMode: Text.WordWrap
-				color: "#ffffff"
-				font.bold: true
-				font.pixelSize: 14
-				text: root.hud === null ? "No unit selected" : root.hud.selection
-			}
-			Text {
-				visible: root.isTower || root.canBuild || root.canAttack
-				color: "#d6e6db"
-				font.pixelSize: 13
-				text: "HP: " + (root.hud === null ? "—" : root.hud.health)
-			}
-			Text {
-				visible: root.canAttack && root.stance.length > 0
-				color: "#d6e6db"
-				font.pixelSize: 13
-				text: "Stance: " + root.stance
-			}
-			Text {
-				visible: root.isTower
-				color: "#d6e6db"
-				font.pixelSize: 13
-				text: "Damage: " + (root.hud === null ? "Not defined" : root.hud.damage)
-			}
-			Text {
-				visible: root.isTower
-				color: "#d6e6db"
-				font.pixelSize: 13
-				text: "Armour: " + (root.hud === null ? "Not defined" : root.hud.armor)
-			}
-			Text {
-				visible: root.hud !== null && root.hud.killsLabel.length > 0
-				color: "#d6e6db"
-				font.pixelSize: 13
-				text: root.hud === null ? "" : root.hud.killsLabel + (!root.hud.killsAvailable ? "—" : root.hud.kills)
-			}
-			Text {
-				width: parent.width
-				wrapMode: Text.WordWrap
-				visible: root.constructionStatus.length > 0
-				color: "#b5d9c4"
-				font.pixelSize: 12
-				text: root.constructionStatus
-			}
-			Rectangle {
-				visible: root.constructionPercent >= 0
-				width: parent.width
-				height: visible ? 6 : 0
-				radius: 3
-				color: "#344b40"
+			Item {
+				id: selectionCard
+				width: Math.max(178, Math.min(300, hudRow.width * 0.28))
+				height: parent.height
 				Rectangle {
-					width: parent.width * Math.max(0, Math.min(100, root.constructionPercent)) / 100
-					height: parent.height
-					radius: parent.radius
-					color: "#84ddb2"
+					id: portrait
+					anchors.left: parent.left
+					anchors.verticalCenter: parent.verticalCenter
+					width: Math.min(96, selectionCard.width * 0.38)
+					height: parent.height - 10
+					radius: 8
+					clip: true
+					color: "transparent"
+					border.color: "#a8e1e9da"
+					Image {
+						id: portraitImage
+						anchors.fill: parent
+						anchors.margins: 2
+						visible: root.hud !== null && root.hud.selectionKind !== ""
+						source: root.hud === null || root.hud.selectionKind === "" ? ""
+						        : root.hud.selectionKind === "horse" ? "horse_portrait.png" : "builder_portrait_cutout.png"
+						fillMode: Image.PreserveAspectCrop
+						layer.enabled: true
+						layer.effect: ShaderEffect {
+							property color teamColor: root.flagColor(root.hud === null ? 0 : root.hud.selectionOwner)
+							property bool teamColorEnabled: root.hud !== null && root.hud.selectionOwner > 0
+							property vector2d portraitSize: Qt.vector2d(portraitImage.width, portraitImage.height)
+							fragmentShader: "qrc:/fvd/shaders/portrait.frag.qsb"
+						}
+					}
+					Text {
+						anchors.centerIn: parent
+						visible: root.hud === null || root.hud.selectionKind === ""
+						text: root.isTower || root.isFoundation ? "♜" : "✦"
+						font.pixelSize: 42
+						color: "#e4ece1"
+					}
 				}
-			}
-			Text {
-				visible: root.lobby !== null && root.lobby.orderFeedback.length > 0
-				width: parent.width
-				wrapMode: Text.WordWrap
-				color: root.lobby !== null && root.lobby.orderFeedback.indexOf("rejected") >= 0
-				       ? "#ffb6a8" : "#b5d9c4"
-				font.pixelSize: 12
-				text: root.lobby === null ? "" : root.lobby.orderFeedback
-				      + (root.lobby.pendingOrders > 0 ? " (" + root.lobby.pendingOrders + " awaiting host)" : "")
-			}
-			Text {
-				width: parent.width
-				wrapMode: Text.WordWrap
-				visible: !root.hunter && (root.placing || root.queuedTowers > 0)
-				color: root.placing && !root.placementValid ? "#ffb6a8" : "#b5d9c4"
-				font.pixelSize: 12
-				text: "Queued towers: " + root.queuedTowers +
-				      (root.placing ? (root.placementValid ? " | Site ready" : " | Site blocked") : "")
-			}
-			Rectangle {
-				id: actionButton
-				objectName: "fvdActionButton"
-				visible: root.canBuild || root.canAttack
-				width: 252
-				height: 32
-				radius: 4
-				color: root.attacking || root.placing ? "#ae6e30" : "#3e7862"
-				border.width: 1
-				border.color: "#b5d9c4"
-
-				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: root.canAttack ? "Attack-move (A)" : root.placing ? "Cancel (Esc)" : "Build Tower (B)"
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					cursorShape: Qt.PointingHandCursor
-				}
-			}
-			// Clicks are routed by the presenter using these objectNames.
-			Rectangle {
-				objectName: "fvdGarrisonButton"
-				visible: root.canGarrison
-				width: 252
-				height: 32
-				radius: 4
-				color: root.garrisoning ? "#ae6e30" : "#3e7862"
-				border.width: 1
-				border.color: "#b5d9c4"
-
-				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: root.garrisoning ? "Click a tower (Esc cancels)" : "Garrison (T)"
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					cursorShape: Qt.PointingHandCursor
-				}
-			}
-			Rectangle {
-				objectName: "fvdUngarrisonButton"
-				visible: root.canUngarrison
-				width: 252
-				height: 32
-				radius: 4
-				color: "#3e7862"
-				border.width: 1
-				border.color: "#b5d9c4"
-
-				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: "Ungarrison (G)"
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					cursorShape: Qt.PointingHandCursor
-				}
-			}
-			Rectangle {
-				objectName: "fvdPatrolButton"
-				visible: root.canAttack
-				width: 252
-				height: 32
-				radius: 4
-				color: root.patrolling ? "#ae6e30" : "#3e7862"
-				border.width: 1
-				border.color: "#b5d9c4"
-
-				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: "Patrol (P)"
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					cursorShape: Qt.PointingHandCursor
-				}
-			}
-			Row {
-				visible: root.canAttack
-				spacing: 6
-
-				Repeater {
-					model: [
-						{ name: "Aggressive", hotkey: "Z" },
-						{ name: "Defensive", hotkey: "X" },
-						{ name: "Observe", hotkey: "C" }
-					]
-
-					delegate: Rectangle {
-						objectName: "fvd" + modelData.name + "Button"
-						width: 80
-						height: 32
-						radius: 4
-						color: root.stance === modelData.name ? "#ae6e30" : "#3e7862"
-						border.width: 1
-						border.color: "#b5d9c4"
-
+				Column {
+					anchors.left: portrait.right
+					anchors.leftMargin: 9
+					anchors.right: parent.right
+					anchors.verticalCenter: parent.verticalCenter
+					spacing: 7
+					Text {
+						width: parent.width
+						text: root.hud === null ? "No selection" : root.hud.selection
+						elide: Text.ElideRight
+						font.family: "Georgia"
+						font.bold: true
+						font.pixelSize: 18
+						color: "white"
+					}
+					Text {
+						width: parent.width
+						text: root.hud === null ? "" : root.hud.selectionSubtitle
+						wrapMode: Text.WordWrap
+						maximumLineCount: 2
+						elide: Text.ElideRight
+						font.pixelSize: 11
+						color: "#e1e6dd"
+					}
+					Rectangle {
+						width: parent.width
+						visible: root.hud !== null && root.hud.selectionCount > 0
+						height: visible ? 19 : 0
+						radius: 6
+						color: "#84432d29"
+						border.color: "#7fffffff"
+						Rectangle {
+							width: parent.width * root.healthFraction
+							height: parent.height
+							radius: parent.radius
+							color: "#4fbd4b"
+						}
 						Text {
 							anchors.centerIn: parent
-							color: "#ffffff"
-							font.bold: true
+							text: root.hud === null ? "—" : root.hud.health
 							font.pixelSize: 11
-							text: modelData.name + " (" + modelData.hotkey + ")"
-						}
-
-						MouseArea {
-							anchors.fill: parent
-							cursorShape: Qt.PointingHandCursor
+							color: "white"
+							style: Text.Outline
+							styleColor: "#77000000"
 						}
 					}
 				}
 			}
-			Rectangle {
-				objectName: "fvdDeleteFoundationsButton"
-				// Only while this Builder has foundations to remove.
-				visible: root.canBuild && root.deletableFoundations > 0
-				width: 252
-				height: 32
-				radius: 4
-				color: "#7a3b31"
-				border.width: 1
-				border.color: "#e3b0a5"
-
+			Rectangle { width: 1; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter; color: "#60dbe5d8" }
+			Column {
+				id: statCard
+				width: hudRow.width < 900 ? 112 : 175
+				anchors.verticalCenter: parent.verticalCenter
+				spacing: 8
 				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: "Delete all foundations (" + root.deletableFoundations + ")"
+					text: "⚔  " + (root.isTower ? "Damage: " + root.hud.damage
+					                 : root.canAttack ? "Hunter cavalry" : "Builder unit")
+					font.pixelSize: 11; color: "#f1f3ec"
+				}
+				Text {
+					text: "⬡  " + (root.isTower ? "Armour: " + root.hud.armor
+					                 : root.canAttack ? root.stance : "Construction")
+					font.pixelSize: 11; color: "#f1f3ec"
+				}
+				Text {
+					width: parent.width; elide: Text.ElideRight
+					text: "✦  " + (root.hud !== null && root.hud.killsLabel.length > 0
+					                 ? root.hud.killsLabel + (root.hud.killsAvailable ? root.hud.kills : "—")
+					                 : root.constructionStatus.length > 0 ? root.constructionStatus : "Ready")
+					font.pixelSize: 11; color: "#f1f3ec"
+				}
+				Text {
+					visible: root.queuedTowers > 0 || root.constructionPercent >= 0
+					text: root.constructionPercent >= 0
+					      ? "Building: " + root.constructionPercent + "%" : "Queued: " + root.queuedTowers
+					font.pixelSize: 11; color: "#ccead0"
 				}
 			}
-			Rectangle {
-				objectName: "fvdFlareButton"
-				visible: root.hud !== null && root.hud.controlled >= 2
-				width: 252
-				height: 32
-				radius: 4
-				color: root.flaring ? "#ae6e30" : "#3e7862"
-				border.width: 1
-				border.color: "#b5d9c4"
-
-				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: root.flaring ? "Click the map to flare (Esc cancels)" : "Flare (F)"
+			Rectangle { width: 1; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter; color: "#60dbe5d8" }
+			Item {
+				id: actionsCard
+				width: hudRow.width - selectionCard.width - statCard.width
+				       - playersCard.width - 3 * hudRow.spacing - 3
+				height: parent.height
+				Text { text: "ACTIONS"; font.pixelSize: 10; font.letterSpacing: 1; color: "#cbd8cb" }
+				Grid {
+					id: actionGrid
+					anchors.top: parent.top
+					anchors.topMargin: 22
+					width: parent.width
+					spacing: 5
+					columns: Math.max(2, Math.min(6, Math.floor((width + spacing) / (150 + spacing))))
+					Repeater {
+						model: [
+							{ name: "fvdActionButton", label: root.canAttack ? "Attack move (A)" : root.placing ? "Cancel (Esc)" : "Build tower (B)", icon: root.canAttack ? "⚔" : "♜", show: root.canBuild || root.canAttack, active: root.attacking || root.placing },
+							{ name: "fvdGarrisonButton", label: root.garrisoning ? "Choose tower" : "Garrison (T)", icon: "♜", show: root.canGarrison, active: root.garrisoning },
+							{ name: "fvdUngarrisonButton", label: "Ungarrison (G)", icon: "⇧", show: root.canUngarrison, active: false },
+							{ name: "fvdPatrolButton", label: "Patrol (P)", icon: "⟳", show: root.canAttack, active: root.patrolling },
+							{ name: "fvdAggressiveButton", label: "Aggressive (Z)", icon: "⚔", show: root.canAttack, active: root.stance === "Aggressive" },
+							{ name: "fvdDefensiveButton", label: "Defensive (X)", icon: "⬡", show: root.canAttack, active: root.stance === "Defensive" },
+							{ name: "fvdObserveButton", label: "Observe (C)", icon: "◉", show: root.canAttack, active: root.stance === "Observe" },
+							{ name: "fvdCancelButton", label: "Cancel (Esc)", icon: "×", show: root.canAttack && root.targeting, active: false },
+							{ name: "fvdDeleteFoundationsButton", label: "Clear sites (" + root.deletableFoundations + ")", icon: "⌫", show: root.canBuild && root.deletableFoundations > 0, active: false },
+							{ name: "fvdFlareButton", label: root.flaring ? "Place flare" : "Flare (F)", icon: "⚑", show: root.hud !== null && root.hud.controlled >= 2, active: root.flaring }
+						]
+						delegate: Rectangle {
+							objectName: modelData.name
+							visible: modelData.show
+							width: Math.min(150, (actionGrid.width - (actionGrid.columns - 1) * actionGrid.spacing) / actionGrid.columns)
+							height: 34
+							radius: 7
+							color: modelData.active ? "#a0587b78" : "#5b32403c"
+							border.color: modelData.active ? "#d5f0eb" : "#8fa6b5a8"
+							Text {
+								anchors.left: parent.left
+								anchors.leftMargin: 8
+								anchors.verticalCenter: parent.verticalCenter
+								text: modelData.icon
+								font.pixelSize: 19; color: "#f3f7f2"
+							}
+							Text {
+								anchors.left: parent.left
+								anchors.leftMargin: 33
+								anchors.right: parent.right
+								anchors.rightMargin: 4
+								anchors.verticalCenter: parent.verticalCenter
+								text: modelData.label
+								elide: Text.ElideRight
+								font.pixelSize: 11; color: "#f5f7f2"
+							}
+							MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
+						}
+					}
 				}
 			}
-			Rectangle {
-				objectName: "fvdCancelButton"
-				visible: root.canAttack && root.targeting
-				width: 252
-				height: 32
-				radius: 4
-				color: "#674a32"
-				border.width: 1
-				border.color: "#b5d9c4"
-
-				Text {
-					anchors.centerIn: parent
-					color: "#ffffff"
-					font.bold: true
-					font.pixelSize: 14
-					text: "Cancel targeting (Esc)"
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					cursorShape: Qt.PointingHandCursor
+			Rectangle { width: 1; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter; color: "#60dbe5d8" }
+			Item {
+				id: playersCard
+				width: hudRow.width < 900 ? 126 : 170
+				height: parent.height
+				Text { text: "♟  Players"; font.family: "Georgia"; font.pixelSize: 14; color: "white" }
+				Column {
+					anchors.top: parent.top
+					anchors.topMargin: 24
+					spacing: 1
+					Repeater {
+						model: root.playerRoster.slice(0, 8)
+						delegate: Row {
+							spacing: 6
+							Rectangle {
+								width: 9; height: 9; radius: 2
+								anchors.verticalCenter: parent.verticalCenter
+								color: root.flagColor(modelData.number)
+							}
+							Text {
+								width: playersCard.width - 22
+								text: modelData.name + (root.hud !== null && modelData.number === root.hud.controlled ? " (You)" : "")
+								elide: Text.ElideRight
+								font.pixelSize: 10; color: "#d8ded6"
+								style: Text.Outline; styleColor: "#99000000"
+							}
+						}
+					}
 				}
 			}
 		}

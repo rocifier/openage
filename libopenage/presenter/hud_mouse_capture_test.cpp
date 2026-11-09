@@ -72,8 +72,11 @@ void hud_mouse_capture() {
 	// A release inside the HUD without a HUD press must not activate it.
 	click(QEvent::MouseButtonPress, Qt::LeftButton, false, Action::NONE);
 	auto world_to_panel = click(QEvent::MouseButtonRelease, Qt::LeftButton, true, Action::AGGRESSIVE);
-	TESTEQUALS(world_to_panel.consumed, true);
+	TESTEQUALS(world_to_panel.consumed, false);
 	TESTEQUALS(world_to_panel.activated_action == Action::NONE, true);
+	TESTEQUALS(click(QEvent::MouseButtonRelease, Qt::LeftButton, true, Action::NONE).consumed, true);
+	click(QEvent::MouseButtonPress, Qt::RightButton, false, Action::NONE);
+	TESTEQUALS(click(QEvent::MouseButtonRelease, Qt::RightButton, true, Action::NONE).consumed, true);
 
 	// Independent left/right capture does not steal or repeat the action.
 	click(QEvent::MouseButtonPress, Qt::LeftButton, true, Action::DEFENSIVE);

@@ -19,7 +19,15 @@ Item {
     Rectangle {
         anchors.fill: parent
         // Keep the world visible around the five-second role reveal.
-        color: menu.revealingRoles ? "#88121e1a" : "#f0121e1a"
+        color: menu.revealingRoles ? "#88121e1a" : "#b8121e1a"
+    }
+
+    Rectangle {
+        anchors.fill: panel
+        anchors.topMargin: 6
+        visible: panel.visible
+        radius: 15
+        color: "#30000000"
     }
 
     Rectangle {
@@ -30,14 +38,14 @@ Item {
         height: Math.min(parent.height - 32, settings.implicitHeight + 46)
         anchors.centerIn: parent
         clip: true
-        radius: 12
-        color: "#f421302b"
+        radius: 14
+        color: "#c321302b"
         border.width: 1
-        border.color: "#72918b"
+        border.color: "#9ad7e3d7"
 
         Flickable {
             anchors.fill: parent
-            anchors.margins: 23
+            anchors.margins: 18
             contentWidth: width
             contentHeight: settings.implicitHeight
             flickableDirection: Flickable.VerticalFlick

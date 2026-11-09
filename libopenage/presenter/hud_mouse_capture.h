@@ -23,6 +23,7 @@ public:
 		DEFENSIVE,
 		OBSERVE,
 		OPTIONS,
+		LEAVE_MATCH,
 		TOGGLE_MUSIC,
 		TOGGLE_EFFECTS,
 		FLARE,
@@ -49,6 +50,7 @@ public:
 
 private:
 	unsigned int captured_buttons{0};
+	bool world_left_pressed{false};
 	Action pressed_action{Action::NONE};
 };
 

@@ -7,7 +7,7 @@ sudo apt-get update
 sudo apt-get install g++ cmake ninja-build flex libeigen3-dev libepoxy-dev \
   libfontconfig1-dev libfreetype-dev libharfbuzz-dev libogg-dev libopus-dev \
   libopusfile-dev libpng-dev libtoml11-dev qt6-declarative-dev \
-  qt6-multimedia-dev qml6-module-qtquick-controls
+  qt6-multimedia-dev qt6-shadertools-dev qml6-module-qtquick-controls
 ```
 
 Install or let CMake fetch [nyan](https://github.com/SFTtech/nyan).

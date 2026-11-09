@@ -45,6 +45,7 @@
 #include "network/command_bridge.h"
 #include "network/construction_presentation.h"
 #include "network/match_connection_state.h"
+#include "network/order_presentation.h"
 #include "network/world_delta.h"
 #include "pathfinding/cost_field.h"
 #include "pathfinding/definitions.h"
@@ -2912,6 +2913,71 @@ void fvd_hunter_focus_attack() {
 	fvd->combat_tick(state, at(28));
 	TESTEQUALS(other_live->get_attribute(
 		at(28), "fvd.data.entities.Health")->get(at(28)), other_hp);
+}
+
+void fvd_first_builder_attack_order() {
+	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	tests::use_centre_test_layout(state);
+
+	std::optional<entity_id_t> first_builder{};
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		if (entity->get_definition() != "fvd.data.entities.Builder") {
+			continue;
+		}
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (ownership->get_owners().get(time::TIME_ZERO) == player_id_t{2}) {
+			first_builder = id;
+			break;
+		}
+	}
+	first_builder.has_value() or TESTFAIL;
+	auto builder = state->get_game_entity(*first_builder);
+	std::dynamic_pointer_cast<component::Position>(
+		builder->get_component(component::component_t::POSITION))
+		->set_position(time::TIME_ZERO, {72, 69, 0});
+	auto horse = entities->spawn_game_entity(
+		loop, state, 1, "fvd.data.entities.Horse", {70, 69, 0}, time::TIME_ZERO);
+	fvd->update_vision(state, time::TIME_ZERO);
+	TESTEQUALS(fvd->issue_focus_attack(
+		state, 1, {horse->get_id()}, *first_builder, time::TIME_ZERO), true);
+
+	auto initial_world = network::capture_fvd_presentation_state(state, time::TIME_ZERO);
+	auto markers = network::make_attack_order_presentation(initial_world, time::TIME_ZERO);
+	TESTEQUALS(markers.size(), size_t{1});
+	TESTEQUALS(markers.front().target_id.value(), *first_builder);
+
+	network::MatchConnectionState connections{fvd->get_player_count()};
+	auto hunter_world = network::decode_world_state(network::encode_world_state(
+		network::capture_fvd_state(state, connections, time::TIME_ZERO, 0, 1, 1)));
+	markers = network::make_attack_order_presentation(hunter_world, time::TIME_ZERO);
+	TESTEQUALS(markers.size(), size_t{1});
+	TESTEQUALS(markers.front().target_id.value(), *first_builder);
+
+	for (int tick = 1; tick <= 40 and state->get_game_entities().contains(*first_builder); ++tick) {
+		auto now = time::time_t::from_double(tick * 0.2);
+		loop->reach_time(now, state);
+		fvd->combat_tick(state, now);
+		auto world = network::capture_fvd_presentation_state(state, now);
+		network::make_attack_order_presentation(world, now);
+	}
+	TESTEQUALS(state->get_game_entities().contains(*first_builder), false);
+	const auto after_death = network::capture_fvd_presentation_state(
+		state, time::time_t::from_int(8));
+	TESTEQUALS(network::make_attack_order_presentation(
+		           after_death, time::time_t::from_int(8)).empty(), true);
 }
 
 void fvd_presentation_snapshot() {

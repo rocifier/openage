@@ -107,7 +107,7 @@ std::shared_ptr<activity::Activity> create_test_activity() {
 }
 
 EntityFactory::EntityFactory() :
-	next_entity_id{0},
+	next_entity_id{1},
 	next_player_id{0},
 	render_factory{nullptr} {
 }

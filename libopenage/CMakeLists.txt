@@ -66,7 +66,13 @@ set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 find_package(Threads REQUIRED)
 
 set(QT_VERSION_REQ "6.2")
-find_package(Qt6 ${QT_VERSION_REQ} REQUIRED COMPONENTS Core Quick Multimedia)
+find_package(Qt6 ${QT_VERSION_REQ} REQUIRED COMPONENTS Core Quick Multimedia ShaderTools)
+
+qt6_add_shaders(libopenage fvd_portrait_shader
+	PREFIX "/fvd/shaders"
+	BASE "${CMAKE_SOURCE_DIR}/assets/fvd/qml"
+	FILES "${CMAKE_SOURCE_DIR}/assets/fvd/qml/portrait.frag"
+)
 
 if(WANT_BACKTRACE)
 	find_package(GCCBacktrace)

@@ -7,7 +7,7 @@ and required C++ libraries:
 sudo dnf install gcc-c++ cmake ninja-build flex eigen3-devel fontconfig-devel \
   freetype-devel harfbuzz-devel libepoxy-devel libogg-devel libopus-devel \
   libpng-devel opusfile-devel toml11-devel qt6-qtdeclarative-devel \
-  qt6-qtmultimedia-devel
+  qt6-qtmultimedia-devel qt6-qtshadertools-devel
 ```
 
 Install or let CMake fetch [nyan](https://github.com/SFTtech/nyan).

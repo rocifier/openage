@@ -1,6 +1,7 @@
 # Building FVD (native C++)
 
 FVD game, relay and C++ tests are native; no Python, Cython or original-game conversion is required.
+The game build needs Qt6 ShaderTools to compile the portrait effect into a Qt resource.
 
 ## Windows (MSVC/vcpkg)
 

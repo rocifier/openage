@@ -22,6 +22,7 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/fvd/"
 	PATTERN "CMakeLists.txt" EXCLUDE
 	PATTERN "README.md" EXCLUDE
 	PATTERN "prompts.md" EXCLUDE
+	PATTERN "*~" EXCLUDE
 	PATTERN "engine_api" EXCLUDE)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/qml/"
 	DESTINATION "${ASSET_DIR}/qml"

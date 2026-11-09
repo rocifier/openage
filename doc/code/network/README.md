@@ -394,6 +394,7 @@ scores and revision continuity remain recipient-specific.
 A player record contains an 8-byte player ID, a 2-byte Hunter or Builder role and 2 flag bytes.
 Player flag bit 0 is set while that participant remains connected to the running match.
 An entity record contains an 8-byte entity ID, 8-byte owner ID, a length-prefixed nyan definition of at most 256 UTF-8 bytes, three signed Q16.16 position coordinates, 2 flag bytes, 2 reserved zero bytes, signed 8-byte current and maximum health values, an unsigned 8-byte individual tower-kill count, and a 2-byte count of up to 16 future motion keys. Each motion key stores an 8-byte signed fixed-point time and three signed 8-byte position coordinates; times must be strictly increasing and later than the message's simulation time.
+Entity IDs start at 1 because 0 is reserved for absent entity references in orders and messages.
 Health flag bit 0 is set when both health values apply; entities without a `Live` ability carry zero values and clear the flag.
 Tower-kills flag bit 1 is set only for a Tower owned by the recipient; otherwise the kill-count field is zero and the flag is clear.
 A reservation record contains two signed 8-byte tile coordinates and the 8-byte ID of the Builder holding the tile.

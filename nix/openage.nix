@@ -7,7 +7,7 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = with pkgs; [ cmake ninja pkg-config qt6.wrapQtAppsHook ];
   buildInputs = with pkgs; [
-    nyan qt6.full qt6.qtdeclarative qt6.qtmultimedia
+    nyan qt6.full qt6.qtdeclarative qt6.qtmultimedia qt6.qtshadertools
     eigen libepoxy libogg libpng
     fontconfig freetype harfbuzz opusfile libopus
     toml11

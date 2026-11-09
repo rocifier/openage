@@ -1,6 +1,7 @@
 # FVD prototype assets
 
 This directory contains original development graphics for the FVD tower defense prototype.
+
 The initial set uses a fixed orthographic isometric view, neutral upper-left lighting, transparent sprite backgrounds, and a flat seamless terrain texture.
 
 Builders use the single-frame `builder.sprite` while idle and a 30-frame, 16-direction walk cycle while moving.
@@ -29,6 +30,20 @@ Multiplayer protocol v21 includes fog of war, shared garrisoning, public occupan
 The runtime files follow the openage [texture](../../doc/media/openage/texture_format_spec.md), [sprite](../../doc/media/openage/sprite_format_spec.md), and [terrain](../../doc/media/openage/terrain_format_spec.md) formats.
 The source images were generated with OpenAI's built-in image generation tool and resized for an HD gameplay presentation.
 The prompts used for the initial set are recorded in [prompts.md](prompts.md).
+
+## Match HUD
+
+The translucent top bar shows the player's authoritative total kills, the match countdown, and current order or error feedback.
+Errors, rejected orders, and disconnect notices appear red in its status area.
+Its left corner displays the combined crest and FVD wordmark from `qml/fvd-logo.png`.
+The bottom strip shows selection health and details, icon-labelled actions, and the assigned player names with their in-game colours.
+The minimap sits in its own panel at the bottom right and still accepts clicks and drags to move the camera.
+The menu icon opens the options panel, which also provides a Leave match action during multiplayer play.
+Builder and Hunter horse portraits are stored beside the FVD QML view.
+The Builder HUD uses `builder_portrait_cutout.png`, whose transparent background lets the glass panel show through the portrait frame.
+The original `builder_portrait.png` is retained as source art.
+The portrait shader uses the selected unit's owner colour and the world sprite shader's magenta recolouring rule.
+It also masks the portrait to the rounded frame so the image cannot cover the border corners.
 
 ## Team-colour sprite authoring
 

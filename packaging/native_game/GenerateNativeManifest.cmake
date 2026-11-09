@@ -39,6 +39,7 @@ foreach(_path IN LISTS _asset_files)
 	# Keep in sync with NativePackage.cmake's asset installation filters.
 	if(_path MATCHES "(^|/)CMakeLists[.]txt$"
 	   OR _path MATCHES "^fvd/(.*/)?(README[.]md|prompts[.]md)$"
+	   OR _path MATCHES "~$"
 	   OR _path MATCHES "^fvd/engine_api/"
 	   OR (_path MATCHES "^shaders/" AND NOT _path MATCHES "[.]glsl$")
 	   OR (_path MATCHES "^qml/" AND NOT _path MATCHES "[.]qml$"))

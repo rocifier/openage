@@ -7,7 +7,7 @@ FVD uses the native C++ game, relay and C++ test runner. Python, Cython, Mako, c
 Install Visual Studio C++ Build Tools (C++20 toolchain), CMake/CPack, [vcpkg](https://github.com/microsoft/vcpkg), 7-Zip only for explicit release archive inspection and the native dependencies. For the usual vcpkg triplet, start with:
 
 ```powershell
-vcpkg install dirent eigen3 fontconfig freetype harfbuzz libepoxy libogg libpng opus opusfile qtbase qtdeclarative qtmultimedia toml11
+vcpkg install dirent eigen3 fontconfig freetype harfbuzz libepoxy libogg libpng opus opusfile qtbase qtdeclarative qtmultimedia qtshadertools toml11
 ```
 
 Select the vcpkg toolchain in your MSVC CMake environment; `deps/msvc-env.ps1` is sourced by `build-fvd.ps1` if available. The required nyan library can be built as a CMake dependency. These are native C++ dependencies, not Python packages.

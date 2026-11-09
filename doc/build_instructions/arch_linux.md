@@ -9,7 +9,7 @@ engine libraries:
 ```bash
 sudo pacman -S --needed gcc cmake ninja flex eigen libepoxy libogg libpng \
   ttf-dejavu freetype2 fontconfig harfbuzz opusfile opus \
-  qt6-declarative qt6-multimedia
+  qt6-declarative qt6-multimedia qt6-shadertools
 ```
 
 Install [toml11 from the AUR](https://aur.archlinux.org/packages/toml11)

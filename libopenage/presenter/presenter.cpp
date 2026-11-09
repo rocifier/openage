@@ -430,6 +430,7 @@ bool Presenter::over_fvd_hud(const QPointF &position) const {
 	}
 	return this->gui->contains_item("fvdBuildPanel", position)
 	       or this->gui->contains_item("fvdMinimapPanel", position)
+	       or this->gui->contains_item("fvdTopBar", position)
 	       or this->gui->contains_item("fvdOptionsButton", position)
 	       or (this->fvd_options_open and this->gui->contains_item("fvdOptionsPanel", position));
 }
@@ -1576,6 +1577,8 @@ void Presenter::init_input() {
 			         std::pair{"fvdDefensiveButton", HudAction::DEFENSIVE},
 			         std::pair{"fvdObserveButton", HudAction::OBSERVE},
 			         std::pair{"fvdOptionsButton", HudAction::OPTIONS},
+			         std::pair{"fvdMenuButton", HudAction::OPTIONS},
+			         std::pair{"fvdLeaveButton", HudAction::LEAVE_MATCH},
 			         std::pair{"fvdMusicToggle", HudAction::TOGGLE_MUSIC},
 			         std::pair{"fvdEffectsToggle", HudAction::TOGGLE_EFFECTS},
 			         std::pair{"fvdFlareButton", HudAction::FLARE},
@@ -1647,13 +1650,17 @@ void Presenter::init_input() {
 				break;
 			case HudAction::NONE:
 			case HudAction::OPTIONS:
+			case HudAction::LEAVE_MATCH:
 			case HudAction::TOGGLE_MUSIC:
 			case HudAction::TOGGLE_EFFECTS:
 			case HudAction::TOGGLE_TOWER_LABELS:
 				break;
 			}
 		}
-		// Options work for every role and need no controller.
+		// Menu actions work for every role and need no controller.
+		if (hud_input.activated_action == HudAction::LEAVE_MATCH) {
+			this->handle_fvd_lobby_action("disconnect");
+		}
 		if (this->audio_settings and hud_input.activated_action != HudAction::NONE) {
 			auto save = [](const char *key, bool value) {
 				QSettings saved{QSettings::IniFormat, QSettings::UserScope,
@@ -1723,7 +1730,11 @@ void Presenter::init_input() {
 			return;
 		}
 		const bool over_hud = this->over_fvd_hud(ev.position());
-		if (not over_hud and not this->fvd_hud_capture.is_capturing()) {
+		const bool dragging_world = this->game_controller
+		                            and this->game_controller->get_drag_select_start_optional().has_value()
+		                            and ev.buttons().testFlag(Qt::LeftButton);
+		if (not this->fvd_hud_capture.is_capturing()
+		    and (not over_hud or dragging_world)) {
 			this->input_manager->process(ev);
 		}
 	});
@@ -1831,6 +1842,10 @@ void Presenter::init_input() {
 			this->fvd_hud_state = create_property_map();
 			this->fvd_hud_state->insert("controlled", static_cast<int>(game_controller->get_controlled()));
 			this->fvd_hud_state->insert("selection", QString{"No unit selected"});
+			this->fvd_hud_state->insert("selectionCount", 0);
+			this->fvd_hud_state->insert("selectionSubtitle", QString{});
+			this->fvd_hud_state->insert("selectionKind", QString{});
+			this->fvd_hud_state->insert("selectionOwner", 0);
 			this->fvd_hud_state->insert("isTower", false);
 			this->fvd_hud_state->insert("isFoundation", false);
 			this->fvd_hud_state->insert("health", QString{"—"});
@@ -1855,6 +1870,8 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("kills", 0);
 			this->fvd_hud_state->insert("killsAvailable", !this->fvd_replication);
 			this->fvd_hud_state->insert("killsLabel", QString{});
+			this->fvd_hud_state->insert("playerKills", 0);
+			this->fvd_hud_state->insert("playerKillsAvailable", !this->fvd_replication);
 			this->fvd_hud_state->insert("arrowStreaks", QVariantList{});
 			this->fvd_hud_state->insert("combatEffects", QVariantList{});
 			this->fvd_hud_state->insert("attackOrderMarkers", QVariantList{});
@@ -2139,6 +2156,7 @@ void Presenter::render() {
 			auto hunter_horse = selected.kind == input::game::SelectionKind::HORSE
 			                 or selected.kind == input::game::SelectionKind::GROUP_HORSES;
 			QString selection_label{"No unit selected"};
+			QString selection_subtitle{};
 			if (selected.ids.size() > 1) {
 				const auto count = static_cast<int>(selected.ids.size());
 				if (selected.kind == input::game::SelectionKind::GROUP_TOWERS)
@@ -2155,18 +2173,23 @@ void Presenter::render() {
 				// this label too would reflow the panel and move the buttons
 				// out from under the cursor.
 				selection_label = QString{"Builder"};
+				selection_subtitle = QString{"Builder / Gatherer"};
 			}
 			else if (tower) {
 				selection_label = QString{"Tower"};
+				selection_subtitle = QString{"Right click: set rally point"};
 			}
 			else if (selected.kind == input::game::SelectionKind::FOUNDATION) {
 				selection_label = QString{"Foundation"};
+				selection_subtitle = QString{"Construction site"};
 			}
 			else if (selected.kind == input::game::SelectionKind::HUNTER_TOWER) {
-				selection_label = QString{"Hunter tower — right-click to set rally point"};
+				selection_label = QString{"Tower"};
+				selection_subtitle = QString{"Right click: set rally point"};
 			}
 			else if (hunter_horse) {
 				selection_label = QString{"Horse"};
+				selection_subtitle = QString{"Hunter cavalry"};
 			}
 			else if (not selected.ids.empty()) {
 				selection_label = QString{"Unit selected"};
@@ -2208,6 +2231,12 @@ void Presenter::render() {
 			}
 			this->fvd_hud_state->insert("controlled", static_cast<int>(controlled));
 			this->fvd_hud_state->insert("selection", selection_label);
+			this->fvd_hud_state->insert("selectionCount", static_cast<int>(selected.ids.size()));
+			this->fvd_hud_state->insert("selectionSubtitle", selection_subtitle);
+			this->fvd_hud_state->insert("selectionKind",
+				builder ? QString{"builder"} : hunter_horse ? QString{"horse"} : QString{});
+			this->fvd_hud_state->insert("selectionOwner", selected.render_entity
+				? static_cast<int>(selected.render_entity->get_player_id()) : 0);
 			this->fvd_hud_state->insert("isTower", tower);
 			this->fvd_hud_state->insert("isFoundation",
 				selected.kind == input::game::SelectionKind::FOUNDATION);
@@ -2251,18 +2280,15 @@ void Presenter::render() {
 					                       });
 					if (it != construction_world->entities.end() and it->owner_id >= 2) {
 						if (controlled == 1) {
-							selection_label = QString{"Enemy tower — Player %1"}.arg(it->owner_id);
+							selection_subtitle = QString{"Enemy tower · Player %1"}.arg(it->owner_id);
 						}
 						else if (it->garrison_player == controlled) {
-							selection_label = QString{"Tower — your Builder garrisoned (G to exit)"};
+							selection_subtitle = QString{"Builder garrisoned · G to exit"};
 						}
 						else if (it->owner_id != controlled) {
-							selection_label = QString{"Allied tower — Player %1"}.arg(it->owner_id);
+							selection_subtitle = QString{"Allied tower · Player %1"}.arg(it->owner_id);
 						}
-						else {
-							selection_label = QString{"Tower — right-click to set your ungarrison point"};
-						}
-						this->fvd_hud_state->insert("selection", selection_label);
+						this->fvd_hud_state->insert("selectionSubtitle", selection_subtitle);
 					}
 				}
 				const bool game_over = result.has_value();
@@ -2808,6 +2834,12 @@ void Presenter::render() {
 				this->fvd_hud_state->insert("killsAvailable", visible_kills.has_value());
 				this->fvd_hud_state->insert("kills",
 					static_cast<qulonglong>(visible_kills.value_or(0)));
+				const auto player_kills = this->fvd_replication
+					? this->fvd_replication->get_local_kills()
+					: std::make_optional(fvd->get_kills(controlled));
+				this->fvd_hud_state->insert("playerKillsAvailable", player_kills.has_value());
+				this->fvd_hud_state->insert("playerKills",
+					static_cast<qulonglong>(player_kills.value_or(0)));
 				this->fvd_hud_state->insert("damage",
 					static_cast<qlonglong>(fvd->get_tower_damage()));
 				this->fvd_hud_state->insert("armor",

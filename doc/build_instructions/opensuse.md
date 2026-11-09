@@ -6,7 +6,8 @@ Install the native C++ toolchain and FVD engine development libraries:
 sudo zypper install --no-recommends gcc-c++ cmake ninja flex eigen3-devel \
   fontconfig-devel libfreetype-devel harfbuzz-devel libepoxy-devel \
   libogg-devel libopus-devel libpng-devel libtoml11-dev \
-  qt6-declarative-dev qt6-quickcontrols2 qt6-multimedia-dev opusfile-devel
+  qt6-declarative-dev qt6-quickcontrols2 qt6-multimedia-dev \
+  qt6-shadertools-devel opusfile-devel
 ```
 
 Package names can vary across openSUSE releases. You also need

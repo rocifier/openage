@@ -12,6 +12,9 @@ HudMouseCapture::Result HudMouseCapture::process(
 	const bool over_surface = over_hud or hovered_action != Action::NONE;
 	const auto mask = static_cast<unsigned int>(button);
 	const bool captured = (this->captured_buttons & mask) != 0;
+	const bool world_left_release = type == QEvent::MouseButtonRelease
+	                                and button == Qt::LeftButton
+	                                and this->world_left_pressed;
 	Action activated_action = Action::NONE;
 
 	if (type == QEvent::MouseButtonPress or type == QEvent::MouseButtonDblClick) {
@@ -20,6 +23,7 @@ HudMouseCapture::Result HudMouseCapture::process(
 		}
 		if (button == Qt::LeftButton) {
 			this->pressed_action = over_surface ? hovered_action : Action::NONE;
+			this->world_left_pressed = not over_surface;
 		}
 	}
 	else if (type == QEvent::MouseButtonRelease) {
@@ -29,10 +33,11 @@ HudMouseCapture::Result HudMouseCapture::process(
 				activated_action = hovered_action;
 			}
 			this->pressed_action = Action::NONE;
+			this->world_left_pressed = false;
 		}
 		this->captured_buttons &= ~mask;
 	}
-	return {over_surface or captured, activated_action};
+	return {(over_surface and not world_left_release) or captured, activated_action};
 }
 
 bool HudMouseCapture::is_capturing() const {

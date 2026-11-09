@@ -33,6 +33,7 @@ make doc # doxygen → bin/doc/html/index.html
 - `checkfast`: authors, cppstyle, cython, headerguards, legal, filemodes, textfiles; `checkmerge` adds ruff (lint + format) and ty (type check), run through `uv run` (venv from pyproject.toml/uv.lock); `checkall` adds clang-tidy
 - Memory or threading changes: also run the tests in a build configured with `--sanitize=yes` (ASan+UBSan) or `--sanitize=thread`
 - CI also builds on macOS and Windows ([.github/workflows/](.github/workflows/)): keep code portable
+- Never run `build-fvd.cmd package`, CPack, or another release archive build as a routine final step. Build a package only when the user explicitly asks for one; otherwise run relevant builds and tests and leave `dist/` untouched.
 
 ## Architecture essentials
 
