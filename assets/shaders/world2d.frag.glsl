@@ -66,11 +66,11 @@ vec3 hsl_to_rgb(vec3 hsl) {
 vec3 apply_team_color(vec3 rgb) {
 	vec3 source = rgb_to_hsl(rgb);
 	float source_hue_degrees = source.x * 360.0;
-	float hue_difference = abs(source_hue_degrees - 310.0);
+	float hue_difference = abs(source_hue_degrees - 300.0);
 	float hue_distance = min(hue_difference, 360.0 - hue_difference);
 	// Full replacement within 280–340 degrees, feather to 275–345.
-	float hue_weight = 1.0 - smoothstep(30.0, 35.0, hue_distance);
-	float saturation_weight = smoothstep(0.10, 0.30, source.y);
+	float hue_weight = 1.0 - smoothstep(20.0, 45.0, hue_distance);
+	float saturation_weight = smoothstep(0.20, 0.30, source.y);
 	float mask = hue_weight * saturation_weight;
 	if (mask <= 0.0) return rgb;
 

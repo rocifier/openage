@@ -164,12 +164,23 @@ Item {
 			font.pixelSize: 15
 			font.bold: true
 		}
+		Image {
+			anchors.right: killsCount.left
+			anchors.rightMargin: 24
+			anchors.verticalCenter: parent.verticalCenter
+			anchors.verticalCenterOffset: -1
+			width: 40
+			source: "kills-icon.png"
+			fillMode: Image.PreserveAspectFit
+			mipmap: false
+		}
 		Text {
+			id: killsCount
 			anchors.right: timerSeparator.left
 			anchors.rightMargin: 24
 			anchors.verticalCenter: parent.verticalCenter
 			anchors.verticalCenterOffset: topBar.contentVerticalOffset
-			text: "☠  " + (root.hud !== null && root.hud.playerKillsAvailable ? root.hud.playerKills : "—")
+			text: (root.hud !== null && root.hud.playerKillsAvailable ? root.hud.playerKills : "0")
 			color: "#ffffff"
 			font.pixelSize: 19
 			font.bold: true
