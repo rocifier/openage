@@ -168,13 +168,12 @@ every other recipient's next pass.
    The Hunter must own authority *even when the lobby creator is Builder*.
    Both must see the same initial map and Builder/Hunter entities.
 4. Have the Builder move, then issue a tower build (B, then click), and
-   observe both screens. Check the translucent footprint reservation and
-   the same `P2 PLANNED` / `P2 BUILDING` / `P2 TOWER` site labels on
+   observe both screens. Check the translucent footprint reservation on
    Hunter and Builder, including while moving the camera. Shift-click
-   additional sites and confirm they appear as `P2 QUEUED` on both screens
+   additional sites and confirm their queue numbers match on both screens
    and the Builder HUD shows the correct count. Cancel or retask the
-   Builder and confirm every canceled site label and reserved footprint
-   disappears on both screens, with no stale marker after recovery.
+   Builder and confirm every canceled reservation disappears on both
+   screens, with no stale marker after recovery.
     At simulation time 20 seconds a Hunter horse
    should appear, with later horses at one-second intervals. As the
    Hunter, select multiple horses and use A then click to AttackMove;

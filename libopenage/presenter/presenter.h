@@ -260,9 +260,6 @@ protected:
 	/** Send a flare at a map position through the local or guest command path. */
 	void send_fvd_flare(const coord::phys3 &position);
 
-	/** Show the "P2 BUILDING"-style labels over towers and foundations. */
-	bool fvd_tower_labels{true};
-
 	/** Options panel shown under the top-right Options button. */
 	bool fvd_options_open{false};
 

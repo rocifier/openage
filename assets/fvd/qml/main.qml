@@ -42,7 +42,6 @@ Item {
 	readonly property var minimapView: hud === null || hud.minimapView === undefined ? [] : hud.minimapView
 	readonly property bool optionsOpen: hud !== null && hud.optionsOpen === true
 	readonly property bool flaring: hud !== null && hud.flaring === true
-	readonly property bool towerLabelsOn: hud === null || hud.towerLabelsOn !== false
 	readonly property int deletableFoundations: hud === null || hud.deletableFoundations === undefined
 	                                            ? 0 : hud.deletableFoundations
 	readonly property var flareMarkers: hud === null || hud.flareMarkers === undefined ? [] : hud.flareMarkers
@@ -285,8 +284,7 @@ Item {
 			Repeater {
 				model: [
 					{ name: "fvdMusicToggle", label: "Music", on: root.musicOn },
-					{ name: "fvdEffectsToggle", label: "Sound effects", on: root.effectsOn },
-					{ name: "fvdTowerLabelsToggle", label: "Builder tower labels", on: root.towerLabelsOn }
+					{ name: "fvdEffectsToggle", label: "Sound effects", on: root.effectsOn }
 				]
 
 				delegate: Rectangle {
@@ -408,7 +406,6 @@ Item {
 		Connections {
 			target: root
 			function onSiteMarkersChanged() { constructionSites.requestPaint() }
-			function onTowerLabelsOnChanged() { constructionSites.requestPaint() }
 			function onReservedFootprintsChanged() { constructionSites.requestPaint() }
 		}
 		onPaint: {
@@ -430,30 +427,11 @@ Item {
 				ctx.stroke()
 			}
 			var sites = root.siteMarkers
-			var labels = root.towerLabelsOn
 			ctx.font = "bold 11px sans-serif"
 			ctx.textAlign = "center"
 			ctx.textBaseline = "middle"
 			for (var j = 0; j < sites.length; ++j) {
 				var site = sites[j]
-				var text = "P" + site.owner + " " + site.phase.toUpperCase()
-				if (labels) {
-				var labelWidth = ctx.measureText(text).width + 12
-				var left = site.x - labelWidth / 2
-				var top = site.y - 34
-				var outline = site.phase === "Orphaned" ? "#a9b8b1"
-				            : site.phase === "Queued" ? "#f1c66c"
-				            : site.phase === "Planned" ? "#8cccf5"
-				            : site.phase === "Building" ? "#92e1ae"
-				            : "#cedbd1"
-				ctx.fillStyle = "rgba(20, 34, 30, 0.9)"
-				ctx.strokeStyle = outline
-				ctx.lineWidth = 1
-				ctx.fillRect(left, top, labelWidth, 18)
-				ctx.strokeRect(left, top, labelWidth, 18)
-				ctx.fillStyle = outline
-				ctx.fillText(text, site.x, top + 9)
-				}
 				if (site.queueNumber > 0) {
 					var number = String(site.queueNumber)
 					ctx.font = "bold 10px sans-serif"

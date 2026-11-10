@@ -1,0 +1,12 @@
+# Copyright 2026-2026 the openage authors. See copying.md for legal info.
+# openage texture definition file
+
+version 1
+
+imagefile "medieval_level1.png"
+
+size 1024 1024
+
+pxformat rgba8 cbits=False
+
+subtex 0 0 1024 1024 636 832
