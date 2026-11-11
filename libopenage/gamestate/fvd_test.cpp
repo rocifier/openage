@@ -195,7 +195,10 @@ void fvd_scenario() {
 	auto builder_walk = renderer::resources::parser::parse_sprite_file(
 		graphics / "builder" / "builder_walk.sprite");
 	auto foundation_graphics = renderer::resources::parser::parse_sprite_file(graphics / "foundation.sprite");
-	auto tower_graphics = renderer::resources::parser::parse_sprite_file(graphics / "tower.sprite");
+	auto wood_tower_graphics = renderer::resources::parser::parse_sprite_file(
+		graphics / "medieval-tower" / "wood_tower.sprite");
+	auto tower_graphics = renderer::resources::parser::parse_sprite_file(
+		graphics / "medieval-tower" / "stone_tower.sprite");
 	auto tower_demolition_graphics = renderer::resources::parser::parse_sprite_file(
 		graphics / "fvd_stone_tower_demolition.sprite");
 	TESTEQUALS(plains_graphics.get_texture_count(), 1);
@@ -223,6 +226,7 @@ void fvd_scenario() {
 	const auto &horse_gallop_layer = horse_gallop.get_layer(0);
 	const auto &horse_attack_layer = horse_attack.get_layer(0);
 	const auto &horse_death_layer = horse_death.get_layer(0);
+	const auto &wood_tower_layer = wood_tower_graphics.get_layer(0);
 	const auto &tower_layer = tower_graphics.get_layer(0);
 	const auto &tower_demolition_layer = tower_demolition_graphics.get_layer(0);
 	TESTEQUALS(builder_layer.get_display_mode(),
@@ -239,6 +243,8 @@ void fvd_scenario() {
 	           renderer::resources::display_mode::LOOP);
 	TESTEQUALS(horse_death_layer.get_display_mode(),
 	           renderer::resources::display_mode::ONCE);
+	TESTEQUALS(wood_tower_layer.get_display_mode(),
+	           renderer::resources::display_mode::OFF);
 	TESTEQUALS(tower_layer.get_display_mode(),
 	           renderer::resources::display_mode::LOOP);
 	TESTEQUALS(tower_demolition_layer.get_display_mode(),
@@ -251,6 +257,11 @@ void fvd_scenario() {
 	TESTEQUALS(builder_angle->get_frame_count(), size_t{1});
 	TESTEQUALS(builder_angle->get_frame(0)->get_texture_idx(), size_t{0});
 	TESTEQUALS(builder_angle->get_frame(0)->get_subtexture_idx(), size_t{0});
+	TESTEQUALS(wood_tower_layer.get_angle_count(), size_t{1});
+	const auto &wood_tower_angle = wood_tower_layer.get_direction_angle(0.0f);
+	TESTEQUALS(wood_tower_angle->get_frame_count(), size_t{1});
+	TESTEQUALS(wood_tower_angle->get_frame(0)->get_texture_idx(), size_t{0});
+	TESTEQUALS(wood_tower_angle->get_frame(0)->get_subtexture_idx(), size_t{0});
 	TESTEQUALS(horse_idle1_layer.get_angle_count(), size_t{16});
 	TESTEQUALS(horse_idle2_layer.get_angle_count(), size_t{16});
 	TESTEQUALS(horse_gallop_layer.get_angle_count(), size_t{16});
@@ -395,8 +406,14 @@ void fvd_scenario() {
 		TESTEQUALS(death_sheet.get_subtex_info(239).get_anchor_pos()[0], 128);
 		TESTEQUALS(death_sheet.get_subtex_info(239).get_anchor_pos()[1], 143);
 	}
-	auto tower_sheet = renderer::resources::parser::parse_texture_file(
-		graphics / "medieval-tower" / "medieval_tower.texture");
+	const auto &wood_tower_sheet = *wood_tower_graphics.get_texture(0);
+	TESTEQUALS(wood_tower_sheet.get_size(), (std::pair<int32_t, int32_t>{1024, 1024}));
+	TESTEQUALS(wood_tower_sheet.get_subtex_count(), size_t{1});
+	TESTEQUALS(wood_tower_sheet.get_subtex_info(0).get_size()[0], uint32_t{1024});
+	TESTEQUALS(wood_tower_sheet.get_subtex_info(0).get_size()[1], uint32_t{1024});
+	TESTEQUALS(wood_tower_sheet.get_subtex_info(0).get_anchor_pos()[0], 636);
+	TESTEQUALS(wood_tower_sheet.get_subtex_info(0).get_anchor_pos()[1], 832);
+	const auto &tower_sheet = *tower_graphics.get_texture(0);
 	TESTEQUALS(tower_sheet.get_size(), (std::pair<int32_t, int32_t>{4096, 1024}));
 	TESTEQUALS(tower_sheet.get_subtex_count(), size_t{16});
 	TESTEQUALS(tower_sheet.get_subtex_info(0).get_size()[0], uint32_t{512});
@@ -427,9 +444,11 @@ void fvd_scenario() {
 		TESTEQUALS(idle_sheet.get_subtex_info(191).get_anchor_pos()[1], 159);
 	}
 	TESTEQUALS(foundation_graphics.get_texture_count(), 1);
+	TESTEQUALS(wood_tower_graphics.get_texture_count(), 1);
 	TESTEQUALS(tower_graphics.get_texture_count(), 1);
 	TESTEQUALS(builder_graphics.get_scalefactor(), 0.1375f);
 	TESTEQUALS(builder_walk.get_scalefactor(), 0.55f);
+	TESTEQUALS(wood_tower_graphics.get_scalefactor(), 0.25f);
 	TESTEQUALS(tower_graphics.get_scalefactor(), 0.5f);
 	TESTEQUALS(horse_death.get_scalefactor(), 2.0f);
 	for (const auto &info : {plains_graphics.get_texture(0),
@@ -445,6 +464,7 @@ void fvd_scenario() {
 	                        horse_death.get_texture(2),
 	                        horse_death.get_texture(3),
 	                        foundation_graphics.get_texture(0),
+	                        wood_tower_graphics.get_texture(0),
 	                        tower_graphics.get_texture(0)}) {
 		auto texture = renderer::resources::Texture2dData{info->get_image_path().value()};
 		TESTEQUALS(info->get_cbits(), false);
@@ -465,10 +485,11 @@ void fvd_scenario() {
 
 	// The guest's replicated units do not all exist locally (Horses spawn
 	// only on the authoritative host). Resolve the same namespaced sprite
-	// references used by Idle::idle for all four FVD entity definitions.
-	const std::array<std::pair<std::string, size_t>, 3> idle_resources{{
+	// references used by Idle::idle for builders, both tower tiers and foundations.
+	const std::array<std::pair<std::string, size_t>, 4> idle_resources{{
 		{"fvd.data.entities.Builder", 1},
 		{"fvd.data.entities.MedievalTowerLevel1", 1},
+		{"fvd.data.entities.MedievalTowerLevel2", 1},
 		{"fvd.data.entities.Foundation", 1},
 	}};
 	for (const auto &[definition, texture_count] : idle_resources) {

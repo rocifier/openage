@@ -3,7 +3,7 @@
 
 version 2
 
-texture 0 "medieval-tower/medieval_level1.texture"
+texture 0 "medieval_level1.texture"
 
 scalefactor 0.25
 

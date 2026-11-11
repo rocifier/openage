@@ -9,6 +9,10 @@ FVD uses its **own authored graphics, animation atlases, audio and nyan data**. 
 - `assets/fvd/engine_api/`: **versioned, committed** nyan engine API snapshot and SHA3-256 manifest. Update it only through a reviewed source change.
 - `assets/qml/`, `assets/shaders/`: shared renderer resources retained by the native game.
 
+Sprite texture paths are relative to the `.sprite` file's directory; texture image paths are relative to the `.texture` file's directory.
+Static sprites use `layer 0 mode=off` but still require a `frame` entry for each non-mirrored angle.
+The native `openage::gamestate::tests::fvd_scenario` test loads both tower tiers, checks their frames and decodes their referenced images (see [testing](code/testing.md)).
+
 ## Runtime and integrity
 
 `build-fvd` installs these tracked assets into the audited native 7Z archive. The engine API is mounted at `share/openage/converted/engine` **inside the package** for compatibility with native nyan imports. That path is a runtime mount, not a generated `assets/converted` source-tree directory.
