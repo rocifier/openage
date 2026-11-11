@@ -23,6 +23,7 @@
 #include "gamestate/api/property.h"
 #include "gamestate/event/spawn_entity.h"
 #include "gamestate/component/api/live.h"
+#include "gamestate/component/api/idle.h"
 #include "gamestate/component/api/move.h"
 #include "gamestate/component/internal/activity.h"
 #include "gamestate/component/internal/command_queue.h"
@@ -322,6 +323,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	auto central_range = settings.get_float("hunter_tower_range");
 	auto central_cooldown = settings.get_float("hunter_tower_cooldown");
 	auto start_radius = settings.get_float("builder_start_radius");
+	auto upgrade_kills = settings.get_int("tower_upgrade_kills");
 	if (central_damage < 1 or central_range < 1.0 or central_range > 32.0
 	    or central_cooldown < 0.1 or central_cooldown > 60.0
 	    or start_radius <= central_range or start_radius > size / 2.0 - 2.0) {
@@ -340,7 +342,8 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	    or arrow_damage < 1 or arrow_damage > 100
 	    or armor < 0 or armor > 50
 	    or melee_damage < 1 or melee_damage > 100
-	    or arrow_duration < 0.01 or arrow_duration > 3.0) {
+	    or arrow_duration < 0.01 or arrow_duration > 3.0
+	    or upgrade_kills < 1 or upgrade_kills > 1000000) {
 		throw Error{ERR << "Invalid FVD settings: map 16..512, chunk 4.."
 		                << MAX_CHUNK_WIDTH << ", players 2..8, construction >0..300 seconds"};
 	}
@@ -379,7 +382,25 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	this->horse = settings.get_object("horse").get_name();
 	this->foundation = settings.get_object("foundation").get_name();
 	this->tower_demolition = settings.get_object("tower_demolition").get_name();
-	this->tower = settings.get_object("tower").get_name();
+	this->tower = settings.get_object("wood_tower").get_name();
+	this->stone_tower = settings.get_object("stone_tower").get_name();
+	this->tower_upgrade_kills = static_cast<uint64_t>(upgrade_kills);
+	auto read_tower_max_health = [&](const std::string &definition) {
+		auto live = state->get_db_view()->get_object(definition + ".Live");
+		for (const auto &setting : live.get_set("Live.attributes")) {
+			auto value = std::dynamic_pointer_cast<nyan::ObjectValue>(setting.get_ptr());
+			auto object = state->get_db_view()->get_object(value->get_name());
+			if (object.get_object("AttributeSetting.attribute").get_name() == "fvd.data.entities.Health") {
+				return object.get_int("AttributeSetting.max_value");
+			}
+		}
+		return int64_t{0};
+	};
+	this->tower_max_health = read_tower_max_health(this->tower);
+	this->stone_tower_max_health = read_tower_max_health(this->stone_tower);
+	if (this->tower_max_health <= 0 or this->stone_tower_max_health <= this->tower_max_health) {
+		throw Error{ERR << "FVD tower tiers require increasing positive maximum health"};
+	}
 	this->hunter_tower = settings.get_object("hunter_tower").get_name();
 	this->hunter_rally_marker = settings.get_object("hunter_rally_point").get_name();
 	this->plains = settings.get_object("terrain").get_name();
