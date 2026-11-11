@@ -41,9 +41,9 @@ void fvd_combat_sounds() {
 	TESTEQUALS(combat_cue(effect).value_or(audio::Cue::COUNT), audio::Cue::DEATH_HORSE);
 	effect.definition = "fvd.data.entities.Builder";
 	TESTEQUALS(combat_cue(effect).value_or(audio::Cue::COUNT), audio::Cue::DEATH_BUILDER);
-	effect.definition = "fvd.data.entities.Tower";
+	effect.definition = "fvd.data.entities.MedievalTowerLevel1";
 	TESTEQUALS(combat_cue(effect).value_or(audio::Cue::COUNT), audio::Cue::DEATH_TOWER);
-	effect.definition = "fvd.data.entities.HunterTower";
+	effect.definition = "fvd.data.entities.MedievalTowerLevel2";
 	TESTEQUALS(combat_cue(effect).has_value(), false);
 	effect.death = false;
 	TESTEQUALS(combat_cue(effect).has_value(), false);
@@ -62,7 +62,7 @@ void fvd_construction_sounds() {
 	const auto empty = world_at(1, {});
 	const auto planned = world_at(2, {site(10, 2, "Foundation", 5, 5)});
 	// The tower may replace the foundation with a new entity ID.
-	const auto built = world_at(3, {site(11, 2, "Tower", 5, 5)});
+	const auto built = world_at(3, {site(11, 2, "MedievalTowerLevel1", 5, 5)});
 
 	// The first world is only recorded.
 	TESTEQUALS(tracker.update(planned, 2, false).size(), size_t{0});
