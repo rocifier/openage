@@ -441,6 +441,84 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	    or this->tower_path_costs.empty()) {
 		throw Error{ERR << "FVD tower requires a positive Pathable hitbox and path costs"};
 	}
+	auto stone_object = state->get_db_view()->get_object(this->stone_tower);
+	bool stone_pathable = false;
+	for (const auto &ability : stone_object.get_set("GameEntity.abilities")) {
+		auto value = std::dynamic_pointer_cast<nyan::ObjectValue>(ability.get_ptr());
+		auto object = state->get_db_view()->get_object(value->get_name());
+		if (object.get_parents()[0] != "engine.ability.type.Pathable") continue;
+		auto hitbox = object.get_object("Pathable.hitbox");
+		if (hitbox.get_float("Hitbox.radius_x") != this->tower_radius_ne
+		    or hitbox.get_float("Hitbox.radius_y") != this->tower_radius_se) {
+			throw Error{ERR << "FVD tower tiers must use identical pathing footprints"};
+		}
+		stone_pathable = true;
+		break;
+	}
+	if (not stone_pathable) throw Error{ERR << "FVD stone tower requires a Pathable ability"};
+}
+
+bool FVD::is_tower(const std::string &definition) const {
+	return definition == this->tower or definition == this->stone_tower;
+}
+
+const std::string &FVD::tower_definition_for(player_id_t owner) const {
+	return owner < this->player_tower_upgraded.size() and this->player_tower_upgraded[owner]
+	         ? this->stone_tower : this->tower;
+}
+
+bool FVD::upgrade_tower(const std::shared_ptr<GameState> &state,
+                        entity_id_t tower_id, const time::time_t &time) {
+	auto found = state->get_game_entities().find(tower_id);
+	auto footprint = this->tower_footprints.find(tower_id);
+	if (found == state->get_game_entities().end()
+	    or found->second->get_definition() != this->tower
+	    or footprint == this->tower_footprints.end()
+	    or footprint->second.under_construction) return false;
+	auto entity = found->second;
+	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+		entity->get_component(component::component_t::OWNERSHIP));
+	if (not ownership) return false;
+	const auto owner = ownership->get_owners().get(time);
+	if (owner < 2 or owner > this->player_count) return false;
+	auto live = std::dynamic_pointer_cast<component::Live>(
+		entity->get_component(component::component_t::LIVE));
+	const auto health = live->get_attribute(time, "fvd.data.entities.Health")->get(time);
+	if (health <= 0) return false;
+	const auto ratio = std::clamp(static_cast<double>(health) / this->tower_max_health, 0.0, 1.0);
+	const auto upgraded_health = std::max<int64_t>(1, static_cast<int64_t>(std::llround(
+		ratio * this->stone_tower_max_health)));
+	live->set_attribute(time, "fvd.data.entities.Health", upgraded_health);
+	auto idle = std::dynamic_pointer_cast<component::Idle>(
+		entity->get_component(component::component_t::IDLE));
+	if (not idle) throw Error{ERR << "FVD tower upgrade requires an Idle ability"};
+	auto owner_view = state->get_player(owner)->get_db_view();
+	auto stone_idle = owner_view->get_object(this->stone_tower + ".Idle");
+	idle->set_ability(stone_idle);
+	entity->set_definition(this->stone_tower);
+	system::Idle::idle(entity, time);
+	if (auto render = entity->get_render_entity()) {
+		render->update_health(*live->get_attribute(time, "fvd.data.entities.Health"),
+		                      this->stone_tower_max_health, time);
+	}
+	return true;
+}
+
+void FVD::upgrade_player_towers(const std::shared_ptr<GameState> &state,
+                                player_id_t owner, const time::time_t &time) {
+	if (owner < 2 or owner > this->player_count
+	    or this->player_tower_upgraded[owner]
+	    or this->get_kills(owner) < this->tower_upgrade_kills) return;
+	this->player_tower_upgraded[owner] = true;
+	std::vector<entity_id_t> owned_towers;
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		if (entity->get_definition() != this->tower) continue;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (ownership and ownership->get_owners().get(time) == owner) owned_towers.push_back(id);
+	}
+	std::sort(owned_towers.begin(), owned_towers.end());
+	for (auto id : owned_towers) this->upgrade_tower(state, id, time);
 }
 
 void FVD::initialise(const std::shared_ptr<GameState> &state,
