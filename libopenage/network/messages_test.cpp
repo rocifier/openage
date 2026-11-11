@@ -262,8 +262,8 @@ void messages() {
 	state.entities = {
 		{100, 1, "fvd.data.entities.Horse", {10.5, 20.25, 0}, 17, 25},
 		{200, 2, "fvd.data.entities.Foundation", {-1.0, 2.0, 3.0}},
-		{201, 2, "fvd.data.entities.Tower", {12.0, 20.0, 0}, 100, 100, 2},
-		{202, 1, "fvd.data.entities.Tower", {13.0, 20.0, 0}, 100, 100},
+		{201, 2, "fvd.data.entities.MedievalTowerLevel2", {12.0, 20.0, 0}, 100, 100, 2},
+		{202, 1, "fvd.data.entities.MedievalTowerLevel1", {13.0, 20.0, 0}, 100, 100},
 	};
 	state.entities[2].garrisoned_builder = gamestate::entity_id_t{300};
 	state.entities[2].garrison_player = gamestate::player_id_t{2};
@@ -648,7 +648,7 @@ void stance_messages() {
 	TESTEQUALS(decoded_builder.entities[1].hunter_stance.has_value(), false);
 
 	auto tower_stance = hunter;
-	tower_stance.entities[1].definition = "fvd.data.entities.Tower";
+	tower_stance.entities[1].definition = "fvd.data.entities.MedievalTowerLevel1";
 	TESTTHROWS(encode_world_state(tower_stance));
 }
 
@@ -696,7 +696,7 @@ void fog_messages() {
 	WorldState hunter = builder;
 	hunter.local_player_id = 1;
 	hunter.fog.front().team = PlayerRole::HUNTER;
-	hunter.entities = {{400, 2, "fvd.data.entities.Tower", {5.0, 5.0, 0}}};
+	hunter.entities = {{400, 2, "fvd.data.entities.MedievalTowerLevel1", {5.0, 5.0, 0}}};
 	hunter.entities.front().remembered = true;
 	auto remembered = decode_world_state(encode_world_state(hunter));
 	TESTEQUALS(remembered.entities.front().remembered, true);
