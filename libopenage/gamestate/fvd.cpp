@@ -472,7 +472,7 @@ bool FVD::upgrade_tower(const std::shared_ptr<GameState> &state,
 	auto found = state->get_game_entities().find(tower_id);
 	auto footprint = this->tower_footprints.find(tower_id);
 	if (found == state->get_game_entities().end()
-	    or found->second->get_definition() != this->tower
+	    or not this->is_tower(found->second->get_definition())
 	    or footprint == this->tower_footprints.end()
 	    or footprint->second.under_construction) return false;
 	auto entity = found->second;
@@ -1281,7 +1281,7 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 		}
 		state->remove_game_entity(it->second.foundation_id, time);
 		auto tower_entity = factory->spawn_game_entity(
-			loop, state, order->get_owner(), this->tower, tile.to_phys3_center(), time);
+			loop, state, order->get_owner(), this->tower_definition_for(order->get_owner()), tile.to_phys3_center(), time);
 		if (not tower_entity->has_component(component::component_t::LIVE)) [[unlikely]] {
 			throw Error{ERR << "FVD tower requires a Live ability"};
 		}
@@ -1326,6 +1326,9 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 		throw Error{ERR << "Completed construction has no tower footprint"};
 	}
 	this->tower_footprints.at(*placed_tower).under_construction = false;
+	if (this->player_tower_upgraded[order->get_owner()]) {
+		this->upgrade_tower(state, *placed_tower, time);
+	}
 	for (const auto &footprint_tile : this->get_tower_footprint(tile)) {
 		this->reserved_tiles.erase(footprint_tile);
 	}
@@ -1488,7 +1491,7 @@ bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
 	const auto tower_id = ids.front();
 	auto tower = state->get_game_entities().find(tower_id);
 	if (tower == state->get_game_entities().end()
-	    or tower->second->get_definition() != this->tower
+	    or not this->is_tower(tower->second->get_definition())
 	    or not this->tower_footprints.contains(tower_id)
 	    or this->tower_footprints.at(tower_id).under_construction) return false;
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
@@ -1499,7 +1502,7 @@ bool FVD::set_ungarrison_point(const std::shared_ptr<GameState> &state,
 		if (*target_tower == tower_id) return false;
 		auto candidate = state->get_game_entities().find(*target_tower);
 		if (candidate == state->get_game_entities().end()
-		    or candidate->second->get_definition() != this->tower
+		    or not this->is_tower(candidate->second->get_definition())
 		    or not this->tower_footprints.contains(*target_tower)
 		    or this->tower_footprints.at(*target_tower).under_construction) return false;
 		auto candidate_owner = std::dynamic_pointer_cast<component::Ownership>(
@@ -1552,7 +1555,7 @@ bool FVD::request_garrison(const std::shared_ptr<GameState> &state,
 	if (builder == state->get_game_entities().end()
 	    or tower == state->get_game_entities().end()
 	    or builder->second->get_definition() != this->builder
-	    or tower->second->get_definition() != this->tower
+	    or not this->is_tower(tower->second->get_definition())
 	    or not builder_alive(builder->second, time)
 	    or not this->tower_footprints.contains(tower_id)
 	    or this->tower_footprints.at(tower_id).under_construction) return false;
@@ -1644,7 +1647,7 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
                         const time::time_t &time, bool use_point) {
 	auto tower = state->get_game_entities().find(tower_id);
 	if (tower == state->get_game_entities().end()
-	    or tower->second->get_definition() != this->tower) return false;
+	    or not this->is_tower(tower->second->get_definition())) return false;
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 		tower->second->get_component(component::component_t::OWNERSHIP));
 	if (not ownership or ownership->get_owners().get(time) < 2) return false;
@@ -1677,7 +1680,7 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 	if (explicit_tower) {
 		auto destination_tower = state->get_game_entities().find(*explicit_tower);
 		if (destination_tower == state->get_game_entities().end()
-		    or destination_tower->second->get_definition() != this->tower
+		    or destination_not this->is_tower(tower->second->get_definition())
 		    or not this->tower_footprints.contains(*explicit_tower)
 		    or this->tower_footprints.at(*explicit_tower).under_construction
 		    or this->get_garrisoned_builder(*explicit_tower)) return false;
@@ -1782,7 +1785,7 @@ bool FVD::demolish_owned_tower(const std::shared_ptr<GameState> &state,
 		return this->delete_owned_foundation(state, owner, tower_id, time);
 	}
 	if (found == state->get_game_entities().end()
-	    or found->second->get_definition() != this->tower
+	    or not this->is_tower(found->second->get_definition())
 	    or not found->second->has_component(component::component_t::OWNERSHIP)
 	    or not this->tower_footprints.contains(tower_id)) {
 		return false;
@@ -2317,11 +2320,11 @@ void FVD::evaluate_match_outcome(
 		std::vector<entity_id_t> foundations{};
 		for (const auto &[id, entity] : state->get_game_entities()) {
 			const auto &definition = entity->get_definition();
-			if (definition != this->tower and definition != this->foundation) continue;
+			if (not this->is_tower(definition) and definition != this->foundation) continue;
 			auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 				entity->get_component(component::component_t::OWNERSHIP));
 			if (not ownership or ownership->get_owners().get(now) != owner) continue;
-			if (definition == this->tower) towers.push_back(id);
+			if (this->is_tower(definition)) towers.push_back(id);
 			else foundations.push_back(id);
 		}
 		for (auto id : towers) this->destroy_tower(state, id, now);
