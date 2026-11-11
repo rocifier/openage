@@ -172,7 +172,7 @@ Item {
 			source: "kills-icon.png"
 			fillMode: Image.PreserveAspectFit
 			mipmap: false
-			visible: not root.hunter
+			visible: !root.hunter
 		}
 		Text {
 			id: killsCount
@@ -184,7 +184,7 @@ Item {
 			color: "#ffffff"
 			font.pixelSize: 19
 			font.bold: true
-			visible: not root.hunter
+			visible: !root.hunter
 		}
 		MouseArea {
 			id: killsTooltipArea
@@ -195,13 +195,13 @@ Item {
 			height: parent.height
 			hoverEnabled: true
 			cursorShape: Qt.ArrowCursor
-			visible: not root.hunter
+			visible: !root.hunter
 		}
 		Rectangle {
 			anchors.top: parent.bottom
 			anchors.right: killsTooltipArea.right
 			anchors.topMargin: 5
-			visible: not root.hunter && killsTooltipArea.containsMouse
+			visible: !root.hunter && killsTooltipArea.containsMouse
 			width: killsTooltipText.implicitWidth + 18
 			height: killsTooltipText.implicitHeight + 12
 			radius: 4
