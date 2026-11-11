@@ -33,6 +33,7 @@
 #include "gamestate/activity/xor_event_gate.h"
 #include "gamestate/entity_factory.h"
 #include "gamestate/game_entity.h"
+#include "renderer/stages/world/render_entity.h"
 #include "gamestate/game_state.h"
 #include "gamestate/manager.h"
 #include "gamestate/map.h"
