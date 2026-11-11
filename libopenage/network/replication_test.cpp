@@ -30,8 +30,8 @@ void replication() {
 	initial.players = {{1, PlayerRole::HUNTER}, {2, PlayerRole::BUILDER},
 	                   {3, PlayerRole::BUILDER}};
 	initial.entities = {
-		{100, 2, "fvd.data.entities.Tower", {1, 1, 0}, 100, 100, 1},
-		{200, 3, "fvd.data.entities.Tower", {2, 2, 0}, 100, 100},
+		{100, 2, "fvd.data.entities.MedievalTowerLevel2", {1, 1, 0}, 100, 100, 1},
+		{200, 3, "fvd.data.entities.MedievalTowerLevel1", {2, 2, 0}, 100, 100},
 	};
 	auto foreign_snapshot = initial;
 	foreign_snapshot.local_player_id = 3;
@@ -50,8 +50,8 @@ void replication() {
 	contiguous.world_revision = 6;
 	contiguous.local_kill_count = 3;
 	contiguous.entities = {
-		{100, 2, "fvd.data.entities.Tower", {1, 1, 0}, 100, 100, 2},
-		{101, 2, "fvd.data.entities.Tower", {3, 3, 0}, 100, 100, 1},
+		{100, 2, "fvd.data.entities.MedievalTowerLevel1", {1, 1, 0}, 100, 100, 2},
+		{101, 2, "fvd.data.entities.MedievalTowerLevel1", {3, 3, 0}, 100, 100, 1},
 	};
 	auto delta = make_world_delta(initial, contiguous);
 	auto foreign = delta;
@@ -95,7 +95,7 @@ void replication() {
 	recovered.world_revision = 9;
 	recovered.local_kill_count = 7;
 	recovered.entities = {
-		{101, 2, "fvd.data.entities.Tower", {3, 3, 0}, 100, 100, 4},
+		{101, 2, "fvd.data.entities.MedievalTowerLevel1", {3, 3, 0}, 100, 100, 4},
 	};
 	tracker.accept_snapshot(recovered);
 	TESTEQUALS(tracker.get_presentation_state()->snapshot_generation, initial_generation + 1);
@@ -182,7 +182,7 @@ void replication() {
 	other_snapshot.local_player_id = 3;
 	other_snapshot.local_kill_count = 12;
 	other_snapshot.entities = {{
-		200, 3, "fvd.data.entities.Tower", {2, 2, 0}, 100, 100, 12}};
+		200, 3, "fvd.data.entities.MedievalTowerLevel1", {2, 2, 0}, 100, 100, 12}};
 	other_player.accept_snapshot(other_snapshot);
 	TESTEQUALS(other_player.get_local_kills().value(), uint64_t{12});
 	TESTEQUALS(other_player.get_tower_kills(200).value(), uint64_t{12});
@@ -201,8 +201,8 @@ void replication() {
 		{11, 3, "fvd.data.entities.Builder", {9, 9, 0}},
 		{20, 2, "fvd.data.entities.Foundation", {15.5, 15.5, 0}},
 		{21, 2, "fvd.data.entities.Foundation", {18.5, 18.5, 0}},
-		{22, 3, "fvd.data.entities.Tower", {25.5, 25.5, 0}},
-		{23, 3, "fvd.data.entities.Tower", {30.5, 30.5, 0}},
+		{22, 3, "fvd.data.entities.MedievalTowerLevel1", {25.5, 25.5, 0}},
+		{23, 3, "fvd.data.entities.MedievalTowerLevel1", {30.5, 30.5, 0}},
 	};
 	sites_world.reservations = {
 		{{15, 15}, 10}, {{18, 18}, 10}, {{25, 25}, 11}};
@@ -260,7 +260,7 @@ void replication() {
 		{0, 0, "fvd.data.entities.Placeholder", {0, 0, 0}},
 		{100, 1, "fvd.data.entities.Horse", {10, 11, 0}},
 		{101, 1, "fvd.data.entities.Horse", {12, 13, 0}},
-		{200, 2, "fvd.data.entities.Tower", {20, 21, 0}},
+		{200, 2, "fvd.data.entities.MedievalTowerLevel1", {20, 21, 0}},
 	};
 	order_world.attack_orders = {
 		{100, {18, 19, 0}, 200, false, true},
