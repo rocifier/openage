@@ -308,10 +308,10 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 			return false;
 		}
 	}
-	else if (owner != 1 or (definition != this->tower and definition != this->builder)) {
+	else if (owner != 1 or (not this->is_tower(definition) and definition != this->builder)) {
 		return false;
 	}
-	const int64_t armour = definition == this->tower ? this->tower_armor : 0;
+	const int64_t armour = this->is_tower(definition) ? this->tower_armor : 0;
 	const int64_t actual_damage = std::max<int64_t>(1, damage - armour);
 	auto live = std::dynamic_pointer_cast<component::Live>(
 		entity->get_component(component::component_t::LIVE));
@@ -320,7 +320,8 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 	live->set_attribute(time, HEALTH, new_hp);
 
 	if (auto render = entity->get_render_entity()) {
-		const int64_t max_health = definition == this->tower ? 100
+		const int64_t max_health = definition == this->stone_tower ? this->stone_tower_max_health
+		                           : this->is_tower(definition) ? this->tower_max_health
 		                           : definition == this->horse ? 90 : 25;
 		render->update_health(*live->get_attribute(time, HEALTH), max_health, time);
 	}
@@ -328,7 +329,7 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 		return false;
 	}
 
-	if (definition == this->tower) {
+	if (this->is_tower(definition)) {
 		this->tower_next_shot.erase(target);
 		this->destroy_tower(state, target, time);
 	}
@@ -363,7 +364,10 @@ void FVD::arrow_hit(const std::shared_ptr<GameState> &state,
 	if (not this->apply_damage(state, target, damage, owner, true, time)) {
 		return;
 	}
-	this->player_kills.at(owner).fetch_add(1);
+	const auto total_kills = this->player_kills.at(owner).fetch_add(1) + 1;
+	if (total_kills >= this->tower_upgrade_kills) {
+		this->upgrade_player_towers(state, owner, time);
+	}
 	if (firing_tower != 0) {
 		std::lock_guard lock{this->tower_kills_mutex};
 		this->tower_kills.at(firing_tower).kills += 1;
@@ -420,7 +424,7 @@ bool FVD::issue_focus_attack(const std::shared_ptr<GameState> &state,
 	}
 	auto target = target_it->second;
 	if (target->get_definition() != this->builder
-	    and target->get_definition() != this->tower) {
+	    and not this->is_tower(target->get_definition())) {
 		return false;
 	}
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
@@ -429,7 +433,7 @@ bool FVD::issue_focus_attack(const std::shared_ptr<GameState> &state,
 	    or ownership->get_owners().get(time) > this->player_count) {
 		return false;
 	}
-	if (target->get_definition() == this->tower) {
+	if (this->is_tower(target->get_definition())) {
 		auto footprint = this->tower_footprints.find(enemy_id);
 		if (footprint == this->tower_footprints.end()
 		    or footprint->second.under_construction) {
@@ -538,7 +542,7 @@ bool FVD::hunter_target_eligible(const std::shared_ptr<GameState> &state,
 	    or not this->can_see(state, FVDTeam::HUNTER, candidate, time)) {
 		return false;
 	}
-	if (other->second->get_definition() == this->tower) {
+	if (this->is_tower(other->second->get_definition())) {
 		auto footprint = this->tower_footprints.find(candidate);
 		return footprint != this->tower_footprints.end()
 		    and not footprint->second.under_construction;
@@ -612,7 +616,10 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
 	if (this->match_outcome) return;
 	const auto horses = entities_by_definition(state, this->horse);
 	const auto builders = entities_by_definition(state, this->builder);
-	const auto towers = entities_by_definition(state, this->tower);
+	auto towers = entities_by_definition(state, this->tower);
+	const auto stone_towers = entities_by_definition(state, this->stone_tower);
+	towers.insert(towers.end(), stone_towers.begin(), stone_towers.end());
+	std::sort(towers.begin(), towers.end());
 	this->update_vision(state, time);
 	this->vision_cached_at = time;
 
@@ -797,7 +804,7 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
 				start.up += coord::phys_t::from_double(0.90);
 				auto destination = enemy_position->get_positions().get(hit_time);
 				destination.up += coord::phys_t::from_double(
-					enemy->second->get_definition() == this->tower ? 1.0 : 0.55);
+					this->is_tower(enemy->second->get_definition()) ? 1.0 : 0.55);
 				{
 					std::lock_guard lock{this->arrow_visuals_mutex};
 					if (not this->projectile_replication_enabled) {
