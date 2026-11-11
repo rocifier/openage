@@ -63,6 +63,10 @@ gamestate::component::command::command_t simulation_command(CommandKind kind) {
 	}
 }
 
+bool is_tower_definition(const std::string &definition) {
+	return definition == "fvd.data.entities.MedievalTowerLevel1"
+	    or definition == "fvd.data.entities.MedievalTowerLevel2";
+}
 std::optional<std::pair<int64_t, int64_t>> entity_health(
 	const std::shared_ptr<gamestate::GameEntity> &entity,
 	const time::time_t &time) {
@@ -205,7 +209,7 @@ WorldState capture_fvd_presentation_state(
 			entity_state.health = hp->first;
 			entity_state.maximum_health = hp->second;
 		}
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (is_tower_definition(entity->get_definition())) {
 			entity_state.garrisoned_builder = fvd->get_garrisoned_builder(entity_id);
 			entity_state.garrison_player = fvd->get_garrisoned_player(state, entity_id, time);
 		}
@@ -378,7 +382,7 @@ WorldState capture_fvd_state(
 			entity_state.health = health->first;
 			entity_state.maximum_health = health->second;
 		}
-		if (entity_state.definition == "fvd.data.entities.Tower"
+		if (is_tower_definition(entity_state.definition)
 		    and entity_state.owner_id == recipient) {
 			entity_state.tower_kills = fvd->get_tower_kills(entity_state.entity_id, recipient);
 		}
