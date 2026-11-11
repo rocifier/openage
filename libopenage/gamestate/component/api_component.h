@@ -56,6 +56,9 @@ public:
 	 */
 	const nyan::Object &get_ability() const;
 
+	/** Replace the data ability when an entity changes nyan-defined tier. */
+	void set_ability(const nyan::Object &ability);
+
 private:
 	/**
 	 * nyan object holding the data for the component.
