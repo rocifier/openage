@@ -27,7 +27,12 @@ constexpr uint16_t ENTITY_REMEMBERED = 1 << 3;
 constexpr uint16_t ENTITY_HAS_GARRISONED_BUILDER = 1 << 4;
 constexpr uint16_t ENTITY_HAS_UNGARRISON_SOURCE = 1 << 5;
 constexpr uint16_t ENTITY_HAS_GARRISON_PLAYER = 1 << 6;
-constexpr const char *TOWER_DEFINITION = "fvd.data.entities.Tower";
+constexpr const char *WOOD_TOWER_DEFINITION = "fvd.data.entities.MedievalTowerLevel1";
+constexpr const char *STONE_TOWER_DEFINITION = "fvd.data.entities.MedievalTowerLevel2";
+
+bool is_tower_definition(const std::string &definition) {
+	return definition == WOOD_TOWER_DEFINITION or definition == STONE_TOWER_DEFINITION;
+}
 constexpr const char *RALLY_DEFINITION = "fvd.data.entities.HunterRallyPoint";
 constexpr const char *FOUNDATION_DEFINITION = "fvd.data.entities.Foundation";
 constexpr const char *HUNTER_TOWER_DEFINITION = "fvd.data.entities.HunterTower";
@@ -144,7 +149,7 @@ bool is_known_construction_phase(uint16_t value) {
 
 /** A remembered entity is an enemy building with nothing but its last place. */
 bool valid_remembered(const EntityState &entity, gamestate::player_id_t local_player) {
-	return (entity.definition == TOWER_DEFINITION or entity.definition == FOUNDATION_DEFINITION
+	return (is_tower_definition(entity.definition) or entity.definition == FOUNDATION_DEFINITION
 	        or entity.definition == HUNTER_TOWER_DEFINITION)
 	   and entity.owner_id != local_player and not entity.health and not entity.tower_kills
 	   and not entity.hunter_stance and not entity.garrisoned_builder
@@ -696,7 +701,7 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		}
 		if (entity.tower_kills
 		    and (entity.owner_id != state.local_player_id
-		         or entity.definition != "fvd.data.entities.Tower")) {
+		         or not is_tower_definition(entity.definition))) {
 			throw Error{MSG(err) << "FVD tower kills may only be sent to their owner"};
 		}
 		if (entity.hunter_stance
@@ -707,7 +712,7 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		}
 		if (entity.garrisoned_builder
 		    and (entity.garrison_player.value_or(entity.owner_id) != state.local_player_id
-		         or entity.definition != TOWER_DEFINITION
+		         or not is_tower_definition(entity.definition)
 		         or *entity.garrisoned_builder == 0)) {
 			throw Error{MSG(err) << "Garrisoned Builder identity belongs only to the tower owner"};
 		}
@@ -718,7 +723,7 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 			throw Error{MSG(err) << "Ungarrison marker source belongs only to the tower owner"};
 		}
 		if (entity.garrison_player
-		    and (entity.definition != TOWER_DEFINITION
+		    and (not is_tower_definition(entity.definition)
 		         or *entity.garrison_player < 2
 		         or *entity.garrison_player > MAX_STATE_PLAYERS)) {
 			throw Error{MSG(err) << "Invalid public garrison flag player"};
@@ -972,7 +977,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		EntityState entity{entity_id, owner_id, std::move(definition), position};
 		if ((flags & ENTITY_HAS_GARRISONED_BUILDER) != 0) {
 			const auto builder_id = reader.u64();
-			if (builder_id == 0 or entity.definition != TOWER_DEFINITION) {
+			if (builder_id == 0 or not is_tower_definition(entity.definition)) {
 				throw Error{MSG(err) << "Invalid or foreign garrison identity"};
 			}
 			entity.garrisoned_builder = builder_id;
@@ -987,7 +992,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		}
 		if ((flags & ENTITY_HAS_GARRISON_PLAYER) != 0) {
 			auto player_id = reader.u64();
-			if (entity.definition != TOWER_DEFINITION
+			if (not is_tower_definition(entity.definition)
 			    or player_id < 2 or player_id > MAX_STATE_PLAYERS)
 				throw Error{MSG(err) << "Invalid public tower flag"};
 			entity.garrison_player = player_id;
@@ -1004,7 +1009,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		}
 		if ((flags & ENTITY_HAS_TOWER_KILLS) != 0) {
 			if (owner_id != state.local_player_id
-			    or entity.definition != "fvd.data.entities.Tower") {
+			    or not is_tower_definition(entity.definition)) {
 				throw Error{MSG(err) << "FVD tower kills belong only to the recipient"};
 			}
 			entity.tower_kills = tower_kills;
@@ -1071,7 +1076,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		entity.remembered = (flags & ENTITY_REMEMBERED) != 0;
 		if (entity.garrisoned_builder
 		    and (entity.garrison_player.value_or(entity.owner_id) != state.local_player_id
-		         or entity.definition != TOWER_DEFINITION
+		         or not is_tower_definition(entity.definition)
 		         or *entity.garrisoned_builder == 0)) {
 			throw Error{MSG(err) << "Garrisoned Builder identity belongs only to the tower owner"};
 		}
@@ -1082,7 +1087,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 			throw Error{MSG(err) << "Ungarrison marker source belongs only to the tower owner"};
 		}
 		if (entity.garrison_player
-		    and (entity.definition != TOWER_DEFINITION
+		    and (not is_tower_definition(entity.definition)
 		         or *entity.garrison_player < 2
 		         or *entity.garrison_player > MAX_STATE_PLAYERS)) {
 			throw Error{MSG(err) << "Invalid public garrison flag player"};
