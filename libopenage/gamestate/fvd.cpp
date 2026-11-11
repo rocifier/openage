@@ -496,6 +496,8 @@ bool FVD::upgrade_tower(const std::shared_ptr<GameState> &state,
 		entity->get_component(component::component_t::IDLE));
 	if (not idle) throw Error{ERR << "FVD tower upgrade requires an Idle ability"};
 	auto owner_view = state->get_player(owner)->get_db_view();
+	auto stone_live = owner_view->get_object(this->stone_tower + ".Live");
+	live->set_ability(stone_live);
 	auto stone_idle = owner_view->get_object(this->stone_tower + ".Idle");
 	idle->set_ability(stone_idle);
 	entity->set_definition(this->stone_tower);
