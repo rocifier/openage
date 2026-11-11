@@ -2324,7 +2324,7 @@ void fvd_hunter_combat() {
 	TESTEQUALS(fvd->get_kills(5), uint64_t{100});
 	TESTEQUALS(tower_entity->get_definition(), std::string{"fvd.data.entities.MedievalTowerLevel2"});
 	TESTEQUALS(tower_health->get_attribute(at(16), "fvd.data.entities.Health")->get(at(16)),
-	           fvd->stone_tower_max_health);
+	           int64_t{1650});
 	kills = fvd->get_kills(5);
 
 	// A horse inside firing range damages a tower, with armour
