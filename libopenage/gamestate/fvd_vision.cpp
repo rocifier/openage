@@ -73,7 +73,7 @@ std::vector<std::pair<coord::phys3, double>> FVD::vision_sources(
 			continue;
 		}
 		// A tower only watches the map once it is built.
-		if (definition == this->tower) {
+		if (this->is_tower(definition)) {
 			auto footprint = this->tower_footprints.find(id);
 			if (footprint == this->tower_footprints.end() or footprint->second.under_construction) {
 				continue;
@@ -178,7 +178,7 @@ void FVD::update_vision(const std::shared_ptr<GameState> &state, const time::tim
 		};
 		for (const auto &[id, entity] : state->get_game_entities()) {
 			const auto &definition = entity->get_definition();
-			if ((definition != this->tower and definition != this->foundation
+			if ((not this->is_tower(definition) and definition != this->foundation
 			     and definition != this->hunter_tower)
 			    or not entity->has_component(component::component_t::OWNERSHIP)) {
 				continue;
