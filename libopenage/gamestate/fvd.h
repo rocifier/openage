@@ -733,6 +733,7 @@ private:
 	time::time_t horse_spawn_interval;
 	double horse_collision_radius;
 	int64_t tower_damage;
+	int64_t stone_tower_damage;
 	int64_t tower_armor;
 	int64_t horse_damage;
 	time::time_t arrow_travel;
