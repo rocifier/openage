@@ -34,6 +34,7 @@ The prompts used for the initial set are recorded in [prompts.md](prompts.md).
 ## Match HUD
 
 The translucent top bar shows the player's authoritative total kills, the match countdown, and current order or error feedback.
+Builders can hover its kill counter to learn that it counts enemy units killed by their towers; the Hunter has no counter.
 The top and bottom panels blur the game scene beneath their rounded backgrounds.
 Errors, rejected orders, and disconnect notices appear red in its status area.
 Its left corner displays the combined crest and FVD wordmark from `qml/fvd-logo.png`.

@@ -172,6 +172,7 @@ Item {
 			source: "kills-icon.png"
 			fillMode: Image.PreserveAspectFit
 			mipmap: false
+			visible: not root.hunter
 		}
 		Text {
 			id: killsCount
@@ -183,6 +184,40 @@ Item {
 			color: "#ffffff"
 			font.pixelSize: 19
 			font.bold: true
+			visible: not root.hunter
+		}
+		MouseArea {
+			id: killsTooltipArea
+			anchors.right: timerSeparator.left
+			anchors.rightMargin: 18
+			anchors.verticalCenter: parent.verticalCenter
+			width: 118
+			height: parent.height
+			hoverEnabled: true
+			cursorShape: Qt.ArrowCursor
+			visible: not root.hunter
+		}
+		Rectangle {
+			anchors.top: parent.bottom
+			anchors.right: killsTooltipArea.right
+			anchors.topMargin: 5
+			visible: not root.hunter && killsTooltipArea.containsMouse
+			width: killsTooltipText.implicitWidth + 18
+			height: killsTooltipText.implicitHeight + 12
+			radius: 4
+			color: "#e61b2520"
+			border.width: 1
+			border.color: "#c7d9d0"
+			z: 1
+
+			Text {
+				id: killsTooltipText
+				anchors.centerIn: parent
+				text: "Enemy units killed by your towers. 100 Kills: Level up"
+				color: "#f2f1ea"
+				font.pixelSize: 13
+				font.bold: true
+			}
 		}
 		Rectangle {
 			id: timerSeparator

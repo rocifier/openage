@@ -193,7 +193,7 @@ HunterRallyPoint(engine.util.game_entity.GameEntity):
             Animation(engine.util.graphics.Animation):
                 Animation.sprite = "../../../fvd/graphics/hunter_rally_point.sprite"
 
-Tower(engine.util.game_entity.GameEntity):
+MedievalTowerLevel1(engine.util.game_entity.GameEntity):
     GameEntity.types = {}
     GameEntity.abilities = {Idle, LineOfSight, Live, Pathable, Selectable}
     GameEntity.modifiers = {}
@@ -209,7 +209,7 @@ Tower(engine.util.game_entity.GameEntity):
             Animated.animations = {Animation}
 
             Animation(engine.util.graphics.Animation):
-                Animation.sprite = "../../../fvd/graphics/tower.sprite"
+                Animation.sprite = "../../../fvd/graphics/medieval-tower/wood_tower.sprite"
 
     Live(engine.ability.type.Live):
         Live.attributes = {HealthSetting}
@@ -217,7 +217,50 @@ Tower(engine.util.game_entity.GameEntity):
         HealthSetting(engine.util.attribute.AttributeSetting):
             AttributeSetting.attribute = Health
             AttributeSetting.min_value = 0
-            AttributeSetting.max_value = 100
+            AttributeSetting.max_value = 850
+            AttributeSetting.starting_value = 0
+
+    Pathable(engine.ability.type.Pathable):
+        Pathable.hitbox = Hitbox
+        Pathable.path_costs = {fvd.data.terrain.Land: 255}
+
+        Hitbox(engine.util.hitbox.Hitbox):
+            Hitbox.radius_x = 0.5
+            Hitbox.radius_y = 0.5
+            Hitbox.radius_z = 1.0
+
+    Selectable(engine.ability.type.Selectable):
+        Selectable.selection_box = Box
+
+        Box(engine.util.selection_box.type.Rectangle):
+            Rectangle.width = 1.0
+            Rectangle.height = 1.0
+
+MedievalTowerLevel2(engine.util.game_entity.GameEntity):
+    GameEntity.types = {}
+    GameEntity.abilities = {Idle, LineOfSight, Live, Pathable, Selectable}
+    GameEntity.modifiers = {}
+    GameEntity.variants = {}
+
+    LineOfSight(engine.ability.type.LineOfSight):
+        LineOfSight.range = 8.0
+
+    Idle(engine.ability.type.Idle):
+        Ability.properties = {engine.ability.property.type.Animated: Animated}
+
+        Animated(engine.ability.property.type.Animated):
+            Animated.animations = {Animation}
+
+            Animation(engine.util.graphics.Animation):
+                Animation.sprite = "../../../fvd/graphics/medieval-tower/stone_tower.sprite"
+
+    Live(engine.ability.type.Live):
+        Live.attributes = {HealthSetting}
+
+        HealthSetting(engine.util.attribute.AttributeSetting):
+            AttributeSetting.attribute = Health
+            AttributeSetting.min_value = 0
+            AttributeSetting.max_value = 1650
             AttributeSetting.starting_value = 0
 
     Pathable(engine.ability.type.Pathable):

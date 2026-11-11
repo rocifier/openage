@@ -29,7 +29,9 @@ Scenario(engine.root.Object):
     horse_spawn_interval : int = 1
     horse_collision_radius : float = 0.38
     horse_shove_duration : float = 0.3
-    tower_arrow_damage : int = 2
+    tower_arrow_damage : int = 6
+    stone_tower_arrow_damage : int = 10
+    tower_upgrade_kills : int = 100
     tower_armor : int = 1
     horse_melee_damage : int = 3
     arrow_travel_time : float = 0.2
@@ -43,7 +45,8 @@ Scenario(engine.root.Object):
     horse : engine.util.game_entity.GameEntity = fvd.data.entities.Horse
     foundation : engine.util.game_entity.GameEntity = fvd.data.entities.Foundation
     tower_demolition : engine.util.game_entity.GameEntity = fvd.data.entities.TowerDemolition
-    tower : engine.util.game_entity.GameEntity = fvd.data.entities.Tower
+    wood_tower : engine.util.game_entity.GameEntity = fvd.data.entities.MedievalTowerLevel1
+    stone_tower : engine.util.game_entity.GameEntity = fvd.data.entities.MedievalTowerLevel2
     hunter_tower : engine.util.game_entity.GameEntity = fvd.data.entities.HunterTower
     hunter_rally_point : engine.util.game_entity.GameEntity = fvd.data.entities.HunterRallyPoint
     terrain : engine.util.terrain.Terrain = fvd.data.terrain.Plains
