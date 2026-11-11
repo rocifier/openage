@@ -25,4 +25,8 @@ const nyan::Object &APIComponent::get_ability() const {
 	return this->ability;
 }
 
+void APIComponent::set_ability(const nyan::Object &ability) {
+	this->ability = ability;
+}
+
 } // namespace openage::gamestate::component
