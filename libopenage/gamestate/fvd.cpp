@@ -316,6 +316,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	auto collision_radius = settings.get_float("horse_collision_radius");
 	auto shove_duration = settings.get_float("horse_shove_duration");
 	auto arrow_damage = settings.get_int("tower_arrow_damage");
+	auto stone_arrow_damage = settings.get_int("stone_tower_arrow_damage");
 	auto armor = settings.get_int("tower_armor");
 	auto melee_damage = settings.get_int("horse_melee_damage");
 	auto arrow_duration = settings.get_float("arrow_travel_time");
@@ -340,6 +341,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	    or collision_radius < 0.1 or collision_radius > 0.49
 	    or shove_duration <= 0.0 or shove_duration >= 0.9
 	    or arrow_damage < 1 or arrow_damage > 100
+	    or stone_arrow_damage < 1 or stone_arrow_damage > 100
 	    or armor < 0 or armor > 50
 	    or melee_damage < 1 or melee_damage > 100
 	    or arrow_duration < 0.01 or arrow_duration > 3.0
@@ -357,6 +359,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	this->horse_collision_radius = collision_radius;
 	this->horse_shove_duration = time::time_t::from_double(shove_duration);
 	this->tower_damage = arrow_damage;
+	this->stone_tower_damage = stone_arrow_damage;
 	this->tower_armor = armor;
 	this->horse_damage = melee_damage;
 	this->arrow_travel = time::time_t::from_double(arrow_duration);
