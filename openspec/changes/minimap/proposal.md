@@ -26,5 +26,5 @@ teammates are walling, or which areas are still unexplored.
 
 ## Status
 
-Implemented (Dougie, 2026-11-03). Flares will appear on it once
-`builder-flare` lands.
+Implemented (Dougie, 2026-11-03). Flares appear on the minimap through
+`builder-flare`; manual acceptance passed 2026-11-11.
