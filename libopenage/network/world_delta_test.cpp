@@ -80,8 +80,8 @@ void world_delta() {
 	                   {3, PlayerRole::BUILDER}};
 	initial.entities = {
 		{10, 1, "fvd.data.entities.Horse", {60, 60, 0}, 25, 25},
-		{11, 2, "fvd.data.entities.Tower", {65, 65, 0}, 100, 100, 4},
-		{12, 3, "fvd.data.entities.Tower", {70, 70, 0}, 100, 100},
+		{11, 2, "fvd.data.entities.MedievalTowerLevel2", {65, 65, 0}, 100, 100, 4},
+		{12, 3, "fvd.data.entities.MedievalTowerLevel1", {70, 70, 0}, 100, 100},
 		{13, 2, "fvd.data.entities.Builder", {66, 66, 0}, 25, 25},
 	};
 	initial.entities[1].garrisoned_builder = gamestate::entity_id_t{13};
@@ -292,7 +292,7 @@ void world_delta() {
 	hp_before.simulation_time = time::time_t::from_int(2);
 	hp_before.entities = {
 		{100, 1, "fvd.data.entities.Horse", {30, 30, 0}, 90, 90},
-		{200, 2, "fvd.data.entities.Tower", {32, 32, 0}, 100, 100}};
+		{200, 2, "fvd.data.entities.MedievalTowerLevel1", {32, 32, 0}, 100, 100}};
 	hp_before.entities.front().angle = coord::phys_angle_t::from_int(225);
 	auto hp_hit = hp_before;
 	hp_hit.world_revision = 2;
@@ -342,7 +342,7 @@ void world_delta() {
 	builder_before.local_player_id = 2;
 	builder_before.entities = {
 		{300, 2, "fvd.data.entities.Builder", {60.5, 66.5, 0}, 25, 25},
-		{301, 3, "fvd.data.entities.Tower", {61.5, 66.5, 0}, 100, 100}};
+		{301, 3, "fvd.data.entities.MedievalTowerLevel1", {61.5, 66.5, 0}, 100, 100}};
 	auto builder_inside = builder_before;
 	builder_inside.entities.erase(builder_inside.entities.begin());
 	builder_inside.entities.front().garrison_player = gamestate::player_id_t{2};
@@ -545,7 +545,7 @@ void world_delta() {
 	TESTTHROWS(apply_world_delta(rebuilt, gap));
 	auto leak = decoded;
 	leak.changed.entities.push_back({
-		15, 3, "fvd.data.entities.Tower", {70, 70, 0}, 100, 100, 11});
+		15, 3, "fvd.data.entities.MedievalTowerLevel1", {70, 70, 0}, 100, 100, 11});
 	TESTTHROWS(encode_world_delta(leak));
 	auto malformed_count = encoded;
 	malformed_count[11] = 0xff; // removal count too large
