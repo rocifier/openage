@@ -382,13 +382,13 @@ void run_host(TcpListener &listener, bool test_hunter_session) {
 		auto completed = capture_fvd_state(state, connections, completion, 3, 4, 2);
 		completed.constructions.empty() or TESTFAIL;
 		completed.reservations.empty() or TESTFAIL;
-		find_defined_entity(completed, "fvd.data.entities.Tower");
+		find_defined_entity(completed, "fvd.data.entities.MedievalTowerLevel1");
 		connection.send_frame(session.make_frame(
 			MessageType::WORLD_DELTA,
 			encode_builder_delta(completed)));
 
 		const auto &tower = find_defined_entity(
-			completed, "fvd.data.entities.Tower");
+			completed, "fvd.data.entities.MedievalTowerLevel1");
 		TESTEQUALS(tower.tower_kills.value(), uint64_t{0});
 		auto victim_position = tower.position;
 		victim_position.ne += coord::phys_t::from_double(0.5);
@@ -484,7 +484,7 @@ void run_host(TcpListener &listener, bool test_hunter_session) {
 		state, connections, retained_time, 0, 8, 1);
 	auto retained_builder_entities = count_owned_entities(retained_before, 2);
 	auto retained_tower = find_defined_entity(
-		retained_before, "fvd.data.entities.Tower");
+		retained_before, "fvd.data.entities.MedievalTowerLevel1");
 	connections.accepts_commands(session.get_identity()) or TESTFAIL;
 	auto after_close = connection.receive_frame();
 	not after_close.has_value() or TESTFAIL;
@@ -796,7 +796,7 @@ void run_guest(uint16_t port) {
 	TESTEQUALS(
 		find_entity(constructing,
 		            constructing.constructions.front().site_entity_id).definition,
-		"fvd.data.entities.Tower");
+		"fvd.data.entities.MedievalTowerLevel1");
 	const auto &guest_build = constructing.constructions.front();
 	TESTEQUALS(guest_build.phase_start_time, planned.constructions.front().phase_end_time);
 	TESTEQUALS(guest_build.progress_percent(guest_build.phase_start_time), 0);
@@ -814,7 +814,7 @@ void run_guest(uint16_t port) {
 	auto completed = replication.get_world_state().value();
 	completed.constructions.empty() or TESTFAIL;
 	completed.reservations.empty() or TESTFAIL;
-	find_defined_entity(completed, "fvd.data.entities.Tower");
+	find_defined_entity(completed, "fvd.data.entities.MedievalTowerLevel1");
 	const auto finished_sites = make_construction_presentation(completed);
 	TESTEQUALS(finished_sites.sites.size(), size_t{1});
 	TESTEQUALS(finished_sites.sites.front().phase == SitePresentationPhase::COMPLETE, true);
@@ -872,7 +872,7 @@ void run_guest(uint16_t port) {
 	replication.accept_delta(killed_patch) == DeltaDisposition::APPLY or TESTFAIL;
 	auto killed = replication.get_world_state().value();
 	TESTEQUALS(replication.get_local_kills().value(), uint64_t{1});
-	const auto &local_tower = find_defined_entity(killed, "fvd.data.entities.Tower");
+	const auto &local_tower = find_defined_entity(killed, "fvd.data.entities.MedievalTowerLevel1");
 	TESTEQUALS(local_tower.tower_kills.value(), uint64_t{1});
 	TESTEQUALS(replication.get_tower_kills(local_tower.entity_id).value(),
 	           uint64_t{1});
@@ -908,7 +908,7 @@ void run_hunter_guest(uint16_t port) {
 	TESTEQUALS(snapshot.entities.size() >= size_t{8}, true);
 	TESTEQUALS(find_player(snapshot, 2).connected, false);
 	TESTEQUALS(find_defined_entity(
-		snapshot, "fvd.data.entities.Tower").owner_id,
+		snapshot, "fvd.data.entities.MedievalTowerLevel1").owner_id,
 	           gamestate::player_id_t{2});
 	auto horse = find_owned_entity(snapshot, 1);
 	auto disconnected_frame = client.receive_frame();
