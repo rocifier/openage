@@ -472,7 +472,7 @@ bool FVD::upgrade_tower(const std::shared_ptr<GameState> &state,
 	auto found = state->get_game_entities().find(tower_id);
 	auto footprint = this->tower_footprints.find(tower_id);
 	if (found == state->get_game_entities().end()
-	    or not this->is_tower(found->second->get_definition())
+	    or found->second->get_definition() != this->tower
 	    or footprint == this->tower_footprints.end()
 	    or footprint->second.under_construction) return false;
 	auto entity = found->second;
@@ -1680,7 +1680,7 @@ bool FVD::eject_builder(const std::shared_ptr<GameState> &state,
 	if (explicit_tower) {
 		auto destination_tower = state->get_game_entities().find(*explicit_tower);
 		if (destination_tower == state->get_game_entities().end()
-		    or destination_not this->is_tower(tower->second->get_definition())
+		    or not this->is_tower(destination_tower->second->get_definition())
 		    or not this->tower_footprints.contains(*explicit_tower)
 		    or this->tower_footprints.at(*explicit_tower).under_construction
 		    or this->get_garrisoned_builder(*explicit_tower)) return false;
