@@ -586,6 +586,20 @@ private:
 	                                              const coord::phys3 &target,
 	                                              const time::time_t &time) const;
 
+	/** Whether a nyan definition is either supported Builder tower tier. */
+	bool is_tower(const std::string &definition) const;
+
+	/** Definition used for the next construction by this player. */
+	const std::string &tower_definition_for(player_id_t owner) const;
+
+	/** Upgrade one completed level-one tower in place, preserving its identity. */
+	bool upgrade_tower(const std::shared_ptr<GameState> &state,
+	                   entity_id_t tower_id, const time::time_t &time);
+
+	/** Apply the one-time player-wide upgrade after reaching the kill threshold. */
+	void upgrade_player_towers(const std::shared_ptr<GameState> &state,
+	                           player_id_t owner, const time::time_t &time);
+
 	/** Abandon queued orders and release their reservations, retaining foundations. */
 	void clear_queued_builds(const std::shared_ptr<GameState> &state,
 	                        entity_id_t builder, const time::time_t &time);
@@ -734,6 +748,10 @@ private:
 	std::string foundation;
 	std::string tower_demolition;
 	std::string tower;
+	std::string stone_tower;
+	int64_t tower_max_health{};
+	int64_t stone_tower_max_health{};
+	uint64_t tower_upgrade_kills{};
 	std::string hunter_tower;
 	std::string hunter_rally_marker;
 	int64_t hunter_tower_damage;
@@ -810,6 +828,7 @@ private:
 	std::unordered_set<entity_id_t> dead_horses;
 	std::unordered_map<entity_id_t, time::time_t> tower_next_shot;
 	std::array<std::atomic<uint64_t>, 9> player_kills{};
+	std::array<bool, 9> player_tower_upgraded{};
 	struct TowerKillCount {
 		player_id_t owner;
 		uint64_t kills;
