@@ -468,7 +468,7 @@ void fvd_scenario() {
 	// references used by Idle::idle for all four FVD entity definitions.
 	const std::array<std::pair<std::string, size_t>, 3> idle_resources{{
 		{"fvd.data.entities.Builder", 1},
-		{"fvd.data.entities.Tower", 1},
+		{"fvd.data.entities.MedievalTowerLevel1", 1},
 		{"fvd.data.entities.Foundation", 1},
 	}};
 	for (const auto &[definition, texture_count] : idle_resources) {
@@ -871,7 +871,7 @@ void fvd_garrison() {
 	loop->reach_time(t(0.2), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 			entity->get_component(component::component_t::OWNERSHIP));
 		if (ownership->get_owners().get(t(0.2)) == player_id_t{2}) tower = id;
@@ -1073,7 +1073,7 @@ void fvd_allied_garrison() {
 	loop->reach_time(at(0.2), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 		auto own = std::dynamic_pointer_cast<component::Ownership>(
 			entity->get_component(component::component_t::OWNERSHIP));
 		if (own->get_owners().get(at(0.2)) == player_id_t{3}) tower = id;
@@ -1169,7 +1169,7 @@ void fvd_garrison_hop() {
 	entity_id_t first = 0;
 	entity_id_t second = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 		auto pos = std::dynamic_pointer_cast<component::Position>(
 			entity->get_component(component::component_t::POSITION));
 		if (pos->get_positions().get(at(0.5)).to_tile() == coord::tile{61, 66}) first = id;
@@ -1236,7 +1236,7 @@ void fvd_garrison_all_sides() {
 	loop->reach_time(at(0.5), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 		auto own = std::dynamic_pointer_cast<component::Ownership>(
 			entity->get_component(component::component_t::OWNERSHIP));
 		if (own->get_owners().get(at(0.5)) == player_id_t{2}) tower = id;
@@ -1353,7 +1353,7 @@ void fvd_construction() {
 	TESTEQUALS(tower_sector->get_cost_field()->get_cost(tower_local), path::COST_IMPASSABLE);
 	entity_id_t first_tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") {
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") {
 			continue;
 		}
 		first_tower = id;
@@ -1361,7 +1361,7 @@ void fvd_construction() {
 			entity->get_component(component::component_t::LIVE));
 		auto mid_health = tower_live->get_attribute(
 			 t(0.05), "fvd.data.entities.Health")->get(t(0.05));
-		TESTEQUALS(mid_health > 0 and mid_health < 100, true);
+		TESTEQUALS(mid_health > 0 and mid_health < 850, true);
 	}
 	TESTEQUALS(first_tower != 0, true);
 	fvd->refresh_paths(state, t(0.05));
@@ -1378,7 +1378,7 @@ void fvd_construction() {
 	TESTEQUALS(state->get_game_entities().contains(first_tower), true);
 	bool completed = false;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			auto pos = std::dynamic_pointer_cast<component::Position>(
 				entity->get_component(component::component_t::POSITION));
 			if (pos->get_positions().get(t(0.1)).to_tile() == coord::tile{61, 66}) {
@@ -1387,7 +1387,7 @@ void fvd_construction() {
 				TESTEQUALS(ownership->get_owners().get(t(0.1)), player_id_t{2});
 				auto tower_live = std::dynamic_pointer_cast<component::Live>(
 					entity->get_component(component::component_t::LIVE));
-				TESTEQUALS(tower_live->get_attribute(t(0.1), "fvd.data.entities.Health")->get(t(0.1)), 100);
+				TESTEQUALS(tower_live->get_attribute(t(0.1), "fvd.data.entities.Health")->get(t(0.1)), 850);
 				completed = true;
 			}
 		}
@@ -1451,7 +1451,7 @@ void fvd_construction() {
 	}};
 	for (const auto &delta : neighbors) {
 		coord::tile tile{110 + delta.ne, 110 + delta.se};
-		entities->spawn_game_entity(loop, state, 2, "fvd.data.entities.Tower",
+		entities->spawn_game_entity(loop, state, 2, "fvd.data.entities.MedievalTowerLevel1",
 		                           tile.to_phys3_center(), t(211));
 	}
 	// Placement is permitted even without a free stand: its clearance
@@ -1532,7 +1532,7 @@ void fvd_builder_demolition() {
 	auto tower_at_site = [&](const time::time_t &time) {
 		entity_id_t tower_id = 0;
 		for (const auto &[id, entity] : state->get_game_entities()) {
-			if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+			if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 			auto position = std::dynamic_pointer_cast<component::Position>(
 				entity->get_component(component::component_t::POSITION));
 			if (position->get_positions().get(time).to_tile() == site.to_tile()) {
@@ -1914,7 +1914,7 @@ void fvd_match_end_garrison_and_hunter_stop() {
 	loop->reach_time(t(0.2), state);
 	std::optional<entity_id_t> tower{};
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 		tower = id;
 	}
 	tower.has_value() or TESTFAIL;
@@ -2252,7 +2252,7 @@ void fvd_hunter_combat() {
 	loop->reach_time(at(15), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			tower = id;
 		}
 	}
@@ -2260,7 +2260,7 @@ void fvd_hunter_combat() {
 	auto tower_entity = state->get_game_entity(tower);
 	auto tower_health = std::dynamic_pointer_cast<component::Live>(
 		tower_entity->get_component(component::component_t::LIVE));
-	TESTEQUALS(tower_health->get_attribute(at(15), "fvd.data.entities.Health")->get(at(15)), int64_t{100});
+	TESTEQUALS(tower_health->get_attribute(at(15), "fvd.data.entities.Health")->get(at(15)), int64_t{850});
 	TESTEQUALS(fvd->get_kills(5), uint64_t{0});
 
 	// The host validates an entire Hunter group; mixed player ownership
@@ -2314,6 +2314,18 @@ void fvd_hunter_combat() {
 	fvd->arrow_hit(state, one->get_id(), 5, 0, 100, at(32));
 	TESTEQUALS(fvd->get_kills(5), kills);
 	TESTEQUALS(fvd->get_kills(4), uint64_t{0});
+
+	// The hundredth tower kill upgrades every existing tower owned by this player.
+	for (uint64_t count = kills; count < 100; ++count) {
+		auto victim = entities->spawn_game_entity(loop, state, 1, "fvd.data.entities.Horse",
+		                                         {90, 90, 0}, at(16));
+		fvd->arrow_hit(state, victim->get_id(), 5, tower, 100, at(16));
+	}
+	TESTEQUALS(fvd->get_kills(5), uint64_t{100});
+	TESTEQUALS(tower_entity->get_definition(), std::string{"fvd.data.entities.MedievalTowerLevel2"});
+	TESTEQUALS(tower_health->get_attribute(at(16), "fvd.data.entities.Health")->get(at(16)),
+	           fvd->stone_tower_max_health);
+	kills = fvd->get_kills(5);
 
 	// A horse inside firing range damages a tower, with armour
 	// reducing but not preventing all damage.
@@ -2445,7 +2457,7 @@ void fvd_combat_balance() {
 	loop->reach_time(at(15), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			tower = id;
 			break;
 		}
@@ -2517,7 +2529,7 @@ void fvd_hunter_attack_move_regressions() {
 	loop->reach_time(at(15), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			tower = id;
 			break;
 		}
@@ -2806,7 +2818,7 @@ void fvd_hunter_focus_attack() {
 	loop->reach_time(at(15), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			tower = id;
 			break;
 		}
@@ -3148,7 +3160,7 @@ void fvd_foundation_push_and_timeout() {
 	TESTEQUALS(fvd->is_tile_reserved(following), false);
 	bool completed = false;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Tower") continue;
+		if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
 		auto position = std::dynamic_pointer_cast<component::Position>(
 			entity->get_component(component::component_t::POSITION));
 		if (position->get_positions().get(at(17)).to_tile() == following) completed = true;
@@ -3221,7 +3233,7 @@ void fvd_build_queue() {
 	TESTEQUALS(fvd->get_queued_build_count(*builder), size_t{0});
 	size_t towers = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			++towers;
 		}
 	}
@@ -3419,7 +3431,7 @@ void fvd_build_line_order() {
 		auto tower = std::find_if(
 			state->get_game_entities().begin(), state->get_game_entities().end(),
 			[&](const auto &entry) {
-				if (entry.second->get_definition() != "fvd.data.entities.Tower") return false;
+				if (entry.second->get_definition() != "fvd.data.entities.MedievalTowerLevel1") return false;
 				auto position = std::dynamic_pointer_cast<component::Position>(
 					entry.second->get_component(component::component_t::POSITION));
 				return position->get_positions().get(completed_at).to_tile() == tile;
@@ -3504,7 +3516,7 @@ void fvd_build_double_row() {
 		const auto tile = position->get_positions().get(done).to_tile();
 		const bool in_rows = tile.ne >= 55 and tile.ne <= 60 and tile.se >= 71 and tile.se <= 73;
 		if (not in_rows) continue;
-		if (entity->get_definition() == "fvd.data.entities.Tower") ++towers;
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") ++towers;
 		if (entity->get_definition() == "fvd.data.entities.Foundation") ++foundations;
 	}
 	if (towers != 18 or foundations != 0) {
@@ -3605,7 +3617,7 @@ void fvd_retask_foundation() {
 	TESTEQUALS(state->get_game_entities().contains(chosen), false);
 	bool completed = false;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			auto position = std::dynamic_pointer_cast<component::Position>(
 				entity->get_component(component::component_t::POSITION));
 			completed = completed
@@ -4001,7 +4013,7 @@ void fvd_fog_of_war() {
 	loop->reach_time(at(15), state);
 	entity_id_t tower = 0;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Tower") {
+		if (entity->get_definition() == "fvd.data.entities.MedievalTowerLevel1") {
 			tower = id;
 		}
 	}
