@@ -48,7 +48,8 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 	result.sites.reserve(world.entities.size());
 	for (const auto &entity : world.entities) {
 		const bool foundation = entity.definition == "fvd.data.entities.Foundation";
-		const bool tower = entity.definition == "fvd.data.entities.Tower";
+		const bool tower = entity.definition == "fvd.data.entities.MedievalTowerLevel1"
+		                  or entity.definition == "fvd.data.entities.MedievalTowerLevel2";
 		if (not foundation and not tower) {
 			continue;
 		}
