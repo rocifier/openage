@@ -11,7 +11,8 @@ namespace openage::presenter {
 std::optional<audio::Cue> combat_cue(const network::ConfirmedCombatEffect &effect) {
 	const bool horse = effect.definition == "fvd.data.entities.Horse";
 	const bool builder = effect.definition == "fvd.data.entities.Builder";
-	const bool tower = effect.definition == "fvd.data.entities.Tower";
+	const bool tower = effect.definition == "fvd.data.entities.MedievalTowerLevel1"
+	                or effect.definition == "fvd.data.entities.MedievalTowerLevel2";
 	if (not effect.death) {
 		if (horse or builder or tower) {
 			return audio::Cue::HIT;
