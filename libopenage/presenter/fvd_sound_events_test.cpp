@@ -44,7 +44,7 @@ void fvd_combat_sounds() {
 	effect.definition = "fvd.data.entities.MedievalTowerLevel1";
 	TESTEQUALS(combat_cue(effect).value_or(audio::Cue::COUNT), audio::Cue::DEATH_TOWER);
 	effect.definition = "fvd.data.entities.MedievalTowerLevel2";
-	TESTEQUALS(combat_cue(effect).has_value(), false);
+	TESTEQUALS(combat_cue(effect).value_or(audio::Cue::COUNT), audio::Cue::DEATH_TOWER);
 	effect.death = false;
 	TESTEQUALS(combat_cue(effect).has_value(), false);
 }
