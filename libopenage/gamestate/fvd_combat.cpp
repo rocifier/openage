@@ -986,10 +986,12 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
 				ArrowVisual{this->next_arrow_id++, owner, nearest, start, destination,
 				            time, time + this->arrow_travel});
 		}
+		const auto damage = tower_it->second->get_definition() == this->stone_tower
+		                      ? this->stone_tower_damage : this->tower_damage;
 		loop->create_event("game.fvd_arrow_hit", this->horse_spawn_target, state,
 		                   time + this->arrow_travel,
 		                   {{"target", nearest}, {"owner", owner}, {"firing_tower", tower_id},
-		                    {"damage", this->tower_damage}});
+		                    {"damage", damage}});
 		this->tower_next_shot.insert_or_assign(tower_id, time + this->tower_cooldown);
 	}
 	this->vision_cached_at.reset();
