@@ -1348,6 +1348,9 @@ void fvd_construction_reach() {
 	// outward position perturbation remains valid at completion time.
 	const coord::tile second{90, 87};
 	position->set_position(at(0.3), coord::phys3{89.71, 87.5, 0});
+	// An earlier movement curve would leave the build radius during work;
+	// accepting an in-range build must cancel that movement immediately.
+	system::Move::move_default(builder_entity, state, coord::phys3{92.5, 87.5, 0}, at(0.3));
 	TESTEQUALS(fvd->request_build(state, 2, {builder}, second.to_phys3_center(), at(0.3)), true);
 	loop->reach_time(at(0.31), state);
 	TESTEQUALS(fvd->get_construction_state().front().phase == FVDConstructionPhase::UNDER_CONSTRUCTION, true);
