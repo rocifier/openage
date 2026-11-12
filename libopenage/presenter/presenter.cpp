@@ -665,8 +665,6 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 		this->fvd_guest_clock = GuestClock{};
 		this->fvd_guest_snapshot_generation = 0;
 		this->fvd_last_guest_arrow_id = 0;
-	this->fvd_last_flare_heard = 0;
-	this->fvd_flare_mode = false;
 		this->fvd_last_flare_heard = 0;
 		this->fvd_flare_mode = false;
 		this->fvd_guest_late_arrows.clear();

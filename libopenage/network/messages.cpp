@@ -34,7 +34,9 @@ constexpr uint16_t WORLD_HAS_FIRST_HUNTER_SPAWN = 1 << 0;
 constexpr uint16_t WORLD_HAS_MATCH_OUTCOME = 1 << 1;
 
 bool valid_match_outcome(const MatchOutcome &outcome, time::time_t simulation_time) {
-	if (outcome.ended_at > simulation_time) return false;
+	if (outcome.ended_at > simulation_time) {
+		return false;
+	}
 	return (outcome.winner == MatchWinner::HUNTER
 	        and outcome.reason == MatchEndReason::ALL_BUILDERS_DEAD)
 	    or (outcome.winner == MatchWinner::BUILDERS
@@ -743,9 +745,15 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		append_i64(output, entity.health.value_or(0));
 		append_i64(output, entity.maximum_health.value_or(0));
 		append_u64(output, entity.tower_kills.value_or(0));
-		if (entity.garrisoned_builder) append_u64(output, *entity.garrisoned_builder);
-		if (entity.ungarrison_source_tower) append_u64(output, *entity.ungarrison_source_tower);
-		if (entity.garrison_player) append_u64(output, *entity.garrison_player);
+		if (entity.garrisoned_builder) {
+			append_u64(output, *entity.garrisoned_builder);
+		}
+		if (entity.ungarrison_source_tower) {
+			append_u64(output, *entity.ungarrison_source_tower);
+		}
+		if (entity.garrison_player) {
+			append_u64(output, *entity.garrison_player);
+		}
 		// Replicate the simulation's actual scheduled position segments,
 		// rather than asking guests to infer motion from sampled locations.
 		if (entity.motion_keys.size() > MAX_ENTITY_MOTION_KEYS) {
