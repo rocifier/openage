@@ -113,7 +113,7 @@ void structure_shadow_depth() {
 		stage->clear_entities();
 		auto add_tower = [&](uint32_t id, const coord::phys3 &position) {
 			auto entity = std::make_shared<RenderEntity>();
-			entity->update(id, position, "stone_tower.sprite", time::TIME_ZERO);
+			entity->update(id, position, "medieval-tower/stone_tower.sprite", time::TIME_ZERO);
 			if (team_coloured) {
 				// Exercise the player-owned world2d shader uniform path.
 				// Existing neutral art must still render with no palette copies.
@@ -1270,7 +1270,7 @@ void adjacent_tower_draw_order() {
 		uint32_t id = 1;
 		for (const auto &position : positions) {
 			auto entity = std::make_shared<RenderEntity>();
-			entity->update(id++, position, "stone_tower.sprite", time::TIME_ZERO);
+			entity->update(id++, position, "medieval-tower/stone_tower.sprite", time::TIME_ZERO);
 			entity->set_occlusion_mode(occlusion_mode::OCCLUDER, 2);
 			stage->add_render_entity(entity);
 		}

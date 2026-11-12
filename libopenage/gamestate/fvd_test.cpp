@@ -487,6 +487,8 @@ void fvd_scenario() {
 	// The guest's replicated units do not all exist locally (Horses spawn
 	// only on the authoritative host). Resolve the same namespaced sprite
 	// references used by Idle::idle for builders, both tower tiers and foundations.
+	// Like the game's AssetManager, resolve them against the converted asset root.
+	const auto converted = root / "assets" / "converted";
 	const std::array<std::pair<std::string, size_t>, 4> idle_resources{{
 		{"fvd.data.entities.Builder", 1},
 		{"fvd.data.entities.MedievalTowerLevel1", 1},
@@ -500,7 +502,7 @@ void fvd_scenario() {
 		const auto animations = api::APIAbilityProperty::get_animations(animated);
 		const auto paths = api::APIAnimation::get_animation_paths(animations);
 		TESTEQUALS(paths.size(), size_t{1});
-		const auto sprite = root / "assets" / paths.front();
+		const auto sprite = converted / paths.front();
 		TESTEQUALS(sprite.is_file(), true);
 		const auto parsed = renderer::resources::parser::parse_sprite_file(sprite);
 		TESTEQUALS(parsed.get_texture_count(), texture_count);
@@ -515,7 +517,7 @@ void fvd_scenario() {
 		builder_move_animations);
 	TESTEQUALS(builder_move_paths.size(), size_t{1});
 	TESTEQUALS(builder_move_paths.front().ends_with("builder_walk.sprite"), true);
-	const auto builder_move_sprite = root / "assets" / builder_move_paths.front();
+	const auto builder_move_sprite = converted / builder_move_paths.front();
 	TESTEQUALS(builder_move_sprite.is_file(), true);
 	const auto parsed_builder_move = renderer::resources::parser::parse_sprite_file(
 		builder_move_sprite);
@@ -535,11 +537,11 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle_paths[0].ends_with("ethereal-hunter-horse-idle1.sprite"), true);
 	TESTEQUALS(horse_idle_paths[1].ends_with("ethereal-hunter-horse-idle2.sprite"), true);
 	TESTEQUALS(renderer::resources::parser::parse_sprite_file(
-		           root / "assets" / horse_idle_paths[0])
+		           converted / horse_idle_paths[0])
 	             .get_texture_count(),
 	           size_t{2});
 	TESTEQUALS(renderer::resources::parser::parse_sprite_file(
-		           root / "assets" / horse_idle_paths[1])
+		           converted / horse_idle_paths[1])
 	             .get_texture_count(),
 	           size_t{1});
 	const auto horse_move = state->get_db_view()->get_object(
@@ -551,7 +553,7 @@ void fvd_scenario() {
 	const auto horse_move_paths = api::APIAnimation::get_animation_paths(
 		horse_move_animations);
 	TESTEQUALS(horse_move_paths.size(), size_t{1});
-	const auto horse_move_sprite = root / "assets" / horse_move_paths.front();
+	const auto horse_move_sprite = converted / horse_move_paths.front();
 	TESTEQUALS(horse_move_sprite.is_file(), true);
 	const auto parsed_horse_move = renderer::resources::parser::parse_sprite_file(
 		horse_move_sprite);
@@ -595,7 +597,7 @@ void fvd_scenario() {
 		for (const auto &tile : chunk->get_tiles()) {
 			TESTEQUALS(tile.elevation, terrain_elevation_t::zero());
 			TESTEQUALS(tile.terrain.get_name(), "fvd.data.terrain.Plains");
-			if (not (root / "assets" / tile.terrain_asset_path).is_file()) {
+			if (not (converted / tile.terrain_asset_path).is_file()) {
 				TESTFAILMSG("Plains graphics cannot be resolved");
 			}
 			++tile_count;
@@ -1803,7 +1805,7 @@ void fvd_builder_delete_all_foundations() {
 	TESTEQUALS(fvd->get_build_order(builder) == nullptr, true);
 	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{0});
 	loop->reach_time(at(3), state);
-	TESTEQUALS(count("Tower", 2, at(3)), size_t{0});
+	TESTEQUALS(count("MedievalTowerLevel1", 2, at(3)), size_t{0});
 
 	// Building in progress: the queued sites go, construction continues.
 	TESTEQUALS(fvd->request_build(state, 2, {builder}, first.to_phys3_center(), at(3)), true);
@@ -1812,11 +1814,11 @@ void fvd_builder_delete_all_foundations() {
 	// Construction is short in this scenario: step until the first site is
 	// a tower being built (he is at it, two sites still queued).
 	double now = 3.0;
-	while (now < 30.0 and count("Tower", 2, at(now)) == 0) {
+	while (now < 30.0 and count("MedievalTowerLevel1", 2, at(now)) == 0) {
 		now += 0.005;
 		loop->reach_time(at(now), state);
 	}
-	TESTEQUALS(count("Tower", 2, at(now)), size_t{1});
+	TESTEQUALS(count("MedievalTowerLevel1", 2, at(now)), size_t{1});
 	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{2});
 	TESTEQUALS(fvd->delete_builder_foundations(state, 2, {builder}, at(now)), true);
 	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{0});
@@ -1824,7 +1826,7 @@ void fvd_builder_delete_all_foundations() {
 	TESTEQUALS(fvd->get_build_order(builder) != nullptr, true);
 	TESTEQUALS(fvd->get_build_order(builder)->get_target(), first);
 	loop->reach_time(at(now + 2), state);
-	TESTEQUALS(count("Tower", 2, at(now + 2)), size_t{1}); // it still got finished
+	TESTEQUALS(count("MedievalTowerLevel1", 2, at(now + 2)), size_t{1}); // it still got finished
 
 	// An abandoned foundation (in nobody's queue) is the player's: it goes too.
 	const auto later = at(now + 3);
@@ -2330,7 +2332,7 @@ void fvd_hunter_combat() {
 	loop->reach_time(at(15.2), state);
 	auto horse_live = std::dynamic_pointer_cast<component::Live>(
 		one->get_component(component::component_t::LIVE));
-	TESTEQUALS(horse_live->get_attribute(at(15.2), "fvd.data.entities.Health")->get(at(15.2)), int64_t{88});
+	TESTEQUALS(horse_live->get_attribute(at(15.2), "fvd.data.entities.Health")->get(at(15.2)), int64_t{84});
 
 	// An already-lethal in-flight shot resolves once; extra hits against a
 	// corpse cannot award another kill. Normal tower volleys are much weaker
@@ -2427,7 +2429,7 @@ void fvd_hunter_combat() {
 }
 
 /**
- * Real combat timeline plus the ideal stationary-volley bounds used for
+ * Real combat timeline plus the ideal stationary-volley model used for
  * tuning FVD. Travel, repositioning and focus changes can lengthen combat.
  */
 void fvd_combat_balance() {
@@ -2449,26 +2451,26 @@ void fvd_combat_balance() {
 
 	auto rules = state->get_db_view()->get_object("fvd.data.scenario.Scenario");
 	const int64_t melee_damage = rules.get_int("horse_melee_damage");
-	TESTEQUALS(fvd->get_tower_damage(), int64_t{2});
+	TESTEQUALS(fvd->get_tower_damage(), int64_t{6});
 	TESTEQUALS(melee_damage, int64_t{3});
 	TESTEQUALS(fvd->get_tower_armor(), int64_t{1});
 	// Existing reloads: towers 0.8s (+0.2s flight), horses 0.6s.
 	// Compute stationary group DPS in the same integer-volley model as
 	// combat_tick, rather than assuming fractional damage per hit.
-	for (int64_t tower_count : {3, 4}) {
+	for (int64_t tower_count : {1, 3, 4}) {
 		const int64_t total_damage = tower_count * fvd->get_tower_damage();
 		const int64_t volleys = (90 + total_damage - 1) / total_damage;
 		const double lethal_time = (volleys - 1) * 0.8 + 0.2;
-		TESTEQUALS(lethal_time >= 8.0 and lethal_time <= 12.0, true);
-		// Three focused towers: 11.4s; four focused towers: 9.0s.
-		TESTEQUALS_FLOAT(lethal_time, tower_count == 3 ? 11.4 : 9.0, 0.001);
+		// One tower: 11.4s; three focused towers: 3.4s; four: 2.6s.
+		const double expected = tower_count == 1 ? 11.4 : (tower_count == 3 ? 3.4 : 2.6);
+		TESTEQUALS_FLOAT(lethal_time, expected, 0.001);
 	}
-	// Three horses striking through tower armor should take 17 melee
-	// volleys, 0.6s apart, to remove 100 HP (~9.6s).
+	// Three horses striking through tower armor need 142 melee volleys,
+	// 0.6s apart, to remove 850 HP (~85s), so a lone tower outlasts them.
 	const int64_t horse_hit = std::max<int64_t>(1, melee_damage - fvd->get_tower_armor());
-	const int64_t melee_volleys = (100 + 3 * horse_hit - 1) / (3 * horse_hit);
-	TESTEQUALS(melee_volleys, int64_t{17});
-	TESTEQUALS_FLOAT((melee_volleys - 1) * 0.6 + 0.45, 10.05, 0.001);
+	const int64_t melee_volleys = (850 + 3 * horse_hit - 1) / (3 * horse_hit);
+	TESTEQUALS(melee_volleys, int64_t{142});
+	TESTEQUALS_FLOAT((melee_volleys - 1) * 0.6 + 0.45, 85.05, 0.001);
 
 	// Create a fully built tower via the same construction pipeline as
 	// gameplay, then focus three real, immediately adjacent Hunter horses.
@@ -2495,7 +2497,7 @@ void fvd_combat_balance() {
 	auto tower_live = std::dynamic_pointer_cast<component::Live>(
 		state->get_game_entity(tower)->get_component(component::component_t::LIVE));
 	TESTEQUALS(tower_live->get_attribute(
-		at(15), "fvd.data.entities.Health")->get(at(15)), int64_t{100});
+		at(15), "fvd.data.entities.Health")->get(at(15)), int64_t{850});
 
 	std::vector<entity_id_t> attackers{};
 	for (const coord::phys3 location : {
@@ -2510,21 +2512,31 @@ void fvd_combat_balance() {
 		attackers.push_back(horse->get_id());
 	}
 	TESTEQUALS(fvd->issue_focus_attack(state, 1, attackers, tower, at(15)), true);
-	double killed_after = -1.0;
-	for (size_t tick = 0; tick <= 65; ++tick) {
-		const double elapsed = static_cast<double>(tick) * 0.2;
+	std::vector<double> horse_deaths{};
+	double elapsed = 0.0;
+	for (size_t tick = 0; tick <= 250 and horse_deaths.size() < attackers.size(); ++tick) {
+		elapsed = static_cast<double>(tick) * 0.2;
 		const auto now = at(15.0 + elapsed);
 		loop->reach_time(now, state);
 		fvd->combat_tick(state, now);
-		if (not state->get_game_entities().contains(tower)) {
-			killed_after = elapsed;
-			break;
+		const auto alive = static_cast<size_t>(std::count_if(
+			attackers.begin(), attackers.end(), [&](entity_id_t id) {
+				return state->get_game_entities().contains(id);
+			}));
+		while (horse_deaths.size() < attackers.size() - alive) {
+			horse_deaths.push_back(elapsed);
 		}
 	}
-	// The test exercises the actual scheduler, damage and tower destruction,
-	// not just the ideal math above. A little tick rounding is acceptable.
-	TESTEQUALS(killed_after >= 8.0 and killed_after <= 12.0, true);
-	TESTEQUALS(state->get_game_entities().contains(tower), false);
+	// The actual scheduler matches the ideal model: the tower shoots the
+	// horses one at a time, 15 volleys each, while 117 melee hits of 2
+	// (19 + 39 + 59 by the three horses) leave it standing at 616 HP.
+	TESTEQUALS(horse_deaths.size(), size_t{3});
+	TESTEQUALS_FLOAT(horse_deaths[0], 11.4, 0.001);
+	TESTEQUALS_FLOAT(horse_deaths[1], 23.4, 0.001);
+	TESTEQUALS_FLOAT(horse_deaths[2], 35.4, 0.001);
+	TESTEQUALS(state->get_game_entities().contains(tower), true);
+	TESTEQUALS(tower_live->get_attribute(
+		at(15.0 + elapsed), "fvd.data.entities.Health")->get(at(15.0 + elapsed)), int64_t{616});
 }
 
 void fvd_hunter_attack_move_regressions() {
@@ -2596,10 +2608,10 @@ void fvd_hunter_attack_move_regressions() {
 	TESTEQUALS(approaching->get_animation_action(), AnimationAction::ATTACK);
 	fvd->combat_tick(state, at(16));
 	TESTEQUALS(health->get_attribute(
-		at(16), "fvd.data.entities.Health")->get(at(16)), int64_t{100});
+		at(16), "fvd.data.entities.Health")->get(at(16)), int64_t{850});
 	loop->reach_time(at(16.45), state);
 	TESTEQUALS(health->get_attribute(
-		at(16.45), "fvd.data.entities.Health")->get(at(16.45)) < 100, true);
+		at(16.45), "fvd.data.entities.Health")->get(at(16.45)) < 850, true);
 
 	// Reaching the destination doesn't remove tower awareness.
 	// Remove the Builder used for the priority assertion so its new
@@ -4372,7 +4384,7 @@ void fvd_hunter_tower() {
 
 	// A Builder tower well inside range (placed directly, as a scenario
 	// could), which the Hunter tower must ignore.
-	const auto tower = spawn(2, "Tower", {72.5, 64.5, 0}, 0)->get_id();
+	const auto tower = spawn(2, "MedievalTowerLevel1", {72.5, 64.5, 0}, 0)->get_id();
 	loop->reach_time(at(10), state);
 
 	// Builders six tiles away, just inside the 10-tile range and just outside it.
