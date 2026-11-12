@@ -82,6 +82,32 @@ std::optional<gamestate::entity_id_t> queue_foundation_target(
 	const network::WorldState &world, gamestate::player_id_t owner,
 	std::optional<gamestate::entity_id_t> picked, const coord::tile &clicked_tile);
 
+/** A Builder-side tower targeted by a click. */
+struct TowerTarget {
+	gamestate::entity_id_t id;
+	/** Position of the tower, unknown without a world snapshot. */
+	std::optional<coord::phys3> position;
+};
+
+/**
+ * Resolve the Builder-side tower under a click: the picked sprite, else the
+ * tower on the clicked tile, because thin silhouettes can miss sprite picks.
+ *
+ * @param world Snapshot to match against, \p nullptr before the first local
+ *              capture. The pick is then returned unchecked, for the
+ *              simulation to validate.
+ * @param owner Clicking player; Hunters never target towers in a snapshot.
+ * @param picked Entity under the cursor.
+ * @param clicked_tile Tile under the cursor.
+ * @param excluded Tower that cannot target itself.
+ *
+ * @return Targeted tower, if any.
+ */
+std::optional<TowerTarget> friendly_tower_target(
+	const network::WorldState *world, gamestate::player_id_t owner,
+	std::optional<gamestate::entity_id_t> picked, const coord::tile &clicked_tile,
+	std::optional<gamestate::entity_id_t> excluded = std::nullopt);
+
 /**
  * Interface for game controllers.
  *

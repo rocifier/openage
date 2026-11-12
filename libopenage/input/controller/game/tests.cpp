@@ -328,4 +328,46 @@ void tower_placement_mode() {
 	TESTEQUALS(controller.get_controlled(), size_t{2});
 }
 
+void tower_click_target() {
+	using network::definition_of;
+	using network::EntityKind;
+	using ids = std::optional<gamestate::entity_id_t>;
+	auto target_id = [](const std::optional<TowerTarget> &target) {
+		return target ? ids{target->id} : ids{};
+	};
+
+	// Without a snapshot the pick is passed on for the simulation to check.
+	const auto unchecked = friendly_tower_target(nullptr, 2, 40, {0, 0});
+	TESTEQUALS(target_id(unchecked), ids{40});
+	TESTEQUALS(unchecked->position.has_value(), false);
+	TESTEQUALS(target_id(friendly_tower_target(nullptr, 2, 40, {0, 0}, 40)), ids{});
+	TESTEQUALS(target_id(friendly_tower_target(nullptr, 2, std::nullopt, {0, 0})), ids{});
+
+	network::WorldState world{};
+	world.entities = {
+		{10, 2, definition_of(EntityKind::WOOD_TOWER), {5.5, 5.5, 0}},
+		{11, 3, definition_of(EntityKind::STONE_TOWER), {6.5, 6.5, 0}},
+		{12, 2, definition_of(EntityKind::FOUNDATION), {7.5, 7.5, 0}},
+		{13, 1, definition_of(EntityKind::HUNTER_TOWER), {8.5, 8.5, 0}},
+		{14, 2, definition_of(EntityKind::BUILDER), {9.5, 9.5, 0}},
+	};
+
+	const auto picked = friendly_tower_target(&world, 2, 10, {0, 0});
+	TESTEQUALS(target_id(picked), ids{10});
+	TESTEQUALS(picked->position, std::optional<coord::phys3>{world.entities[0].position});
+	// Builders share towers, so another Builder player's tower qualifies.
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 11, {0, 0})), ids{11});
+	// A missed sprite pick falls back to the tower on the clicked tile.
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, std::nullopt, {6, 6})), ids{11});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 14, {5, 5})), ids{10});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 10, {6, 6})), ids{10});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 12, {7, 7})), ids{});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 13, {8, 8})), ids{});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, std::nullopt, {1, 1})), ids{});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 1, 10, {5, 5})), ids{});
+	// A tower cannot target itself, but its tile still reaches no other tower.
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 10, {5, 5}, 10)), ids{});
+	TESTEQUALS(target_id(friendly_tower_target(&world, 2, 10, {6, 6}, 10)), ids{11});
+}
+
 } // namespace openage::input::game::tests

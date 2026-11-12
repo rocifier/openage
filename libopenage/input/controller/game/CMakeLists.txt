@@ -1,6 +1,8 @@
 add_sources(libopenage
     binding_context.cpp
     binding.cpp
+    command_dispatcher.cpp
+    command_dispatcher_test.cpp
     controller.cpp
     tests.cpp
 )

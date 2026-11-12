@@ -397,6 +397,7 @@ set(_fvd_native_cpp_test_sources
 	"${CMAKE_SOURCE_DIR}/libopenage/event/tests.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/gamestate/activity/tests.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/gamestate/fvd_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/input/controller/game/command_dispatcher_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/input/controller/game/tests.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/input/tests.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/job/tests.cpp"

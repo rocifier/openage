@@ -17,7 +17,6 @@
 #include "event/event_loop.h"
 #include "event/evententity.h"
 #include "event/state.h"
-#include "gamestate/component/internal/commands/types.h"
 #include "gamestate/event/send_command.h"
 #include "gamestate/event/spawn_entity.h"
 #include "gamestate/fvd.h"
@@ -26,6 +25,7 @@
 #include "gamestate/game_state.h"
 #include "gamestate/simulation.h"
 #include "input/controller/game/binding_context.h"
+#include "input/controller/game/command_dispatcher.h"
 #include "network/entity_kind.h"
 #include "time/clock.h"
 #include "time/time_loop.h"
@@ -588,14 +588,12 @@ void apply_selection(const std::shared_ptr<Controller> &controller,
  * of the host-local game.click_select ownership-only event. */
 bool apply_structure_click(
 	const std::shared_ptr<Controller> &controller,
-	const std::shared_ptr<gamestate::GameSimulation> &simulation,
+	const CommandDispatcher &commands,
 	const std::shared_ptr<renderer::camera::Camera> &camera,
-	const std::function<std::optional<network::WorldState>()> &guest_world,
 	gamestate::entity_id_t clicked, uint64_t generation,
 	const SelectionDetails &previous, bool shift, bool double_click) {
-	const auto replica = guest_world ? guest_world() : std::optional<network::WorldState>{};
-	const auto local = replica ? nullptr : simulation->get_fvd_presentation_state();
-	const network::WorldState *world = replica ? &*replica : local.get();
+	const auto snapshot = commands.snapshot();
+	const network::WorldState *world = snapshot.world.get();
 	if (not world) return false;
 	const auto viewer = static_cast<gamestate::player_id_t>(controller->get_controlled());
 	const auto on_screen = [camera](const network::EntityState &entity) {
@@ -708,6 +706,39 @@ std::optional<gamestate::entity_id_t> queue_foundation_target(
 	return std::nullopt;
 }
 
+std::optional<TowerTarget> friendly_tower_target(
+	const network::WorldState *world, gamestate::player_id_t owner,
+	std::optional<gamestate::entity_id_t> picked, const coord::tile &clicked_tile,
+	std::optional<gamestate::entity_id_t> excluded) {
+	if (not world) {
+		if (picked and picked != excluded) {
+			return TowerTarget{*picked, std::nullopt};
+		}
+		return std::nullopt;
+	}
+	auto matches = [owner, excluded](const network::EntityState &entity) {
+		return entity.entity_id != excluded and owner >= 2 and entity.owner_id >= 2
+		    and network::is_tower(entity.kind());
+	};
+	auto found = world->entities.end();
+	if (picked) {
+		found = std::find_if(world->entities.begin(), world->entities.end(),
+		                     [&](const network::EntityState &entity) {
+			                     return entity.entity_id == *picked and matches(entity);
+		                     });
+	}
+	if (found == world->entities.end()) {
+		found = std::find_if(world->entities.begin(), world->entities.end(),
+		                     [&](const network::EntityState &entity) {
+			                     return matches(entity) and entity.position.to_tile() == clicked_tile;
+		                     });
+	}
+	if (found == world->entities.end()) {
+		return std::nullopt;
+	}
+	return TowerTarget{found->entity_id, found->position};
+}
+
 void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
                     const std::shared_ptr<Controller> &controller,
                     const std::shared_ptr<time::TimeLoop> &time_loop,
@@ -722,7 +753,9 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 	                                           const entity_pick_callback_t &callback) {
 		pick_entity_filtered(position, callback, {});
 	};
-	auto create_entity_event = [simulation, time_loop, send_guest_command, guest_world](
+	const auto commands = CommandDispatcher::for_simulation(
+		simulation, time_loop, send_guest_command, guest_world);
+	auto create_entity_event = [simulation, time_loop, commands](
 		const coord::phys3 &mouse_pos, bool append, const std::shared_ptr<Controller> &controller) {
 		auto state = simulation->get_game()->get_state();
 		if (state->get_fvd()) {
@@ -730,34 +763,20 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			if (selection.kind != SelectionKind::BUILDER) {
 				return;
 			}
-			const bool remote = guest_world and guest_world().has_value();
-			if (remote) {
-				network::CommandIntent intent{
-					0, network::CommandKind::BUILD_TOWER, selection.ids, mouse_pos};
-				intent.queue = append;
-				if (send_guest_command and send_guest_command(std::move(intent))) {
-					if (not append) controller->cancel_tower_placement();
-				}
+			const auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
+			const auto route = commands->route();
+			// Stay in placement mode so an invalid click is correctable.
+			if (route == CommandRoute::LOCAL
+			    and not state->get_fvd()->can_place_tower(
+			        state, owner, selection.ids, mouse_pos, time_loop->get_clock()->get_time())) {
 				return;
 			}
-			if (not state->get_fvd()->can_place_tower(
-			        state, static_cast<gamestate::player_id_t>(controller->get_controlled()),
-			        selection.ids, mouse_pos, time_loop->get_clock()->get_time())) {
-				return; // Stay in placement mode so an invalid click is correctable.
-			}
-			if (not append) {
+			network::CommandIntent intent{
+				0, network::CommandKind::BUILD_TOWER, selection.ids, mouse_pos};
+			intent.queue = append;
+			if (commands->dispatch(route, intent, owner) and not append) {
 				controller->cancel_tower_placement();
 			}
-			event::EventHandler::param_map::map_t params{
-				{"type", gamestate::component::command::command_t::BUILD_TOWER},
-				{"target", mouse_pos},
-				{"queue", append},
-				{"owner", static_cast<gamestate::player_id_t>(controller->get_controlled())},
-				{"entity_ids", controller->get_selected()},
-			};
-			simulation->get_event_loop()->submit_event(
-				"game.send_command", simulation->get_commander(), state,
-				time_loop->get_clock()->get_time(), params);
 			return;
 		}
 
@@ -771,7 +790,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			time_loop->get_clock()->get_time(), params);
 	};
 
-	binding_func_t hunter_route_event{[simulation, time_loop, camera, send_guest_command, guest_world](
+	binding_func_t hunter_route_event{[camera, commands](
 		const event_arguments &args, const std::shared_ptr<Controller> controller) {
 		const bool patrol = controller->is_patrol_active();
 		if (not patrol and not controller->is_attack_move_active()) {
@@ -779,56 +798,28 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		}
 		controller->cancel_hunter_targeting();
 		controller->notify_order_issued();
-		if (guest_world and guest_world().has_value()) {
-			if (send_guest_command) {
-				send_guest_command(network::CommandIntent{
-					0, patrol ? network::CommandKind::PATROL : network::CommandKind::ATTACK_MOVE,
-					controller->get_selected(), args.mouse.to_phys3(camera)});
-			}
-			return;
-		}
-		event::EventHandler::param_map::map_t params{
-			{"type", patrol ? gamestate::component::command::command_t::PATROL
-			                : gamestate::component::command::command_t::ATTACK_MOVE},
-			{"target", args.mouse.to_phys3(camera)},
-			{"owner", static_cast<gamestate::player_id_t>(controller->get_controlled())},
-			{"entity_ids", controller->get_selected()},
-		};
-		simulation->get_event_loop()->submit_event(
-			"game.send_command", simulation->get_commander(),
-			simulation->get_game()->get_state(),
-			time_loop->get_clock()->get_time(), params);
+		commands->dispatch(
+			network::CommandIntent{
+				0, patrol ? network::CommandKind::PATROL : network::CommandKind::ATTACK_MOVE,
+				controller->get_selected(), args.mouse.to_phys3(camera)},
+			static_cast<gamestate::player_id_t>(controller->get_controlled()));
 	}};
 
-	auto set_stance = [simulation, time_loop, send_guest_command, guest_world](
+	auto set_stance = [commands](
 		const std::shared_ptr<Controller> &controller, gamestate::HunterStance stance) {
 		if (not controller->is_hunter_selection()) {
 			return;
 		}
-		if (guest_world and guest_world().has_value()) {
-			if (send_guest_command) {
-				network::CommandIntent intent{
-					0, network::CommandKind::SET_STANCE, controller->get_selected()};
-				intent.stance = stance;
-				send_guest_command(std::move(intent));
-			}
-			return;
-		}
-		event::EventHandler::param_map::map_t params{
-			{"type", gamestate::component::command::command_t::SET_STANCE},
-			{"stance", stance},
-			{"owner", static_cast<gamestate::player_id_t>(controller->get_controlled())},
-			{"entity_ids", controller->get_selected()},
-		};
-		simulation->get_event_loop()->submit_event(
-			"game.send_command", simulation->get_commander(),
-			simulation->get_game()->get_state(),
-			time_loop->get_clock()->get_time(), params);
+		network::CommandIntent intent{
+			0, network::CommandKind::SET_STANCE, controller->get_selected()};
+		intent.stance = stance;
+		commands->dispatch(
+			intent, static_cast<gamestate::player_id_t>(controller->get_controlled()));
 	};
 
 	auto fvd = simulation->get_game()->get_state()->get_fvd();
 	if (fvd) {
-		binding_func_t demolish_selected_tower{[simulation, time_loop, send_guest_command, guest_world](
+		binding_func_t demolish_selected_tower{[commands](
 		                                        const event_arguments &,
 		                                        const std::shared_ptr<Controller> controller) {
 			const auto selection = controller->get_selection_details();
@@ -839,22 +830,9 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			    or (selection.kind != SelectionKind::TOWER and selection.kind != SelectionKind::FOUNDATION)) {
 				return;
 			}
-			if (guest_world and guest_world().has_value()) {
-				if (send_guest_command) {
-					send_guest_command(network::CommandIntent{
-						0, network::CommandKind::DEMOLISH_TOWER, selection.ids});
-				}
-				return;
-			}
-			event::EventHandler::param_map::map_t params{
-				{"type", gamestate::component::command::command_t::DEMOLISH_TOWER},
-				{"owner", owner},
-				{"entity_ids", selection.ids},
-			};
-			simulation->get_event_loop()->submit_event(
-				"game.send_command", simulation->get_commander(),
-				simulation->get_game()->get_state(),
-				time_loop->get_clock()->get_time(), params);
+			commands->dispatch(
+				network::CommandIntent{0, network::CommandKind::DEMOLISH_TOWER, selection.ids},
+				owner);
 		}};
 		ctx->bind(Event{event_class::KEYBOARD, Qt::Key_Delete,
 		                Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
@@ -874,26 +852,14 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		          binding_action{forward_action_t::CLEAR, start_garrison});
 
 		// Shared by the G hotkey and the HUD's Ungarrison button.
-		auto ungarrison = [simulation, time_loop, send_guest_command, guest_world](
-		                      const std::shared_ptr<Controller> &ctl) {
+		auto ungarrison = [commands](const std::shared_ptr<Controller> &ctl) {
 			const auto selection = ctl->get_selection_details();
 			const auto owner = static_cast<gamestate::player_id_t>(ctl->get_controlled());
 			if (owner < 2 or selection.ids.size() != 1
 			    or selection.kind != SelectionKind::TOWER) return;
-			if (guest_world and guest_world().has_value()) {
-				if (send_guest_command) send_guest_command(network::CommandIntent{
-					0, network::CommandKind::UNGARRISON, selection.ids});
-				return;
-			}
-			event::EventHandler::param_map::map_t params{
-				{"type", gamestate::component::command::command_t::UNGARRISON},
-				{"owner", owner},
-				{"entity_ids", selection.ids},
-			};
-			simulation->get_event_loop()->submit_event(
-				"game.send_command", simulation->get_commander(),
-				simulation->get_game()->get_state(),
-				time_loop->get_clock()->get_time(), params);
+			commands->dispatch(
+				network::CommandIntent{0, network::CommandKind::UNGARRISON, selection.ids},
+				owner);
 		};
 		binding_func_t ungarrison_selected{[ungarrison](const event_arguments &,
 		                                                const std::shared_ptr<Controller> ctl) {
@@ -980,7 +946,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		}
 	}
 
-	auto submit_order = [simulation, time_loop, camera, pick_entity, send_guest_command, guest_world](
+	auto submit_order = [camera, pick_entity, commands](
 		                    const event_arguments &args,
 		                    const std::shared_ptr<Controller> controller) {
 		if (controller->is_garrison_mode_active()) {
@@ -1003,91 +969,31 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		// network so a raised red arrow cannot affect movement or hopping.
 		if (owner >= 2 and selection.kind == SelectionKind::TOWER
 		    and selection.ids.size() == 1) {
-			pick_entity(args.mouse, [simulation, time_loop, send_guest_command,
-			                         guest_world, selection, mouse_pos, owner](
+			pick_entity(args.mouse, [commands, selection, mouse_pos, owner](
 			    std::optional<gamestate::entity_id_t> picked) {
-				auto replica = guest_world ? guest_world()
-				                           : std::optional<network::WorldState>{};
-				auto local = replica ? nullptr : simulation->get_fvd_presentation_state();
-				const network::WorldState *world = replica ? &*replica : local.get();
-				std::optional<gamestate::entity_id_t> target_tower{};
-				coord::phys3 destination = mouse_pos;
-				if (world) {
-					auto matches = [&](const network::EntityState &entity) {
-						return entity.entity_id != selection.ids.front()
-						    and owner >= 2 and entity.owner_id >= 2
-						    and network::is_tower(entity.kind());
-					};
-					auto found = std::find_if(
-						world->entities.begin(), world->entities.end(),
-						[&](const auto &entity) {
-							return matches(entity)
-							    and (picked and entity.entity_id == *picked);
-						});
-					// Pick misses the sprite occasionally: also check the
-					// ground projection against the replicated tower tiles.
-					if (found == world->entities.end()) {
-						found = std::find_if(
-							world->entities.begin(), world->entities.end(),
-							[&](const auto &entity) {
-								return matches(entity)
-								    and entity.position.to_tile() == mouse_pos.to_tile();
-							});
-					}
-					if (found != world->entities.end()) {
-						target_tower = found->entity_id;
-						destination = found->position;
-						destination.up = coord::phys_t::from_int(0);
+				const auto snapshot = commands->snapshot();
+				const auto tower = friendly_tower_target(
+					snapshot.world.get(), owner, picked, mouse_pos.to_tile(), selection.ids.front());
+				network::CommandIntent intent{
+					0, network::CommandKind::SET_UNGARRISON_POINT, selection.ids, mouse_pos};
+				if (tower) {
+					intent.target_entity = tower->id;
+					if (tower->position) {
+						intent.target = *tower->position;
+						intent.target.up = coord::phys_t::from_int(0);
 					}
 				}
-				// The host can validate the picked entity directly even
-				// before its asynchronous presentation snapshot is ready.
-				else if (picked and *picked != selection.ids.front()) {
-					target_tower = *picked;
-				}
-				if (replica) {
-					if (send_guest_command) {
-						network::CommandIntent intent{
-							0, network::CommandKind::SET_UNGARRISON_POINT,
-							selection.ids, destination};
-						intent.target_entity = target_tower;
-						send_guest_command(std::move(intent));
-					}
-					return;
-				}
-				event::EventHandler::param_map::map_t params{
-					{"type", gamestate::component::command::command_t::SET_UNGARRISON_POINT},
-					{"target", destination}, {"owner", owner},
-					{"entity_ids", selection.ids},
-				};
-				if (target_tower) params.emplace("target_entity", *target_tower);
-				simulation->get_event_loop()->submit_event(
-					"game.send_command", simulation->get_commander(),
-					simulation->get_game()->get_state(),
-					time_loop->get_clock()->get_time(), params);
+				commands->dispatch(snapshot.route, intent, owner);
 			});
 			return;
 		}
 		// Right-clicking with the Hunter tower selected moves its rally point.
 		if (owner == 1 and selection.kind == SelectionKind::HUNTER_TOWER
 		    and selection.ids.size() == 1) {
-			if (guest_world and guest_world().has_value()) {
-				if (send_guest_command) {
-					send_guest_command(network::CommandIntent{
-						0, network::CommandKind::SET_RALLY_POINT, selection.ids, mouse_pos});
-				}
-				return;
-			}
-			event::EventHandler::param_map::map_t params{
-				{"type", gamestate::component::command::command_t::SET_RALLY_POINT},
-				{"target", mouse_pos},
-				{"owner", owner},
-				{"entity_ids", selection.ids},
-			};
-			simulation->get_event_loop()->submit_event(
-				"game.send_command", simulation->get_commander(),
-				simulation->get_game()->get_state(),
-				time_loop->get_clock()->get_time(), params);
+			commands->dispatch(
+				network::CommandIntent{
+					0, network::CommandKind::SET_RALLY_POINT, selection.ids, mouse_pos},
+				owner);
 			return;
 		}
 		// Acknowledge orders to the player's own units, as AoE2 does.
@@ -1097,49 +1003,46 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		         or (owner >= 2 and selection.kind == SelectionKind::BUILDER))) {
 			controller->notify_order_issued();
 		}
-		if (guest_world) {
-			auto replica = guest_world();
-			if (replica) {
-				if (not send_guest_command or selection.ids.empty()) return;
-				const bool horses = owner == 1
-					&& (selection.kind == SelectionKind::HORSE
-					    or selection.kind == SelectionKind::GROUP_HORSES);
-				const bool builder = owner >= 2 and selection.kind == SelectionKind::BUILDER;
-				auto order = [send_guest_command, selection, mouse_pos,
-				              replica = std::move(*replica), owner, horses, builder](
-					std::optional<gamestate::entity_id_t> hit) {
-					network::CommandIntent intent{
-						0, network::CommandKind::MOVE, selection.ids, mouse_pos};
-					if (hit) {
-						auto found = std::find_if(
-							replica.entities.begin(), replica.entities.end(),
-							[hit](const network::EntityState &entry) {
-								return entry.entity_id == *hit;
-							});
-						if (found != replica.entities.end()) {
-							if (horses and found->owner_id != owner
-							    and (found->kind() == network::EntityKind::BUILDER
-							         or network::is_tower(found->kind()))) {
-								intent.kind = network::CommandKind::FOCUS_ATTACK;
-								intent.target_entity = *hit;
-							}
-							else if (builder and found->owner_id == owner
-							         and found->kind() == network::EntityKind::FOUNDATION) {
-								intent.kind = network::CommandKind::PRIORITIZE_FOUNDATION;
-								intent.target_entity = *hit;
-							}
+		if (auto replica = commands->guest_world()) {
+			if (selection.ids.empty()) return;
+			const bool horses = owner == 1
+				&& (selection.kind == SelectionKind::HORSE
+				    or selection.kind == SelectionKind::GROUP_HORSES);
+			const bool builder = owner >= 2 and selection.kind == SelectionKind::BUILDER;
+			auto order = [commands, selection, mouse_pos,
+			              replica = std::move(replica), owner, horses, builder](
+				std::optional<gamestate::entity_id_t> hit) {
+				network::CommandIntent intent{
+					0, network::CommandKind::MOVE, selection.ids, mouse_pos};
+				if (hit) {
+					auto found = std::find_if(
+						replica->entities.begin(), replica->entities.end(),
+						[hit](const network::EntityState &entry) {
+							return entry.entity_id == *hit;
+						});
+					if (found != replica->entities.end()) {
+						if (horses and found->owner_id != owner
+						    and (found->kind() == network::EntityKind::BUILDER
+						         or network::is_tower(found->kind()))) {
+							intent.kind = network::CommandKind::FOCUS_ATTACK;
+							intent.target_entity = *hit;
+						}
+						else if (builder and found->owner_id == owner
+						         and found->kind() == network::EntityKind::FOUNDATION) {
+							intent.kind = network::CommandKind::PRIORITIZE_FOUNDATION;
+							intent.target_entity = *hit;
 						}
 					}
-					send_guest_command(std::move(intent));
-				};
-				if (horses or builder) {
-					pick_entity(args.mouse, std::move(order));
 				}
-				else {
-					order(std::nullopt);
-				}
-				return;
+				commands->dispatch(CommandRoute::GUEST, intent, owner);
+			};
+			if (horses or builder) {
+				pick_entity(args.mouse, std::move(order));
 			}
+			else {
+				order(std::nullopt);
+			}
+			return;
 		}
 
 		// The render-thread pick reports only an entity ID. Target
@@ -1149,24 +1052,18 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			     or selection.kind == SelectionKind::GROUP_HORSES);
 		const bool builder_selection = owner >= 2 and selection.ids.size() == 1
 			and selection.kind == SelectionKind::BUILDER;
-		auto send_order = [simulation, time_loop, mouse_pos, owner, ids = selection.ids,
+		auto send_order = [commands, mouse_pos, owner, ids = selection.ids,
 		                   hunter_selection, builder_selection](
 			std::optional<gamestate::entity_id_t> picked) {
-			event::EventHandler::param_map::map_t params{
-				{"type", picked and hunter_selection
-				           ? gamestate::component::command::command_t::FOCUS_ATTACK
-				           : gamestate::component::command::command_t::MOVE},
-				{"target", mouse_pos},
-				{"owner", owner},
-				{"entity_ids", ids},
-			};
+			network::CommandIntent intent{
+				0,
+				picked and hunter_selection ? network::CommandKind::FOCUS_ATTACK
+				                            : network::CommandKind::MOVE,
+				ids, mouse_pos};
 			if (picked and (hunter_selection or builder_selection)) {
-				params.emplace("target_entity", *picked);
+				intent.target_entity = *picked;
 			}
-			simulation->get_event_loop()->submit_event(
-				"game.send_command", simulation->get_commander(),
-				simulation->get_game()->get_state(),
-				time_loop->get_clock()->get_time(), params);
+			commands->dispatch(CommandRoute::LOCAL, intent, owner);
 		};
 		if (hunter_selection or builder_selection) {
 			pick_entity(args.mouse, send_order);
@@ -1218,28 +1115,26 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		std::optional<gamestate::entity_id_t> picked;
 		std::optional<gamestate::entity_id_t> foundation;
 		gamestate::player_id_t owner;
-		bool remote;
+		CommandRoute route;
 	};
 
-	auto resolve_queue_click = [simulation, pick_entity, pick_entity_filtered, guest_world](
+	auto resolve_queue_click = [pick_entity, pick_entity_filtered, commands](
 		const coord::input &position,
 		const coord::phys3 &mouse_pos,
 		gamestate::player_id_t owner,
 		const std::function<void(ShiftClick)> &callback) {
-		auto replica = guest_world ? guest_world() : std::optional<network::WorldState>{};
-		const bool remote = replica.has_value();
-		std::shared_ptr<const network::WorldState> world = remote
-			? std::make_shared<const network::WorldState>(std::move(*replica))
-			: simulation->get_fvd_presentation_state();
+		const auto snapshot = commands->snapshot();
+		const auto &world = snapshot.world;
+		const auto route = snapshot.route;
 		pick_entity(position,
-		            [callback, world, remote, owner, mouse_pos, position, pick_entity_filtered](
+		            [callback, world, route, owner, mouse_pos, position, pick_entity_filtered](
 			            std::optional<gamestate::entity_id_t> picked) {
-			auto finish = [callback, world, remote, owner, mouse_pos, picked](
+			auto finish = [callback, world, route, owner, mouse_pos, picked](
 				std::optional<gamestate::entity_id_t> hit) {
 				const auto foundation = world
 					? queue_foundation_target(*world, owner, hit, mouse_pos.to_tile())
 					: std::nullopt;
-				callback(ShiftClick{picked, foundation, owner, remote});
+				callback(ShiftClick{picked, foundation, owner, route});
 			};
 			std::unordered_set<gamestate::entity_id_t> foundations;
 			if (world and owner >= 2) {
@@ -1264,35 +1159,19 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		});
 	};
 
-	auto queue_existing_foundation = [simulation, time_loop, send_guest_command](
+	auto queue_existing_foundation = [commands](
 		const std::vector<gamestate::entity_id_t> &ids, const ShiftClick &click) {
 		if (not click.foundation) {
 			throw Error{ERR << "Foundation queue click has no foundation target"};
 		}
-		if (click.remote) {
-			if (send_guest_command) {
-				network::CommandIntent intent{
-					0, network::CommandKind::PRIORITIZE_FOUNDATION, ids};
-				intent.target_entity = *click.foundation;
-				intent.queue = true;
-				send_guest_command(std::move(intent));
+		network::CommandIntent intent{0, network::CommandKind::PRIORITIZE_FOUNDATION, ids};
+		intent.target_entity = *click.foundation;
+		intent.queue = true;
+		commands->dispatch(click.route, intent, click.owner, [](bool accepted) {
+			if (not accepted) {
+				log::log(WARN << "FVD foundation queue rejected: invalid Builder, unavailable site or queue full");
 			}
-			return;
-		}
-		event::EventHandler::param_map::map_t params{
-			{"type", gamestate::component::command::command_t::MOVE},
-			{"owner", click.owner}, {"entity_ids", ids},
-			{"target_entity", *click.foundation}, {"queue", true},
-			{"result_cb", std::function<void(bool)>{[](bool accepted) {
-				if (not accepted) {
-					log::log(WARN << "FVD foundation queue rejected: invalid Builder, unavailable site or queue full");
-				}
-			}}},
-		};
-		simulation->get_event_loop()->submit_event(
-			"game.send_command", simulation->get_commander(),
-			simulation->get_game()->get_state(),
-			time_loop->get_clock()->get_time(), params);
+		});
 	};
 
 	// Shift+right-click queues an existing foundation without entering
@@ -1344,7 +1223,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 
 	auto process_drag_selection =
 		[simulation, time_loop, camera, pick_entity, create_entity_event, hunter_route_event,
-		 send_guest_command, guest_world, queue_existing_foundation](const event_arguments &args,
+		 commands, queue_existing_foundation](const event_arguments &args,
 	        const std::shared_ptr<Controller> &controller,
 	        const std::optional<coord::input> &start,
 	        const std::optional<coord::tile> &world_start,
@@ -1373,70 +1252,27 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 				// A thin tower silhouette may not produce a sprite pick.
 				// Resolve the tile from the owner's authoritative presentation
 				// snapshot instead, without relying on paused guest simulation.
-				pick_at_click(args.mouse, [simulation, time_loop, send_guest_command,
-				                          guest_world, controller, selection, owner, clicked_tile](
+				pick_at_click(args.mouse, [commands, controller, selection, owner, clicked_tile](
 					std::optional<gamestate::entity_id_t> picked) {
 					if (not controller->is_garrison_mode_active()
 					    or controller->get_selected() != selection.ids) return;
-					auto replicated = guest_world ? guest_world()
-					                               : std::optional<network::WorldState>{};
-					auto host_world = replicated ? nullptr
-					                             : simulation->get_fvd_presentation_state();
-					const network::WorldState *world = replicated ? &*replicated : host_world.get();
-					auto matches_tower = [owner](const network::EntityState &entity) {
-						return owner >= 2 and entity.owner_id >= 2
-						    and network::is_tower(entity.kind());
-					};
-					std::optional<gamestate::entity_id_t> tower_id;
-					if (picked and not world) {
-						// A local presentation snapshot may not be ready on
-						// the first rendered frame. The host still validates
-						// the target's type and owner before accepting it.
-						tower_id = *picked;
-					}
-					else if (picked and world) {
-						auto it = std::find_if(world->entities.begin(), world->entities.end(),
-						                       [picked, &matches_tower](const auto &entity) {
-							                       return entity.entity_id == *picked
-							                           and matches_tower(entity);
-						                       });
-						if (it != world->entities.end()) tower_id = it->entity_id;
-					}
-					if (not tower_id and world) {
-						auto it = std::find_if(world->entities.begin(), world->entities.end(),
-						                       [clicked_tile, &matches_tower](const auto &entity) {
-							                       return matches_tower(entity)
-							                           and entity.position.to_tile() == clicked_tile;
-						                       });
-						if (it != world->entities.end()) tower_id = it->entity_id;
-					}
-					if (not tower_id) {
+					const auto snapshot = commands->snapshot();
+					// Without a snapshot the pick is sent unchecked; the
+					// simulation validates the target's type and owner.
+					const auto tower = friendly_tower_target(
+						snapshot.world.get(), owner, picked, clicked_tile);
+					if (not tower) {
 						log::log(INFO << "FVD garrison: click a friendly completed tower");
 						return; // Keep T mode armed for another click or Esc.
 					}
 					controller->cancel_garrison_mode();
-					if (replicated) {
-						if (send_guest_command) {
-							network::CommandIntent intent{
-								0, network::CommandKind::GARRISON, selection.ids};
-							intent.target_entity = *tower_id;
-							send_guest_command(std::move(intent));
+					network::CommandIntent intent{0, network::CommandKind::GARRISON, selection.ids};
+					intent.target_entity = tower->id;
+					commands->dispatch(snapshot.route, intent, owner, [](bool accepted) {
+						if (not accepted) {
+							log::log(WARN << "FVD garrison rejected: tower must be finished, empty and reachable");
 						}
-						return;
-					}
-					event::EventHandler::param_map::map_t params{
-						{"type", gamestate::component::command::command_t::GARRISON},
-						{"owner", owner}, {"entity_ids", selection.ids},
-						{"target_entity", *tower_id},
-						{"result_cb", std::function<void(bool)>{[](bool accepted) {
-							if (not accepted)
-								log::log(WARN << "FVD garrison rejected: tower must be finished, empty and reachable");
-						}}},
-					};
-					simulation->get_event_loop()->submit_event(
-						"game.send_command", simulation->get_commander(),
-						simulation->get_game()->get_state(),
-						time_loop->get_clock()->get_time(), params);
+					});
 				});
 				return;
 			}
@@ -1466,29 +1302,12 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 					for (const auto &site : sites) {
 						line.push_back(site.to_phys3_center());
 					}
-					if (guest_world and guest_world().has_value()) {
-						network::CommandIntent intent{
-							0, network::CommandKind::BUILD_TOWER, selection.ids, line.front()};
-						intent.queue = true;
-						intent.build_line = std::move(line);
-						if (send_guest_command) {
-							send_guest_command(std::move(intent));
-						}
-					}
-					else {
-						auto state = simulation->get_game()->get_state();
-						event::EventHandler::param_map::map_t params{
-							{"type", gamestate::component::command::command_t::BUILD_TOWER},
-							{"target", line.front()},
-							{"queue", true},
-							{"build_line", line},
-							{"owner", static_cast<gamestate::player_id_t>(controller->get_controlled())},
-							{"entity_ids", selection.ids},
-						};
-						simulation->get_event_loop()->submit_event(
-							"game.send_command", simulation->get_commander(), state,
-							time_loop->get_clock()->get_time(), params);
-					}
+					network::CommandIntent intent{
+						0, network::CommandKind::BUILD_TOWER, selection.ids, line.front()};
+					intent.queue = true;
+					intent.build_line = std::move(line);
+					commands->dispatch(
+						intent, static_cast<gamestate::player_id_t>(controller->get_controlled()));
 				}
 				else {
 					if (not click) {
@@ -1519,62 +1338,59 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			}
 			auto drag_start = *start;
 			auto drag_delta = args.mouse - drag_start;
-			if (guest_world) {
-				auto replica = guest_world();
-				if (replica) {
-					if (std::abs(drag_delta.x) < drag_threshold
-					    and std::abs(drag_delta.y) < drag_threshold) {
-						pick_at_click(args.mouse,
-							[controller, simulation, camera, guest_world, selection, shift,
-							 selection_generation, replica = std::move(*replica)](
-								std::optional<gamestate::entity_id_t> id) {
-								if (id and apply_structure_click(controller, simulation, camera,
-								    guest_world, *id, selection_generation, selection, shift, false)) return;
-								apply_guest_selection(controller, replica, selection_generation,
-									id ? std::vector<gamestate::entity_id_t>{*id}
-									   : std::vector<gamestate::entity_id_t>{});
-							});
-					}
-					else {
-						// Drag-select locally owned Horses or a Builder from authoritative
-						// positions, without querying the paused guest simulation.
-						if (not projection) {
-							throw Error{ERR << "Drag selection projection was not captured"};
-						}
-						std::vector<gamestate::entity_id_t> picked;
-						for (const auto &entity : replica->entities) {
-							if (entity.owner_id != replica->local_player_id
-							    or not network::is_unit(entity.kind())) continue;
-							auto scene = entity.position.to_scene3().to_world_space();
-							Eigen::Vector4f clip = projection->matrix * Eigen::Vector4f{
-								scene.x(), scene.y(), scene.z(), 1.0f};
-							if (clip.w() <= 0) continue;
-							double x = (clip.x() / clip.w() * 0.5 + 0.5) * projection->viewport[0];
-							double y = (0.5 - clip.y() / clip.w() * 0.5) * projection->viewport[1];
-							if (x >= std::min(drag_start.x, args.mouse.x)
-							    and x <= std::max(drag_start.x, args.mouse.x)
-							    and y >= std::min(drag_start.y, args.mouse.y)
-							    and y <= std::max(drag_start.y, args.mouse.y)) {
-								picked.push_back(entity.entity_id);
-								// Builder controls currently accept exactly one unit.
-								if (entity.kind() == network::EntityKind::BUILDER) break;
-							}
-						}
-						apply_guest_selection(controller, *replica, selection_generation, picked);
-					}
-					return;
+			if (auto replica = commands->guest_world()) {
+				if (std::abs(drag_delta.x) < drag_threshold
+				    and std::abs(drag_delta.y) < drag_threshold) {
+					pick_at_click(args.mouse,
+						[controller, commands, camera, selection, shift,
+						 selection_generation, replica](
+							std::optional<gamestate::entity_id_t> id) {
+							if (id and apply_structure_click(controller, *commands, camera,
+							    *id, selection_generation, selection, shift, false)) return;
+							apply_guest_selection(controller, *replica, selection_generation,
+								id ? std::vector<gamestate::entity_id_t>{*id}
+								   : std::vector<gamestate::entity_id_t>{});
+						});
 				}
+				else {
+					// Drag-select locally owned Horses or a Builder from authoritative
+					// positions, without querying the paused guest simulation.
+					if (not projection) {
+						throw Error{ERR << "Drag selection projection was not captured"};
+					}
+					std::vector<gamestate::entity_id_t> picked;
+					for (const auto &entity : replica->entities) {
+						if (entity.owner_id != replica->local_player_id
+						    or not network::is_unit(entity.kind())) continue;
+						auto scene = entity.position.to_scene3().to_world_space();
+						Eigen::Vector4f clip = projection->matrix * Eigen::Vector4f{
+							scene.x(), scene.y(), scene.z(), 1.0f};
+						if (clip.w() <= 0) continue;
+						double x = (clip.x() / clip.w() * 0.5 + 0.5) * projection->viewport[0];
+						double y = (0.5 - clip.y() / clip.w() * 0.5) * projection->viewport[1];
+						if (x >= std::min(drag_start.x, args.mouse.x)
+						    and x <= std::max(drag_start.x, args.mouse.x)
+						    and y >= std::min(drag_start.y, args.mouse.y)
+						    and y <= std::max(drag_start.y, args.mouse.y)) {
+							picked.push_back(entity.entity_id);
+							// Builder controls currently accept exactly one unit.
+							if (entity.kind() == network::EntityKind::BUILDER) break;
+						}
+					}
+					apply_guest_selection(controller, *replica, selection_generation, picked);
+				}
+				return;
 			}
 			if (std::abs(drag_delta.x) < drag_threshold
 			    and std::abs(drag_delta.y) < drag_threshold) {
 				auto controlled = controller->get_controlled();
 				pick_at_click(
 					args.mouse,
-					[simulation, time_loop, camera, controller, guest_world, selection,
+					[simulation, time_loop, camera, controller, commands, selection,
 						 shift, controlled, selection_generation](
 						std::optional<gamestate::entity_id_t> id) {
-						if (id and apply_structure_click(controller, simulation, camera,
-						    guest_world, *id, selection_generation, selection, shift, false)) return;
+						if (id and apply_structure_click(controller, *commands, camera,
+						    *id, selection_generation, selection, shift, false)) return;
 						std::vector<gamestate::entity_id_t> picked;
 						if (id.has_value()) {
 							picked.push_back(*id);
@@ -1687,8 +1503,8 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 	// Qt delivers a final left release after its double-click event. Process
 	// the group here and suppress that release so it cannot undo the group.
 	binding_func_t select_structure_group{
-		[simulation, camera, pick_entity, guest_world](const event_arguments &args,
-		                                              const std::shared_ptr<Controller> controller) {
+		[camera, pick_entity, commands](const event_arguments &args,
+		                               const std::shared_ptr<Controller> controller) {
 			controller->mark_structure_double_click();
 			controller->reset_drag_select();
 			if (controller->is_garrison_mode_active()
@@ -1698,10 +1514,10 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			const auto previous = controller->get_selection_details();
 			const auto generation = controller->begin_selection_update();
 			pick_entity(args.mouse,
-				[simulation, camera, controller, guest_world, previous, generation](
+				[camera, controller, commands, previous, generation](
 				    std::optional<gamestate::entity_id_t> id) {
-					if (id and apply_structure_click(controller, simulation, camera,
-					    guest_world, *id, generation, previous, false, true)) return;
+					if (id and apply_structure_click(controller, *commands, camera,
+					    *id, generation, previous, false, true)) return;
 					// Ignore double-click on non-structures without losing the
 					// selection created by the preceding single click.
 					controller->set_selected_if_current(
