@@ -569,7 +569,7 @@ private:
 		const std::shared_ptr<GameState> &state, player_id_t owner,
 		entity_id_t foundation_id, const time::time_t &time) const;
 
-	/** Find a reachable vacant adjacent tile with public Pathfinder API. */
+	/** Find a reachable precise approach point within Builder construction reach. */
 	std::optional<coord::phys3> find_build_stand(
 		const std::shared_ptr<GameState> &state,
 		const std::shared_ptr<GameEntity> &builder,
