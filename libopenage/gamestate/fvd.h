@@ -777,6 +777,8 @@ private:
 	double hunter_tower_range;
 	time::time_t hunter_tower_cooldown;
 	double builder_start_radius;
+	/** Half the Builder's square nyan selection-box width, in tiles. */
+	double builder_selection_radius{};
 	/** Absent before the map exists or in scenarios without the tower. */
 	std::optional<entity_id_t> hunter_tower_id{};
 	/** Path costs under the Hunter tower before it blocked them. */
