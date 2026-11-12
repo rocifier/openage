@@ -69,13 +69,11 @@ int FVDConstructionState::progress_percent(const time::time_t &now) const {
 
 namespace {
 
-// The 0.5-tile-wide Builder selection box defines a 0.25-tile radius.
-// Reach is measured from the foundation's square edge, not its centre.
-// The approach target lies inside this threshold to avoid boundary jitter.
-constexpr double BUILD_SELECTION_RADIUS = 0.25;
-constexpr double BUILD_REACH = 1.2 * BUILD_SELECTION_RADIUS;
-constexpr double BUILD_APPROACH_DISTANCE = BUILD_SELECTION_RADIUS;
+// Construction reach derives from half the Builder's nyan selection-box width.
+// Steer inside the 1.2x range, rather than precisely to its outer boundary.
+constexpr double BUILD_REACH_MULTIPLIER = 1.2;
 constexpr double BUILD_POSITION_EPSILON = 0.005;
+constexpr double DIAGONAL_COMPONENT = 0.7071067811865476;
 
 double foundation_edge_distance(const coord::phys3 &position, const coord::tile &site) {
 	const double ne = position.ne.to_double();
@@ -87,8 +85,10 @@ double foundation_edge_distance(const coord::phys3 &position, const coord::tile 
 	return std::hypot(dx, dy);
 }
 
-bool within_build_reach(const coord::phys3 &position, const coord::tile &site) {
-	return foundation_edge_distance(position, site) <= BUILD_REACH + BUILD_POSITION_EPSILON;
+bool within_build_reach(const coord::phys3 &position, const coord::tile &site,
+                        double selection_radius) {
+	return foundation_edge_distance(position, site)
+	       <= selection_radius * BUILD_REACH_MULTIPLIER + BUILD_POSITION_EPSILON;
 }
 
 /** Arrive at a construction site, then complete it at a later simulation time. */
@@ -406,6 +406,17 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	this->hunter = settings.get_object("hunter").get_name();
 	this->builders = settings.get_object("builders").get_name();
 	this->builder = settings.get_object("builder").get_name();
+	// The range follows the same nyan dimension used to select the Builder.
+	const auto selectable = state->get_db_view()->get_object(this->builder + ".Selectable");
+	const auto selection_box = selectable.get_object("Selectable.selection_box");
+	const double selection_width = selection_box.get_float("Rectangle.width");
+	const double selection_height = selection_box.get_float("Rectangle.height");
+	if (not std::isfinite(selection_width) or selection_width <= 0.0
+	    or selection_width >= 1.0 or not std::isfinite(selection_height)
+	    or std::abs(selection_width - selection_height) > 0.000001) {
+		throw Error{ERR << "FVD Builder requires a square selection box smaller than a tile"};
+	}
+	this->builder_selection_radius = selection_width * 0.5;
 	this->horse = settings.get_object("horse").get_name();
 	this->foundation = settings.get_object("foundation").get_name();
 	this->tower_demolition = settings.get_object("tower_demolition").get_name();
@@ -838,7 +849,7 @@ std::optional<coord::phys3> FVD::find_build_stand(
 
 	// Route via the normal pathfinder, then move to a precise position
 	// within the neighbouring tile, close enough to construct.
-	if (within_build_reach(current_position, site)
+	if (within_build_reach(current_position, site, this->builder_selection_radius)
 	    and origin != site
 	    and not this->tile_occupied(state, origin, time, entity->get_id())) {
 		return current_position;
@@ -848,14 +859,17 @@ std::optional<coord::phys3> FVD::find_build_stand(
 	for (const auto &candidate : candidates) {
 		const double low_ne = static_cast<double>(candidate.ne);
 		const double low_se = static_cast<double>(candidate.se);
+		// Diagonal neighbours approach the corner along the diagonal,
+		// keeping the Euclidean edge distance at one selection radius.
+		const bool diagonal = candidate.ne != site.ne and candidate.se != site.se;
+		const double margin = this->builder_selection_radius
+		                    * (diagonal ? DIAGONAL_COMPONENT : 1.0);
 		const double ne = std::clamp(static_cast<double>(site.ne) + 0.5,
-		                             low_ne + BUILD_APPROACH_DISTANCE,
-		                             low_ne + 1.0 - BUILD_APPROACH_DISTANCE);
+		                             low_ne + margin, low_ne + 1.0 - margin);
 		const double se = std::clamp(static_cast<double>(site.se) + 0.5,
-		                             low_se + BUILD_APPROACH_DISTANCE,
-		                             low_se + 1.0 - BUILD_APPROACH_DISTANCE);
+		                             low_se + margin, low_se + 1.0 - margin);
 		const coord::phys3 point{ne, se, 0};
-		if (not within_build_reach(point, site)) continue;
+		if (not within_build_reach(point, site, this->builder_selection_radius)) continue;
 		auto route = pathfinder->get_path(path::PathRequest{grid, origin, candidate, time});
 		if (route.status != path::PathResult::FOUND or route.waypoints.empty()) continue;
 		double length = 0.0;
@@ -1315,14 +1329,14 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 	}
 	// Authoritative position and one shared range rule prevent arrival
 	// rounding or network timing from invalidating a valid construction.
-	if (finish and (not within_build_reach(current, tile)
+	if (finish and (not within_build_reach(current, tile, this->builder_selection_radius)
 	                or this->tile_occupied(state, current.to_tile(), time, builder))) {
 		this->cancel_build(state, builder, time);
 		return;
 	}
 	if (not finish and not placed_tower) {
 		const auto blockers = this->build_site_blockers(state, tile, time);
-		const bool in_reach = within_build_reach(current, tile);
+		const bool in_reach = within_build_reach(current, tile, this->builder_selection_radius);
 		const bool stand_blocked = this->tile_occupied(
 			state, current.to_tile(), time, builder);
 		if (not blockers.empty() or not in_reach or stand_blocked) {
@@ -1346,7 +1360,7 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 				const bool going = move and move->get_active_target()
 				                and *move->get_active_target() == *stand
 				                and move->get_active_arrival() > time;
-				if (not going and not within_build_reach(current, tile) and *stand != current) {
+				if (not going and not within_build_reach(current, tile, this->builder_selection_radius) and *stand != current) {
 					system::Move::move_default(entity, state, *stand, time);
 				}
 				it->second.stand = *stand;
