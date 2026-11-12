@@ -402,6 +402,7 @@ set(_fvd_native_cpp_test_sources
 	"${CMAKE_SOURCE_DIR}/libopenage/job/tests.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/log/test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/authority_succession_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/command_bridge_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/command_mailbox_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/connection_mailbox_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/entity_kind_test.cpp"

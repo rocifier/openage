@@ -5,6 +5,7 @@ add_sources(libopenage
 	authority_succession_test.cpp
 	bounded_mailbox.cpp
 	command_bridge.cpp
+	command_bridge_test.cpp
 	command_mailbox.cpp
 	command_mailbox_test.cpp
 	connection_mailbox.cpp

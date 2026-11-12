@@ -39,7 +39,6 @@
 #include "gamestate/game_entity.h"
 #include "gamestate/game_state.h"
 #include "event/event_loop.h"
-#include "gamestate/component/internal/commands/types.h"
 #include "gamestate/event/send_command.h"
 #include "gamestate/simulation.h"
 #include "input/controller/camera/binding_context.h"
@@ -51,6 +50,7 @@
 #include "input/input_context.h"
 #include "input/input_manager.h"
 #include "log/log.h"
+#include "network/command_bridge.h"
 #include "network/construction_presentation.h"
 #include "network/entity_kind.h"
 #include "network/lobby_relay_client.h"
@@ -381,22 +381,18 @@ void Presenter::send_fvd_delete_foundations() {
 	    or selection.ids.size() != 1) {
 		return;
 	}
+	network::CommandIntent intent{
+		0, network::CommandKind::DELETE_FOUNDATIONS, selection.ids, {0, 0, 0}};
 	if (this->fvd_lobby_enabled and not this->fvd_lobby_hosting) {
 		if (this->fvd_gameplay_active and this->fvd_lobby_client) {
-			this->fvd_lobby_client->send_guest_command(network::CommandIntent{
-				0, network::CommandKind::DELETE_FOUNDATIONS, selection.ids, {0, 0, 0}});
+			this->fvd_lobby_client->send_guest_command(std::move(intent));
 		}
 		return;
 	}
-	event::EventHandler::param_map::map_t params{
-		{"type", gamestate::component::command::command_t::DELETE_FOUNDATIONS},
-		{"owner", owner},
-		{"entity_ids", selection.ids},
-	};
 	this->simulation->get_event_loop()->submit_event(
 		"game.send_command", this->simulation->get_commander(),
 		this->simulation->get_game()->get_state(),
-		this->time_loop->get_clock()->get_time(), params);
+		this->time_loop->get_clock()->get_time(), network::command_params(intent, owner));
 }
 
 void Presenter::send_fvd_flare(const coord::phys3 &position) {
@@ -405,23 +401,17 @@ void Presenter::send_fvd_flare(const coord::phys3 &position) {
 	}
 	const auto owner = static_cast<gamestate::player_id_t>(this->game_controller->get_controlled());
 	const coord::phys3 target{position.ne, position.se, 0};
+	network::CommandIntent intent{0, network::CommandKind::FLARE, {}, target};
 	if (this->fvd_lobby_enabled and not this->fvd_lobby_hosting) {
 		if (this->fvd_gameplay_active and this->fvd_lobby_client) {
-			this->fvd_lobby_client->send_guest_command(
-				network::CommandIntent{0, network::CommandKind::FLARE, {}, target});
+			this->fvd_lobby_client->send_guest_command(std::move(intent));
 		}
 		return;
 	}
-	event::EventHandler::param_map::map_t params{
-		{"type", gamestate::component::command::command_t::FLARE},
-		{"target", target},
-		{"owner", owner},
-		{"entity_ids", std::vector<gamestate::entity_id_t>{}},
-	};
 	this->simulation->get_event_loop()->submit_event(
 		"game.send_command", this->simulation->get_commander(),
 		this->simulation->get_game()->get_state(),
-		this->time_loop->get_clock()->get_time(), params);
+		this->time_loop->get_clock()->get_time(), network::command_params(intent, owner));
 }
 
 bool Presenter::over_fvd_hud(const QPointF &position) const {

@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 
+#include "event/eventhandler.h"
 #include "gamestate/types.h"
 #include "network/command_mailbox.h"
 #include "network/messages.h"
@@ -27,6 +28,22 @@ class MatchConnectionState;
 
 /** Result callback invoked when the authoritative host decides the command. */
 using command_result_callback_t = std::function<void(bool)>;
+
+/**
+ * Parameters for the `game.send_command` event executing an intent.
+ *
+ * Local and authenticated remote commands share this mapping so both reach
+ * identical simulation logic. Unset optional intent fields and an empty
+ * result callback are omitted.
+ *
+ * @param intent Command to execute.
+ * @param owner Player issuing the command.
+ * @param result_callback Invoked with the simulation's decision, if set.
+ */
+::openage::event::EventHandler::param_map::map_t command_params(
+	const CommandIntent &intent,
+	gamestate::player_id_t owner,
+	command_result_callback_t result_callback = {});
 
 /**
  * Translate an authenticated network command into a simulation event.

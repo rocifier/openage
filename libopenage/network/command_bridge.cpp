@@ -93,6 +93,32 @@ std::optional<std::pair<int64_t, int64_t>> entity_health(
 
 } // namespace
 
+event::EventHandler::param_map::map_t command_params(
+	const CommandIntent &intent,
+	gamestate::player_id_t owner,
+	command_result_callback_t result_callback) {
+	event::EventHandler::param_map::map_t params{
+		{"type", simulation_command(intent.kind)},
+		{"target", intent.target},
+		{"owner", owner},
+		{"entity_ids", intent.entity_ids},
+		{"queue", intent.queue},
+	};
+	if (result_callback) {
+		params.emplace("result_cb", std::move(result_callback));
+	}
+	if (intent.target_entity) {
+		params.emplace("target_entity", *intent.target_entity);
+	}
+	if (not intent.build_line.empty()) {
+		params.emplace("build_line", intent.build_line);
+	}
+	if (intent.stance) {
+		params.emplace("stance", *intent.stance);
+	}
+	return params;
+}
+
 void submit_authenticated_command(
 	const AuthenticatedCommand &command,
 	const std::shared_ptr<::openage::event::EventLoop> &event_loop,
@@ -104,29 +130,12 @@ void submit_authenticated_command(
 		throw Error{MSG(err) << "Network command intent requires a result callback"};
 	}
 
-	event::EventHandler::param_map::map_t params{
-		{"type", simulation_command(command.intent.kind)},
-		{"target", command.intent.target},
-		{"owner", command.identity.player_id},
-		{"entity_ids", command.intent.entity_ids},
-		{"queue", command.intent.queue},
-		{"result_cb", std::move(result_callback)},
-	};
-	if (command.intent.target_entity) {
-		params.emplace("target_entity", *command.intent.target_entity);
-	}
-	if (not command.intent.build_line.empty()) {
-		params.emplace("build_line", command.intent.build_line);
-	}
-	if (command.intent.stance) {
-		params.emplace("stance", *command.intent.stance);
-	}
 	event_loop->submit_event(
 		"game.send_command",
 		commander,
 		state,
 		time,
-		params);
+		command_params(command.intent, command.identity.player_id, std::move(result_callback)));
 }
 
 void submit_authenticated_command(
