@@ -1290,6 +1290,87 @@ void fvd_garrison_all_sides() {
 	}
 }
 
+void fvd_construction_reach() {
+	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	tests::use_centre_test_layout(state);
+	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
+	entity_id_t builder = 0;
+	bool found_builder = false;
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		if (entity->get_definition() != "fvd.data.entities.Builder") continue;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		if (ownership->get_owners().get(time::TIME_ZERO) == player_id_t{2}) {
+			builder = id;
+			found_builder = true;
+			break;
+		}
+	}
+	TESTEQUALS(found_builder, true);
+	auto builder_entity = state->get_game_entity(builder);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		builder_entity->get_component(component::component_t::POSITION));
+	auto tower_at = [&](coord::tile site, const time::time_t &now) {
+		for (const auto &[id, entity] : state->get_game_entities()) {
+			if (entity->get_definition() != "fvd.data.entities.MedievalTowerLevel1") continue;
+			auto pos = std::dynamic_pointer_cast<component::Position>(
+				entity->get_component(component::component_t::POSITION));
+			if (pos->get_positions().get(now).to_tile() == site) return true;
+		}
+		return false;
+	};
+
+	// A builder in the immediately adjacent tile, but 0.5 tiles from the
+	// edge, MUST walk closer instead of instantly constructing.
+	const coord::tile first{85, 85};
+	position->set_position(at(0), coord::phys3{84.5, 85.5, 0});
+	TESTEQUALS(fvd->request_build(state, 2, {builder}, first.to_phys3_center(), at(0)), true);
+	TESTEQUALS(fvd->get_construction_state().front().phase == FVDConstructionPhase::PLANNED, true);
+	loop->reach_time(at(0.03), state);
+	TESTEQUALS(fvd->get_construction_state().front().phase == FVDConstructionPhase::PLANNED, true);
+	loop->reach_time(at(0.25), state);
+	TESTEQUALS((position->get_positions().get(at(0.25)) == coord::phys3{84.75, 85.5, 0}), true);
+	TESTEQUALS(tower_at(first, at(0.25)), true);
+
+	// Within 1.2 radii (0.3 tiles), no further move is needed. A tiny
+	// outward position perturbation remains valid at completion time.
+	const coord::tile second{90, 87};
+	position->set_position(at(0.3), coord::phys3{89.71, 87.5, 0});
+	TESTEQUALS(fvd->request_build(state, 2, {builder}, second.to_phys3_center(), at(0.3)), true);
+	loop->reach_time(at(0.31), state);
+	TESTEQUALS(fvd->get_construction_state().front().phase == FVDConstructionPhase::UNDER_CONSTRUCTION, true);
+	TESTEQUALS((position->get_positions().get(at(0.31)) == coord::phys3{89.71, 87.5, 0}), true);
+	position->set_position(at(0.35), coord::phys3{89.696, 87.5, 0});
+	loop->reach_time(at(0.45), state);
+	TESTEQUALS(tower_at(second, at(0.45)), true);
+	TESTEQUALS(fvd->get_build_order(builder) == nullptr, true);
+
+	// A corner approach must use Euclidean distance, not separately
+	// consume a whole radius in each axis and stop outside build reach.
+	const coord::tile third{94, 90};
+	position->set_position(at(0.5), coord::phys3{93.5, 89.5, 0});
+	TESTEQUALS(fvd->request_build(state, 2, {builder}, third.to_phys3_center(), at(0.5)), true);
+	loop->reach_time(at(0.85), state);
+	const auto corner = position->get_positions().get(at(0.85));
+	const double corner_dist = std::hypot(94.0 - corner.ne.to_double(),
+	                                      90.0 - corner.se.to_double());
+	TESTEQUALS(corner_dist >= 0.20 and corner_dist <= 0.305, true);
+	TESTEQUALS(tower_at(third, at(0.85)), true);
+	TESTEQUALS(fvd->get_build_order(builder) == nullptr, true);
+}
+
 void fvd_construction() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
 	auto mods = std::make_shared<assets::ModManager>(root / "assets");
@@ -1314,8 +1395,10 @@ void fvd_construction() {
 	}
 	auto construction_builder_position = std::dynamic_pointer_cast<component::Position>(
 		state->get_game_entity(builders[2])->get_component(component::component_t::POSITION));
+	// The Builder is within 1.2 selection radii of the foundation's corner.
+	// A centred unit in the same neighbouring tile would be too far away.
 	construction_builder_position->set_position(
-		time::TIME_ZERO, coord::tile{60, 65}.to_phys3_center());
+		time::TIME_ZERO, coord::phys3{60.82, 65.82, 0});
 	auto t = [](double seconds) {
 		return time::time_t::from_double(seconds);
 	};
