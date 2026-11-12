@@ -165,6 +165,29 @@ interface).
 Game events can be queued before they are forwarded to the gamestate to allow chained commands,
 e.g. setting a bunch of waypoints before giving the final move command.
 
+#### FVD game controls
+
+The FVD input code separates controller state, input handling and command delivery:
+
+- [Controller](../../../libopenage/input/controller/game/controller.h) owns the selection and targeting modes.
+  Selection generations prevent an older simulation result from overwriting a newer selection, and dependent actions wait until the pending selection is applied.
+- [GameBindings](../../../libopenage/input/controller/game/game_bindings.h) registers the default controls and resolves input into selection changes or commands.
+  Keyboard and HUD actions share the same handlers.
+  Binding callbacks retain the bindings object; HUD callbacks refer to the controller weakly to avoid an ownership cycle.
+- [CommandDispatcher](../../../libopenage/input/controller/game/command_dispatcher.h) sends command intents to the host for a guest, or submits them to the authoritative local simulation.
+  Its injected world sources and command callbacks allow both routes to be tested without a network connection.
+  A target's world snapshot includes its command route so that deferred clicks retain the route used to resolve them.
+
+Mouse releases capture their world position and drag projection before waiting for selection updates.
+The entity picker must invoke its callback before returning.
+Queueing an existing foundation leaves tower-placement mode unchanged.
+
+Local commands and authenticated guest commands use the same [command parameter mapping](../../../libopenage/network/command_bridge.h).
+The authoritative simulation still validates ownership, targets and game rules; the input layer is not an authorization boundary.
+
+The [binding tests](../../../libopenage/input/controller/game/game_bindings_test.cpp) exercise keyboard and mouse input, selection, construction and Hunter commands on both command routes.
+See [native test instructions](../testing.md) for running them.
+
 
 ## Scripting
 
