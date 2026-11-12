@@ -5,5 +5,6 @@ add_sources(libopenage
     command_dispatcher_test.cpp
     controller.cpp
     game_bindings.cpp
+    game_bindings_test.cpp
     tests.cpp
 )

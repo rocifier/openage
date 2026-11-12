@@ -29,7 +29,7 @@ namespace openage::util::tests { void constinit_vector(); void enum_(); void fix
 namespace openage::curve::tests { void container(); void curve_types(); }
 namespace openage::event::tests { void eventtrigger(); }
 namespace openage::testing::tests { void comparison(); }
-namespace openage::input::game::tests { void command_dispatcher(); void tower_line_axis_lock(); void tower_placement_mode(); void horse_selection_priority(); void tower_click_target(); }
+namespace openage::input::game::tests { void command_dispatcher(); void game_bindings_construction(); void game_bindings_hunter(); void game_bindings_selection(); void game_bindings_guest(); void tower_line_axis_lock(); void tower_placement_mode(); void horse_selection_priority(); void tower_click_target(); }
 namespace openage::presenter::tests { void hud_mouse_capture(); void fvd_combat_sounds(); void fvd_minimap(); void fvd_hunter_unleashed(); void fvd_construction_sounds(); void guest_interpolation(); void guest_clock_jitter(); void guest_response_latency(); void guest_clock_catchup(); }
 namespace openage::audio::tests { void audio_settings(); void audio_mixer_effects(); void audio_mixer_volume(); void audio_mixer_music(); void audio_decode_wav(); void fvd_audio_files(); void fvd_audio_placement(); void fvd_audio_throttle(); void fvd_audio_bank(); }
 namespace openage::gamestate::tests { void fvd_network_builder_count(); void fvd_scenario(); void fvd_construction(); void fvd_presentation_snapshot(); void fvd_foundation_push_and_timeout(); void fvd_build_queue(); void fvd_build_line_order(); void fvd_match_end_garrison_and_hunter_stop(); void fvd_builder_flare(); void fvd_builder_delete_all_foundations(); void fvd_build_double_row(); void fvd_animation_phase(); void fvd_retask_foundation(); void fvd_queue_existing_foundations(); void fvd_builder_demolition(); void fvd_builder_delete_foundation(); void fvd_match_outcome_rules(); void fvd_garrison(); void fvd_allied_garrison(); void fvd_garrison_hop(); void fvd_garrison_all_sides(); void fvd_hunter_spawning(); void fvd_horse_spawn_blocked(); void fvd_hunter_combat(); void fvd_combat_balance(); void fvd_hunter_attack_move_regressions(); void fvd_hunter_builder_aggro(); void fvd_hunter_focus_attack(); void fvd_first_builder_attack_order(); void fvd_hunter_stances(); void fvd_hunter_patrol_stances(); void fvd_fog_of_war(); void fvd_hunter_tower(); void fvd_hunter_rally_point(); void activity_demo(); }
@@ -118,6 +118,10 @@ constexpr Test native_test_entries[] = {
 	{"openage::input::game::tests::horse_selection_priority", &openage::input::game::tests::horse_selection_priority, false, false},
 	{"openage::input::game::tests::tower_click_target", &openage::input::game::tests::tower_click_target, false, false},
 	{"openage::input::game::tests::command_dispatcher", &openage::input::game::tests::command_dispatcher, false, false},
+	{"openage::input::game::tests::game_bindings_construction", &openage::input::game::tests::game_bindings_construction, true, false},
+	{"openage::input::game::tests::game_bindings_hunter", &openage::input::game::tests::game_bindings_hunter, true, false},
+	{"openage::input::game::tests::game_bindings_selection", &openage::input::game::tests::game_bindings_selection, true, false},
+	{"openage::input::game::tests::game_bindings_guest", &openage::input::game::tests::game_bindings_guest, true, false},
 	{"openage::presenter::tests::hud_mouse_capture", &openage::presenter::tests::hud_mouse_capture, false, false},
 	{"openage::presenter::tests::fvd_combat_sounds", &openage::presenter::tests::fvd_combat_sounds, false, false},
 	{"openage::presenter::tests::fvd_minimap", &openage::presenter::tests::fvd_minimap, false, false},
