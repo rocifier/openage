@@ -42,3 +42,25 @@ Build on the host's distribution or an ABI-compatible environment; an executable
 built against newer glibc may not run on an older Linux host. Open TCP port
 40000 (or the port you configured) in the firewall. Test room listing and a
 real host/guest connection before switching production traffic.
+
+## Pelican's unmodified Python Generic egg (upload-only)
+
+For hosts where you **cannot** change the egg, Python image or Docker installation,
+use the CI-produced **`fvd-pelican-relay.zip`** instead of the ordinary standalone
+binary above. The stock egg runs `app.py` using its already-installed Python
+interpreter; the bundled `app.py` imports `relay.py`, which `os.execv`-replaces
+Python with a prebuilt **fully static musl C++ relay**. No host compiling,
+library installation, pip packages or archive extraction at startup.
+
+The archive contains both Linux amd64 and arm64 relay executables under
+`bin/`; the launcher detects the host CPU, binds to Pelican's `SERVER_PORT`
+and preserves the native relay's SIGINT/SIGTERM shutdown behavior. The optional
+`relay.json` can set room and connection limits and private player tokens.
+The bundled `README.md` contains the exact file layout and panel settings.
+See [Pelican upload instructions](pelican/README.md) and
+[CI bundle workflow](../../.github/workflows/fvd-pelican-relay.yml).
+
+**Do not** upload a Windows relay, a Linux binary built against a newer glibc,
+or the ordinary standalone build into a Python egg and expect it to run.
+The portable CI build is compiled and tested outside Pelican, then exercised
+inside the stock Pelican `python_3.12` image before release.
