@@ -29,8 +29,9 @@ QRgb tile_color(const QImage &image, uint32_t size, int ne, int se) {
 void fvd_minimap() {
 	network::WorldState world{};
 	world.map_size = 8;
-	world.entities = {at(1, 3, "Tower", 2, 5), at(2, 4, "Builder", 6, 1),
-	                  at(3, 4, "Foundation", 0, 0)};
+	world.entities = {at(1, 3, "MedievalTowerLevel1", 2, 5), at(2, 4, "Builder", 6, 1),
+	                  at(3, 4, "Foundation", 0, 0), at(4, 5, "MedievalTowerLevel2", 3, 3),
+	                  at(5, 1, "HunterTower", 4, 6), at(6, 3, "Tower", 1, 3)};
 	std::vector<uint8_t> fog(64, 255);
 	fog[0 * 8 + 7] = 0;   // ne 0, se 7 unexplored
 	fog[7 * 8 + 7] = 128; // ne 7, se 7 explored only
@@ -46,6 +47,12 @@ void fvd_minimap() {
 	const auto explored = QColor{tile_color(image, 8, 7, 7)};
 	const auto visible = tile_color(image, 8, 4, 4);
 	(explored.value() < QColor{visible}.value() and explored.value() > 0) or TESTFAIL;
+
+	// Both Builder tower tiers and the Hunter tower are structures. Unknown
+	// definitions, such as the retired pre-tier tower name, are not drawn.
+	TESTEQUALS(tile_color(image, 8, 3, 3), minimap_player_color(5).rgb());
+	TESTEQUALS(tile_color(image, 8, 4, 6), minimap_player_color(1).rgb());
+	TESTEQUALS(tile_color(image, 8, 1, 3), visible);
 
 	// Without fog data everything is visible.
 	TESTEQUALS(tile_color(render_minimap(world, {}), 8, 0, 7), visible);

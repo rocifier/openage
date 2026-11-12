@@ -43,6 +43,7 @@
 #include "gamestate/terrain_chunk.h"
 #include "gamestate/terrain_factory.h"
 #include "log/log.h"
+#include "network/entity_kind.h"
 #include "pathfinding/path.h"
 #include "pathfinding/definitions.h"
 #include "pathfinding/cost_field.h"
@@ -407,6 +408,22 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	}
 	this->hunter_tower = settings.get_object("hunter_tower").get_name();
 	this->hunter_rally_marker = settings.get_object("hunter_rally_point").get_name();
+	// Clients classify replicated entities by these names, so a scenario
+	// that renames one would silently break their selection and rendering.
+	const auto require_kind = [](const std::string &definition, network::EntityKind kind) {
+		if (network::classify(definition) != kind) {
+			throw Error{ERR << "FVD scenario entity " << definition
+			                << " does not match client entity " << network::definition_of(kind)};
+		}
+	};
+	require_kind(this->builder, network::EntityKind::BUILDER);
+	require_kind(this->horse, network::EntityKind::HORSE);
+	require_kind(this->foundation, network::EntityKind::FOUNDATION);
+	require_kind(this->tower_demolition, network::EntityKind::TOWER_DEMOLITION);
+	require_kind(this->tower, network::EntityKind::WOOD_TOWER);
+	require_kind(this->stone_tower, network::EntityKind::STONE_TOWER);
+	require_kind(this->hunter_tower, network::EntityKind::HUNTER_TOWER);
+	require_kind(this->hunter_rally_marker, network::EntityKind::HUNTER_RALLY_POINT);
 	this->plains = settings.get_object("terrain").get_name();
 	auto horse_attack = state->get_db_view()->get_object(this->horse + ".Attack");
 	auto attack_property = api::APIAbility::get_property(

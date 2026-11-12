@@ -7,6 +7,8 @@
 #include <cmath>
 #include <utility>
 
+#include "network/entity_kind.h"
+
 namespace openage::presenter {
 
 namespace {
@@ -23,14 +25,14 @@ enum class Mark {
 };
 
 Mark mark_for(const network::EntityState &entity) {
-	const auto &kind = entity.definition;
-	if (kind == "fvd.data.entities.Tower" or kind == "fvd.data.entities.HunterTower") {
+	const auto kind = entity.kind();
+	if (network::is_tower(kind) or kind == network::EntityKind::HUNTER_TOWER) {
 		return Mark::STRUCTURE;
 	}
-	if (kind == "fvd.data.entities.Foundation") {
+	if (kind == network::EntityKind::FOUNDATION) {
 		return Mark::FOUNDATION;
 	}
-	if (kind == "fvd.data.entities.Builder" or kind == "fvd.data.entities.Horse") {
+	if (network::is_unit(kind)) {
 		return Mark::UNIT;
 	}
 	return Mark::NONE;

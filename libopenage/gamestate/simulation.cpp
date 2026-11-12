@@ -29,6 +29,7 @@
 // TODO
 #include "gamestate/fvd.h"
 #include "network/command_bridge.h"
+#include "network/entity_kind.h"
 #include "network/match_connection_state.h"
 #include "gamestate/game.h"
 #include "gamestate/game_state.h"
@@ -46,7 +47,9 @@ size_t prune_unassigned_fvd_builders(
 	}
 	std::vector<entity_id_t> unused{};
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Builder") continue;
+		if (network::classify(entity->get_definition()) != network::EntityKind::BUILDER) {
+			continue;
+		}
 		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 			entity->get_component(component::component_t::OWNERSHIP));
 		if (ownership and ownership->get_owners().get(at) > admitted_players) {
@@ -237,7 +240,7 @@ void GameSimulation::run() {
 			const auto actual_builders = std::count_if(
 				world.entities.begin(), world.entities.end(),
 				[](const network::EntityState &entity) {
-					return entity.definition == "fvd.data.entities.Builder";
+					return entity.kind() == network::EntityKind::BUILDER;
 				});
 			if (actual_builders != expected_builders) {
 				throw Error{MSG(err) << "FVD initial world has " << actual_builders

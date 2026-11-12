@@ -278,12 +278,11 @@ std::vector<ConfirmedCombatEffect> confirmed_combat_effects(
 			// without dying. The occupying player's public flag establishes
 			// this transition even for the Hunter, who must never receive
 			// the concealed Builder's private entity ID.
-			if (prior.definition == "fvd.data.entities.Builder") {
+			if (prior.kind() == EntityKind::BUILDER) {
 				const bool sheltered = std::any_of(
 					current.entities.begin(), current.entities.end(),
 					[&](const EntityState &entry) {
-						return (entry.definition == "fvd.data.entities.MedievalTowerLevel1"
-						        or entry.definition == "fvd.data.entities.MedievalTowerLevel2")
+						return is_tower(entry.kind())
 						    and entry.garrison_player == prior.owner_id
 						    and (not entry.garrisoned_builder
 						         or *entry.garrisoned_builder == prior.entity_id);
@@ -496,12 +495,11 @@ WorldState apply_world_delta(const WorldState &previous, const WorldDelta &delta
 	}
 	for (const auto &entity : next.entities) {
 		if (entity.tower_kills and (entity.owner_id != next.local_player_id
-		    or (entity.definition != "fvd.data.entities.MedievalTowerLevel1"
-		    and entity.definition != "fvd.data.entities.MedievalTowerLevel2"))) {
+		    or not is_tower(entity.kind()))) {
 			throw Error{MSG(err) << "FVD delta disclosed an opponent's tower kills"};
 		}
 		if (entity.hunter_stance and (entity.owner_id != next.local_player_id
-		    or entity.definition != "fvd.data.entities.Horse")) {
+		    or entity.kind() != EntityKind::HORSE)) {
 			throw Error{MSG(err) << "FVD delta disclosed an opponent's Hunter stance"};
 		}
 	}

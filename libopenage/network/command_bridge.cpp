@@ -19,6 +19,7 @@
 #include "gamestate/fvd.h"
 #include "gamestate/game_entity.h"
 #include "gamestate/game_state.h"
+#include "network/entity_kind.h"
 #include "network/match_connection_state.h"
 
 namespace openage::network {
@@ -62,10 +63,6 @@ gamestate::component::command::command_t simulation_command(CommandKind kind) {
 	}
 }
 
-bool is_tower_definition(const std::string &definition) {
-	return definition == "fvd.data.entities.MedievalTowerLevel1"
-	    or definition == "fvd.data.entities.MedievalTowerLevel2";
-}
 std::optional<std::pair<int64_t, int64_t>> entity_health(
 	const std::shared_ptr<gamestate::GameEntity> &entity,
 	const time::time_t &time) {
@@ -214,7 +211,7 @@ WorldState capture_fvd_presentation_state(
 		}
 		if (entity->get_definition() == fvd->get_hunter_rally_marker_definition())
 			entity_state.ungarrison_source_tower = fvd->get_ungarrison_marker_source(entity_id);
-		if (entity->get_definition() == "fvd.data.entities.Horse") {
+		if (classify(entity->get_definition()) == EntityKind::HORSE) {
 			entity_state.hunter_stance = fvd->get_hunter_stance(entity_id);
 		}
 	}
@@ -382,7 +379,7 @@ WorldState capture_fvd_state(
 			entity_state.health = health->first;
 			entity_state.maximum_health = health->second;
 		}
-		if (is_tower_definition(entity_state.definition)
+		if (is_tower(entity_state.kind())
 		    and entity_state.owner_id == recipient) {
 			entity_state.tower_kills = fvd->get_tower_kills(entity_state.entity_id, recipient);
 		}

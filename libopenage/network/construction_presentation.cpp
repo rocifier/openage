@@ -15,7 +15,7 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 	ConstructionPresentation result{};
 	std::unordered_map<gamestate::entity_id_t, gamestate::player_id_t> builders{};
 	for (const auto &entity : world.entities) {
-		if (entity.definition == "fvd.data.entities.Builder") {
+		if (entity.kind() == EntityKind::BUILDER) {
 			if (entity.owner_id < 2
 			    or not builders.emplace(entity.entity_id, entity.owner_id).second) {
 				throw Error{MSG(err) << "FVD presentation has invalid Builder ownership"};
@@ -50,9 +50,9 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 
 	result.sites.reserve(world.entities.size());
 	for (const auto &entity : world.entities) {
-		const bool foundation = entity.definition == "fvd.data.entities.Foundation";
-		const bool tower = entity.definition == "fvd.data.entities.MedievalTowerLevel1"
-		                  or entity.definition == "fvd.data.entities.MedievalTowerLevel2";
+		const auto kind = entity.kind();
+		const bool foundation = kind == EntityKind::FOUNDATION;
+		const bool tower = is_tower(kind);
 		if (not foundation and not tower) {
 			continue;
 		}

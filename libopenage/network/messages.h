@@ -12,6 +12,7 @@
 #include "coord/phys.h"
 #include "coord/tile.h"
 #include "gamestate/types.h"
+#include "network/entity_kind.h"
 #include "network/protocol.h"
 #include "time/time.h"
 
@@ -183,6 +184,13 @@ struct EntityState {
 	std::optional<gamestate::entity_id_t> ungarrison_source_tower{};
 	/** Public occupant's player colour; the hidden Builder ID stays private. */
 	std::optional<gamestate::player_id_t> garrison_player{};
+
+	/**
+	 * Get the kind named by this entity's definition.
+	 *
+	 * @return Entity kind, or EntityKind::UNKNOWN for other definitions.
+	 */
+	EntityKind kind() const;
 };
 
 /** FVD role assigned to one playable player. */

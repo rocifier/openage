@@ -52,6 +52,7 @@
 #include "input/input_manager.h"
 #include "log/log.h"
 #include "network/construction_presentation.h"
+#include "network/entity_kind.h"
 #include "network/lobby_relay_client.h"
 #include "network/order_presentation.h"
 #include "network/protocol.h"
@@ -950,7 +951,7 @@ void Presenter::refresh_fvd_lobby_state() {
 						initial->entities.begin(), initial->entities.end(),
 						[&](const network::EntityState &entity) {
 							return entity.owner_id == this->fvd_assigned_player
-							    and entity.definition == "fvd.data.entities.Builder"
+							    and entity.kind() == network::EntityKind::BUILDER
 							    and not entity.remembered;
 						});
 					if (builder != initial->entities.end()) {
@@ -1135,7 +1136,7 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 	std::erase_if(view.entities, [&](const network::EntityState &entity) {
 		// Hunter rally is always visible to its owner. A Builder ungarrison
 		// marker is only visible when its SOURCE tower is selected.
-		if (entity.definition == "fvd.data.entities.HunterRallyPoint") {
+		if (entity.kind() == network::EntityKind::HUNTER_RALLY_POINT) {
 			return entity.owner_id != controlled
 			    or (entity.ungarrison_source_tower
 			        and entity.ungarrison_source_tower != selected_tower);
@@ -1251,10 +1252,10 @@ void Presenter::record_confirmed_combat_effects(
 			if (this->fvd_combat_visuals.size() >= 512) break;
 			std::shared_ptr<renderer::world::RenderEntity> render_entity{};
 			if (effect.death
-			    and effect.definition == "fvd.data.entities.Horse"
+			    and network::classify(effect.definition) == network::EntityKind::HORSE
 			    and this->world_renderer) {
 				const auto &paths = this->resolve_fvd_sprite_paths(
-					"fvd.data.entities.Horse.Death");
+					network::definition_of(network::EntityKind::HORSE) + ".Death");
 				render_entity = std::make_shared<renderer::world::RenderEntity>(false);
 				this->world_renderer->add_render_entity(render_entity);
 				render_entity->update_sample(
@@ -1352,26 +1353,19 @@ void Presenter::refresh_fvd_guest_visuals() {
 	for (const auto &entity : world->entities) {
 		// Only render known FVD types; do not accept arbitrary sprite
 		// filenames supplied in network messages.
-		if (entity.definition != "fvd.data.entities.Builder"
-		    and entity.definition != "fvd.data.entities.Horse"
-		    and entity.definition != "fvd.data.entities.Tower"
-		    and entity.definition != "fvd.data.entities.HunterTower"
-		    and entity.definition != "fvd.data.entities.HunterRallyPoint"
-		    and entity.definition != "fvd.data.entities.TowerDemolition"
-		    and entity.definition != "fvd.data.entities.Foundation") {
+		const auto kind = entity.kind();
+		if (kind == network::EntityKind::UNKNOWN) {
 			continue;
 		}
 		const bool walking = entity.animation_action == gamestate::AnimationAction::MOVE;
 		const bool attacking = entity.animation_action == gamestate::AnimationAction::ATTACK;
-		if (walking and entity.definition != "fvd.data.entities.Builder"
-		    and entity.definition != "fvd.data.entities.Horse") {
+		const bool movable = network::is_unit(kind);
+		if (walking and not movable) {
 			throw Error{MSG(err) << "FVD replica has an invalid moving entity"};
 		}
-		if (attacking and entity.definition != "fvd.data.entities.Horse") {
+		if (attacking and kind != network::EntityKind::HORSE) {
 			throw Error{MSG(err) << "FVD replica has an invalid attacking entity"};
 		}
-		const bool movable = entity.definition == "fvd.data.entities.Builder"
-		                     or entity.definition == "fvd.data.entities.Horse";
 		const std::string cache_key = entity.definition
 		                              + (attacking ? ".Attack"
 		                                           : walking ? ".Move" : ".Idle");
@@ -1381,7 +1375,7 @@ void Presenter::refresh_fvd_guest_visuals() {
 		const bool new_entity = not visual;
 		if (not visual) {
 			// Clicks pass through the rally point marker, as on the host.
-			const bool pickable = entity.definition != "fvd.data.entities.HunterRallyPoint";
+			const bool pickable = kind != network::EntityKind::HUNTER_RALLY_POINT;
 			visual = std::make_shared<renderer::world::RenderEntity>(pickable);
 			this->world_renderer->add_render_entity(visual);
 			// Replicated proxies do not pass through the simulation's normal
@@ -2540,7 +2534,7 @@ void Presenter::render() {
 				QVariantList occupied_flags;
 				if (construction_world) {
 					for (const auto &entity : construction_world->entities) {
-						if (entity.definition != "fvd.data.entities.Tower"
+						if (not network::is_tower(entity.kind())
 						    or not entity.garrison_player or entity.remembered) continue;
 						auto at = entity.position;
 						at.up += coord::phys_t::from_double(4.5);
@@ -2631,7 +2625,7 @@ void Presenter::render() {
 					                    [&](const network::EntityState &entry) {
 						                    return entry.entity_id == selected.ids.front()
 						                        and entry.owner_id == controlled
-						                        and entry.definition == "fvd.data.entities.Builder";
+						                        and entry.kind() == network::EntityKind::BUILDER;
 					                    });
 					for (const auto &site : sites) {
 						for (const auto &tile : fvd->get_tower_footprint(site)) {
@@ -2649,10 +2643,10 @@ void Presenter::render() {
 							                        [&](const network::EntityState &entry) {
 								                        // Live units can be displaced at construction time;
 								                        // they must not invalidate a planned foundation.
-								                        return entry.definition != "fvd.data.entities.Builder"
-								                            and entry.definition != "fvd.data.entities.Horse"
-								                            and entry.definition != "fvd.data.entities.TowerDemolition"
-								                            and entry.definition != "fvd.data.entities.HunterRallyPoint"
+								                        const auto entry_kind = entry.kind();
+								                        return not network::is_unit(entry_kind)
+								                            and entry_kind != network::EntityKind::TOWER_DEMOLITION
+								                            and entry_kind != network::EntityKind::HUNTER_RALLY_POINT
 								                            and entry.position.to_tile() == tile;
 							                        }))) {
 								valid = false;

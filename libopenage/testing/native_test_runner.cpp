@@ -17,7 +17,7 @@ namespace openage::cvar::tests { void native_config(); }
 namespace openage::coord::tests { void coord(); }
 namespace openage::datastructure::tests { void concurrent_queue(); void constexpr_map(); void pairing_heap(); }
 namespace openage::job::tests { void test_job_manager(); }
-namespace openage::network::tests { void messages(); void stance_messages(); void fog_messages(); void protocol(); void handshake(); void lobby(); void lobby_rematch_room_visibility(); void lobby_relay_client(); void lobby_latency(); void lobby_capacity(); void authority_succession(); void session(); void rehost_ticket(); void command_mailbox(); void connection_mailbox(); void match_disconnect_coordinator(); void replication(); void world_delta(); void world_delta_flares(); void transport(); void transport_high_fd(); void fvd_loopback(); void fvd_multi_session(); void fvd_process_worker(); void relay(); void relay_registry(); void relay_multi_host_lobby(); void relay_service(); void relay_process_worker(); }
+namespace openage::network::tests { void entity_kind(); void messages(); void stance_messages(); void fog_messages(); void protocol(); void handshake(); void lobby(); void lobby_rematch_room_visibility(); void lobby_relay_client(); void lobby_latency(); void lobby_capacity(); void authority_succession(); void session(); void rehost_ticket(); void command_mailbox(); void connection_mailbox(); void match_disconnect_coordinator(); void replication(); void world_delta(); void world_delta_flares(); void transport(); void transport_high_fd(); void fvd_loopback(); void fvd_multi_session(); void fvd_process_worker(); void relay(); void relay_registry(); void relay_multi_host_lobby(); void relay_service(); void relay_process_worker(); }
 namespace openage::path::tests { void path_node(); void flow_field(); }
 namespace openage::renderer::tests { void font(); void font_manager(); }
 #if WITH_OPENGL
@@ -58,6 +58,7 @@ constexpr Test native_test_entries[] = {
 	{"openage::datastructure::tests::constexpr_map", &openage::datastructure::tests::constexpr_map, false, false},
 	{"openage::datastructure::tests::pairing_heap", &openage::datastructure::tests::pairing_heap, false, false},
 	{"openage::job::tests::test_job_manager", &openage::job::tests::test_job_manager, false, false},
+	{"openage::network::tests::entity_kind", &openage::network::tests::entity_kind, false, false},
 	{"openage::network::tests::messages", &openage::network::tests::messages, false, false},
 	{"openage::network::tests::stance_messages", &openage::network::tests::stance_messages, false, false},
 	{"openage::network::tests::fog_messages", &openage::network::tests::fog_messages, false, false},

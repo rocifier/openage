@@ -27,16 +27,6 @@ constexpr uint16_t ENTITY_REMEMBERED = 1 << 3;
 constexpr uint16_t ENTITY_HAS_GARRISONED_BUILDER = 1 << 4;
 constexpr uint16_t ENTITY_HAS_UNGARRISON_SOURCE = 1 << 5;
 constexpr uint16_t ENTITY_HAS_GARRISON_PLAYER = 1 << 6;
-constexpr const char *WOOD_TOWER_DEFINITION = "fvd.data.entities.MedievalTowerLevel1";
-constexpr const char *STONE_TOWER_DEFINITION = "fvd.data.entities.MedievalTowerLevel2";
-
-bool is_tower_definition(const std::string &definition) {
-	return definition == WOOD_TOWER_DEFINITION or definition == STONE_TOWER_DEFINITION;
-}
-constexpr const char *RALLY_DEFINITION = "fvd.data.entities.HunterRallyPoint";
-constexpr const char *FOUNDATION_DEFINITION = "fvd.data.entities.Foundation";
-constexpr const char *HUNTER_TOWER_DEFINITION = "fvd.data.entities.HunterTower";
-constexpr const char *HORSE_DEFINITION = "fvd.data.entities.Horse";
 constexpr uint16_t ATTACK_HAS_TARGET = 1 << 0;
 constexpr uint16_t ATTACK_REACHED_DESTINATION = 1 << 1;
 constexpr uint16_t ATTACK_FOCUS_TARGET = 1 << 2;
@@ -149,8 +139,8 @@ bool is_known_construction_phase(uint16_t value) {
 
 /** A remembered entity is an enemy building with nothing but its last place. */
 bool valid_remembered(const EntityState &entity, gamestate::player_id_t local_player) {
-	return (is_tower_definition(entity.definition) or entity.definition == FOUNDATION_DEFINITION
-	        or entity.definition == HUNTER_TOWER_DEFINITION)
+	const auto kind = entity.kind();
+	return (is_tower(kind) or kind == EntityKind::FOUNDATION or kind == EntityKind::HUNTER_TOWER)
 	   and entity.owner_id != local_player and not entity.health and not entity.tower_kills
 	   and not entity.hunter_stance and not entity.garrisoned_builder
 	   and not entity.ungarrison_source_tower
@@ -221,6 +211,10 @@ void append_string(std::vector<uint8_t> &output,
 }
 
 } // namespace
+
+EntityKind EntityState::kind() const {
+	return classify(this->definition);
+}
 
 int ConstructionState::progress_percent(const time::time_t &now) const {
 	if (this->phase != ConstructionPhase::UNDER_CONSTRUCTION) {
@@ -703,29 +697,29 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		}
 		if (entity.tower_kills
 		    and (entity.owner_id != state.local_player_id
-		         or not is_tower_definition(entity.definition))) {
+		         or not is_tower(entity.kind()))) {
 			throw Error{MSG(err) << "FVD tower kills may only be sent to their owner"};
 		}
 		if (entity.hunter_stance
 		    and (entity.owner_id != state.local_player_id
-		         or entity.definition != HORSE_DEFINITION
+		         or entity.kind() != EntityKind::HORSE
 		         or not is_known_hunter_stance(static_cast<uint16_t>(*entity.hunter_stance)))) {
 			throw Error{MSG(err) << "FVD Hunter stances may only be sent to their owner"};
 		}
 		if (entity.garrisoned_builder
 		    and (entity.garrison_player.value_or(entity.owner_id) != state.local_player_id
-		         or not is_tower_definition(entity.definition)
+		         or not is_tower(entity.kind())
 		         or *entity.garrisoned_builder == 0)) {
 			throw Error{MSG(err) << "Garrisoned Builder identity belongs only to the tower owner"};
 		}
 		if (entity.ungarrison_source_tower
 		    and (entity.owner_id != state.local_player_id
-		         or entity.definition != RALLY_DEFINITION
+		         or entity.kind() != EntityKind::HUNTER_RALLY_POINT
 		         or *entity.ungarrison_source_tower == 0)) {
 			throw Error{MSG(err) << "Ungarrison marker source belongs only to the tower owner"};
 		}
 		if (entity.garrison_player
-		    and (not is_tower_definition(entity.definition)
+		    and (not is_tower(entity.kind())
 		         or *entity.garrison_player < 2
 		         or *entity.garrison_player > MAX_STATE_PLAYERS)) {
 			throw Error{MSG(err) << "Invalid public garrison flag player"};
@@ -984,7 +978,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		EntityState entity{entity_id, owner_id, std::move(definition), position};
 		if ((flags & ENTITY_HAS_GARRISONED_BUILDER) != 0) {
 			const auto builder_id = reader.u64();
-			if (builder_id == 0 or not is_tower_definition(entity.definition)) {
+			if (builder_id == 0 or not is_tower(entity.kind())) {
 				throw Error{MSG(err) << "Invalid or foreign garrison identity"};
 			}
 			entity.garrisoned_builder = builder_id;
@@ -992,14 +986,14 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		if ((flags & ENTITY_HAS_UNGARRISON_SOURCE) != 0) {
 			const auto tower_id = reader.u64();
 			if (tower_id == 0 or owner_id != state.local_player_id
-			    or entity.definition != RALLY_DEFINITION) {
+			    or entity.kind() != EntityKind::HUNTER_RALLY_POINT) {
 				throw Error{MSG(err) << "Invalid or foreign ungarrison marker source"};
 			}
 			entity.ungarrison_source_tower = tower_id;
 		}
 		if ((flags & ENTITY_HAS_GARRISON_PLAYER) != 0) {
 			auto player_id = reader.u64();
-			if (not is_tower_definition(entity.definition)
+			if (not is_tower(entity.kind())
 			    or player_id < 2 or player_id > MAX_STATE_PLAYERS)
 				throw Error{MSG(err) << "Invalid public tower flag"};
 			entity.garrison_player = player_id;
@@ -1008,7 +1002,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		    and entity.garrison_player.value_or(entity.owner_id) != state.local_player_id)
 			throw Error{MSG(err) << "Foreign sheltered Builder identity"};
 		if ((flags & ENTITY_HAS_HUNTER_STANCE) != 0) {
-			if (owner_id != state.local_player_id or entity.definition != HORSE_DEFINITION
+			if (owner_id != state.local_player_id or entity.kind() != EntityKind::HORSE
 			    or not is_known_hunter_stance(hunter_stance)) {
 				throw Error{MSG(err) << "FVD Hunter stances belong only to the recipient"};
 			}
@@ -1016,7 +1010,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		}
 		if ((flags & ENTITY_HAS_TOWER_KILLS) != 0) {
 			if (owner_id != state.local_player_id
-			    or not is_tower_definition(entity.definition)) {
+			    or not is_tower(entity.kind())) {
 				throw Error{MSG(err) << "FVD tower kills belong only to the recipient"};
 			}
 			entity.tower_kills = tower_kills;
@@ -1083,18 +1077,18 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		entity.remembered = (flags & ENTITY_REMEMBERED) != 0;
 		if (entity.garrisoned_builder
 		    and (entity.garrison_player.value_or(entity.owner_id) != state.local_player_id
-		         or not is_tower_definition(entity.definition)
+		         or not is_tower(entity.kind())
 		         or *entity.garrisoned_builder == 0)) {
 			throw Error{MSG(err) << "Garrisoned Builder identity belongs only to the tower owner"};
 		}
 		if (entity.ungarrison_source_tower
 		    and (entity.owner_id != state.local_player_id
-		         or entity.definition != RALLY_DEFINITION
+		         or entity.kind() != EntityKind::HUNTER_RALLY_POINT
 		         or *entity.ungarrison_source_tower == 0)) {
 			throw Error{MSG(err) << "Ungarrison marker source belongs only to the tower owner"};
 		}
 		if (entity.garrison_player
-		    and (not is_tower_definition(entity.definition)
+		    and (not is_tower(entity.kind())
 		         or *entity.garrison_player < 2
 		         or *entity.garrison_player > MAX_STATE_PLAYERS)) {
 			throw Error{MSG(err) << "Invalid public garrison flag player"};

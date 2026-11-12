@@ -47,15 +47,19 @@ void fvd_structure_group_selection() {
 		entity.maximum_health = 200;
 		return entity;
 	};
+	// Both tower tiers select and group as the same structure kind.
+	const auto &wood = definition_of(EntityKind::WOOD_TOWER);
+	const auto &stone = definition_of(EntityKind::STONE_TOWER);
+	const auto &foundation = definition_of(EntityKind::FOUNDATION);
 	world.entities = {
-		tower(10, 2, {2, 2}, "fvd.data.entities.Tower"),
-		tower(11, 3, {3, 3}, "fvd.data.entities.Tower"),
-		tower(12, 3, {4, 4}, "fvd.data.entities.Tower"),
-		tower(13, 3, {5, 5}, "fvd.data.entities.Tower"),
-		tower(20, 2, {6, 6}, "fvd.data.entities.Foundation"),
-		tower(21, 3, {7, 7}, "fvd.data.entities.Foundation"),
-		tower(30, 2, {8, 8}, "fvd.data.entities.Tower"),
-		tower(31, 2, {9, 9}, "fvd.data.entities.Tower"),
+		tower(10, 2, {2, 2}, wood),
+		tower(11, 3, {3, 3}, stone),
+		tower(12, 3, {4, 4}, wood),
+		tower(13, 3, {5, 5}, stone),
+		tower(20, 2, {6, 6}, foundation),
+		tower(21, 3, {7, 7}, foundation),
+		tower(30, 2, {8, 8}, wood),
+		tower(31, 2, {9, 9}, stone),
 	};
 	world.constructions.push_back(ConstructionState{});
 	world.constructions.back().site_entity_id = 30;

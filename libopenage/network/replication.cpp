@@ -45,8 +45,7 @@ std::unordered_map<gamestate::entity_id_t, uint64_t> local_tower_kills(
 	for (const auto &entity : state.entities) {
 		if (entity.tower_kills) {
 			if (entity.owner_id != state.local_player_id
-			    or (entity.definition != "fvd.data.entities.MedievalTowerLevel1"
-			     and entity.definition != "fvd.data.entities.MedievalTowerLevel2")
+			    or not is_tower(entity.kind())
 			    or not result.emplace(entity.entity_id, *entity.tower_kills).second) {
 				throw Error{MSG(err) << "FVD replicated tower kills are not owner-private"};
 			}

@@ -26,6 +26,7 @@
 #include "gamestate/game_state.h"
 #include "gamestate/simulation.h"
 #include "input/controller/game/binding_context.h"
+#include "network/entity_kind.h"
 #include "time/clock.h"
 #include "time/time_loop.h"
 #include "util/stall_profiler.h"
@@ -419,14 +420,37 @@ std::vector<gamestate::entity_id_t> units_take_priority(
 
 namespace {
 
+/** Selection kind for a single selected entity of the given kind. */
+SelectionKind selection_kind_of(network::EntityKind kind) {
+	switch (kind) {
+	case network::EntityKind::BUILDER:
+		return SelectionKind::BUILDER;
+	case network::EntityKind::HORSE:
+		return SelectionKind::HORSE;
+	case network::EntityKind::WOOD_TOWER:
+	case network::EntityKind::STONE_TOWER:
+		return SelectionKind::TOWER;
+	case network::EntityKind::HUNTER_TOWER:
+		return SelectionKind::HUNTER_TOWER;
+	case network::EntityKind::FOUNDATION:
+		return SelectionKind::FOUNDATION;
+	default:
+		return SelectionKind::OTHER;
+	}
+}
+
 SelectionKind structure_type(const network::WorldState &world,
                              const network::EntityState &entity) {
-	if (entity.definition == "fvd.data.entities.Foundation")
+	const auto kind = entity.kind();
+	if (kind == network::EntityKind::FOUNDATION) {
 		return SelectionKind::FOUNDATION;
-	if (entity.definition == "fvd.data.entities.HunterTower")
+	}
+	if (kind == network::EntityKind::HUNTER_TOWER) {
 		return SelectionKind::HUNTER_TOWER;
-	if (entity.definition != "fvd.data.entities.Tower")
+	}
+	if (not network::is_tower(kind)) {
 		return SelectionKind::NONE;
+	}
 	const bool being_built = std::any_of(
 		world.constructions.begin(), world.constructions.end(),
 		[&](const network::ConstructionState &construction) {
@@ -525,13 +549,12 @@ void apply_selection(const std::shared_ptr<Controller> &controller,
 	auto is_horse = [&](gamestate::entity_id_t id) {
 		auto found = state->get_game_entities().find(id);
 		return found != state->get_game_entities().end()
-		    and found->second->get_definition() == "fvd.data.entities.Horse";
+		    and network::classify(found->second->get_definition()) == network::EntityKind::HORSE;
 	};
 	auto is_unit = [&](gamestate::entity_id_t id) {
 		auto found = state->get_game_entities().find(id);
 		return found != state->get_game_entities().end()
-		    and (found->second->get_definition() == "fvd.data.entities.Horse"
-		         or found->second->get_definition() == "fvd.data.entities.Builder");
+		    and network::is_unit(network::classify(found->second->get_definition()));
 	};
 	if (ids.size() > 1) {
 		const auto chosen = units_take_priority(ids, is_unit);
@@ -555,23 +578,7 @@ void apply_selection(const std::shared_ptr<Controller> &controller,
 		controller->set_selected_if_current(generation, {});
 		return;
 	}
-	auto definition = found->second->get_definition();
-	auto kind = SelectionKind::OTHER;
-	if (definition == "fvd.data.entities.Builder") {
-		kind = SelectionKind::BUILDER;
-	}
-	else if (definition == "fvd.data.entities.Horse") {
-		kind = SelectionKind::HORSE;
-	}
-	else if (definition == "fvd.data.entities.Tower") {
-		kind = SelectionKind::TOWER;
-	}
-	else if (definition == "fvd.data.entities.HunterTower") {
-		kind = SelectionKind::HUNTER_TOWER;
-	}
-	else if (definition == "fvd.data.entities.Foundation") {
-		kind = SelectionKind::FOUNDATION;
-	}
+	const auto kind = selection_kind_of(network::classify(found->second->get_definition()));
 	controller->set_selected_if_current(
 		generation, ids, kind, found->second->get_render_entity());
 }
@@ -622,41 +629,34 @@ void apply_guest_selection(
 	const auto candidates = units_take_priority(ids, [&](gamestate::entity_id_t id) {
 		auto found = find(id);
 		return found != world.entities.end() and found->owner_id == world.local_player_id
-		    and (found->definition == "fvd.data.entities.Horse"
-		         or found->definition == "fvd.data.entities.Builder");
+		    and network::is_unit(found->kind());
 	});
 	for (auto id : candidates) {
 		auto found = find(id);
-		const bool own_unit = found != world.entities.end()
-		                  and found->owner_id == world.local_player_id;
-		const bool allied_tower = found != world.entities.end()
-		                       and world.local_player_id >= 2
-		                       and found->owner_id >= 2
-		                       and found->definition == "fvd.data.entities.Tower";
-		if (not own_unit and not allied_tower) continue;
-		if (found->definition == "fvd.data.entities.Horse") {
-			if (kind != SelectionKind::NONE and kind != SelectionKind::HORSE) continue;
-			kind = SelectionKind::HORSE;
-		}
-		else if (found->definition == "fvd.data.entities.Builder") {
-			if (not valid.empty()) continue;
-			kind = SelectionKind::BUILDER;
-		}
-		else if (found->definition == "fvd.data.entities.Tower") {
-			if (not valid.empty()) continue;
-			kind = SelectionKind::TOWER;
-		}
-		else if (found->definition == "fvd.data.entities.HunterTower") {
-			if (not valid.empty()) continue;
-			kind = SelectionKind::HUNTER_TOWER;
-		}
-		else if (found->definition == "fvd.data.entities.Foundation") {
-			if (not valid.empty()) continue;
-			kind = SelectionKind::FOUNDATION;
-		}
-		else {
+		if (found == world.entities.end()) {
 			continue;
 		}
+		const bool own = found->owner_id == world.local_player_id;
+		const bool allied_tower = world.local_player_id >= 2
+		                       and found->owner_id >= 2
+		                       and network::is_tower(found->kind());
+		if (not own and not allied_tower) {
+			continue;
+		}
+		const auto entity_selection = selection_kind_of(found->kind());
+		if (entity_selection == SelectionKind::OTHER) {
+			continue;
+		}
+		// Horses form groups; any other kind is selected on its own.
+		if (entity_selection == SelectionKind::HORSE) {
+			if (kind != SelectionKind::NONE and kind != SelectionKind::HORSE) {
+				continue;
+			}
+		}
+		else if (not valid.empty()) {
+			continue;
+		}
+		kind = entity_selection;
 		valid.push_back(id);
 		if (kind != SelectionKind::HORSE) break;
 	}
@@ -673,7 +673,7 @@ std::optional<gamestate::entity_id_t> queue_foundation_target(
 	std::optional<gamestate::entity_id_t> picked, const coord::tile &clicked_tile) {
 	auto matches = [owner](const network::EntityState &entity) {
 		return owner >= 2 and entity.owner_id == owner and not entity.remembered
-		    and entity.definition == "fvd.data.entities.Foundation";
+		    and entity.kind() == network::EntityKind::FOUNDATION;
 	};
 	auto ground = std::find_if(world.entities.begin(), world.entities.end(),
 	                           [&](const auto &entity) {
@@ -1016,7 +1016,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 					auto matches = [&](const network::EntityState &entity) {
 						return entity.entity_id != selection.ids.front()
 						    and owner >= 2 and entity.owner_id >= 2
-						    and entity.definition == "fvd.data.entities.Tower";
+						    and network::is_tower(entity.kind());
 					};
 					auto found = std::find_if(
 						world->entities.begin(), world->entities.end(),
@@ -1118,13 +1118,13 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 							});
 						if (found != replica.entities.end()) {
 							if (horses and found->owner_id != owner
-							    and (found->definition == "fvd.data.entities.Builder"
-							         or found->definition == "fvd.data.entities.Tower")) {
+							    and (found->kind() == network::EntityKind::BUILDER
+							         or network::is_tower(found->kind()))) {
 								intent.kind = network::CommandKind::FOCUS_ATTACK;
 								intent.target_entity = *hit;
 							}
 							else if (builder and found->owner_id == owner
-							         and found->definition == "fvd.data.entities.Foundation") {
+							         and found->kind() == network::EntityKind::FOUNDATION) {
 								intent.kind = network::CommandKind::PRIORITIZE_FOUNDATION;
 								intent.target_entity = *hit;
 							}
@@ -1245,7 +1245,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 			if (world and owner >= 2) {
 				for (const auto &entity : world->entities) {
 					if (entity.owner_id == owner and not entity.remembered
-					    and entity.definition == "fvd.data.entities.Foundation") {
+					    and entity.kind() == network::EntityKind::FOUNDATION) {
 						foundations.insert(entity.entity_id);
 					}
 				}
@@ -1385,7 +1385,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 					const network::WorldState *world = replicated ? &*replicated : host_world.get();
 					auto matches_tower = [owner](const network::EntityState &entity) {
 						return owner >= 2 and entity.owner_id >= 2
-						    and entity.definition == "fvd.data.entities.Tower";
+						    and network::is_tower(entity.kind());
 					};
 					std::optional<gamestate::entity_id_t> tower_id;
 					if (picked and not world) {
@@ -1544,8 +1544,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 						std::vector<gamestate::entity_id_t> picked;
 						for (const auto &entity : replica->entities) {
 							if (entity.owner_id != replica->local_player_id
-							    or (entity.definition != "fvd.data.entities.Horse"
-							        and entity.definition != "fvd.data.entities.Builder")) continue;
+							    or not network::is_unit(entity.kind())) continue;
 							auto scene = entity.position.to_scene3().to_world_space();
 							Eigen::Vector4f clip = projection->matrix * Eigen::Vector4f{
 								scene.x(), scene.y(), scene.z(), 1.0f};
@@ -1558,7 +1557,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 							    and y <= std::max(drag_start.y, args.mouse.y)) {
 								picked.push_back(entity.entity_id);
 								// Builder controls currently accept exactly one unit.
-								if (entity.definition == "fvd.data.entities.Builder") break;
+								if (entity.kind() == network::EntityKind::BUILDER) break;
 							}
 						}
 						apply_guest_selection(controller, *replica, selection_generation, picked);

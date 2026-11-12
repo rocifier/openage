@@ -14,6 +14,7 @@
 #include "gamestate/component/internal/ownership.h"
 #include "gamestate/component/types.h"
 #include "gamestate/fvd.h"
+#include "network/entity_kind.h"
 #include "network/messages.h"
 #include "gamestate/game_entity.h"
 #include "gamestate/game_state.h"
@@ -147,7 +148,8 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			auto target_id = params.get<entity_id_t>("target_entity");
 			auto target = gstate->get_game_entities().find(target_id);
 			if (target != gstate->get_game_entities().end()
-			    and target->second->get_definition() == "fvd.data.entities.Foundation") {
+			    and network::classify(target->second->get_definition())
+			            == network::EntityKind::FOUNDATION) {
 				const bool accepted = fvd->prioritize_foundation(
 					gstate, owner, ids, target_id, time);
 				if (result_cb) {

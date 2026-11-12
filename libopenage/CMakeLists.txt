@@ -404,6 +404,7 @@ set(_fvd_native_cpp_test_sources
 	"${CMAKE_SOURCE_DIR}/libopenage/network/authority_succession_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/command_mailbox_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/connection_mailbox_test.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/network/entity_kind_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/fvd_loopback_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/fvd_multi_session_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/network/handshake_test.cpp"
