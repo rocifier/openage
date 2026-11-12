@@ -449,8 +449,9 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 	    and intent.kind != CommandKind::SET_UNGARRISON_POINT) {
 		throw Error{MSG(err) << "FVD targeted command requires exactly one target entity"};
 	}
-	if (intent.queue and intent.kind != CommandKind::BUILD_TOWER) {
-		throw Error{MSG(err) << "FVD queue flag applies only to tower construction"};
+	if (intent.queue and intent.kind != CommandKind::BUILD_TOWER
+	    and intent.kind != CommandKind::PRIORITIZE_FOUNDATION) {
+		throw Error{MSG(err) << "FVD queue flag applies only to tower construction or foundations"};
 	}
 	if (not intent.build_line.empty()
 	    and (not intent.queue or intent.kind != CommandKind::BUILD_TOWER
@@ -566,7 +567,8 @@ CommandIntent decode_command_intent(const std::vector<uint8_t> &payload) {
 	     or intent.kind == CommandKind::PRIORITIZE_FOUNDATION
 	     or intent.kind == CommandKind::GARRISON) != intent.target_entity.has_value()
 	        and intent.kind != CommandKind::SET_UNGARRISON_POINT
-	    or (intent.queue and intent.kind != CommandKind::BUILD_TOWER)
+	    or (intent.queue and intent.kind != CommandKind::BUILD_TOWER
+	        and intent.kind != CommandKind::PRIORITIZE_FOUNDATION)
 	    or (not intent.build_line.empty()
 	        and (intent.kind != CommandKind::BUILD_TOWER or not intent.queue
 	             or intent.build_line.front() != intent.target))
@@ -792,8 +794,13 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		append_i64(output, entity.animation_started_at.get_raw_value());
 	}
 	for (const auto &reservation : state.reservations) {
+		if (reservation.builder_id == 0 or reservation.queue_position == 0
+		    or reservation.queue_position > MAX_QUEUED_BUILD_SITES + 1) {
+			throw Error{MSG(err) << "FVD state contains an invalid tile reservation"};
+		}
 		append_tile(output, reservation.tile);
 		append_u64(output, reservation.builder_id);
+		append_u32(output, reservation.queue_position);
 	}
 	for (const auto &construction : state.constructions) {
 		if (construction.order_id == 0 or construction.owner_id == 0
@@ -1101,7 +1108,12 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 	for (uint32_t i = 0; i < reservation_count; ++i) {
 		auto tile = read_tile(reader);
 		auto builder_id = reader.u64();
-		state.reservations.push_back({tile, builder_id});
+		auto queue_position = reader.u32();
+		if (builder_id == 0 or queue_position == 0
+		    or queue_position > MAX_QUEUED_BUILD_SITES + 1) {
+			throw Error{MSG(err) << "FVD state contains an invalid tile reservation"};
+		}
+		state.reservations.push_back({tile, builder_id, queue_position});
 	}
 	state.constructions.reserve(construction_count);
 	for (uint32_t i = 0; i < construction_count; ++i) {

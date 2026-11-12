@@ -113,7 +113,7 @@ void world_delta() {
 		marker_before, decode_world_delta(encode_world_delta(marker_delta)));
 	TESTEQUALS(marker_rebuilt.entities.back().ungarrison_source_tower,
 	           std::optional<gamestate::entity_id_t>{11});
-	initial.reservations = {{{66, 67}, 13}};
+	initial.reservations = {{{66, 67}, 13, 1}};
 	initial.constructions = {{
 		7, 2, 13, {66, 67}, ConstructionPhase::PLANNED,
 		time::time_t::from_int(40), time::time_t::from_int(40), 90}};

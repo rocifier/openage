@@ -133,7 +133,8 @@ void difference_entities(const WorldState &before, const WorldState &after,
 }
 
 bool same(const TileReservation &a, const TileReservation &b) {
-	return a.tile == b.tile and a.builder_id == b.builder_id;
+	return a.tile == b.tile and a.builder_id == b.builder_id
+	    and a.queue_position == b.queue_position;
 }
 bool same(const ConstructionState &a, const ConstructionState &b) {
 	return a.order_id == b.order_id and a.owner_id == b.owner_id

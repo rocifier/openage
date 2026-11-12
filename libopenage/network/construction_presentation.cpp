@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "error/error.h"
 
@@ -26,12 +27,14 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 	auto key = [](const coord::tile &tile) {
 		return tile_key_t{tile.ne, tile.se};
 	};
-	std::map<tile_key_t, gamestate::entity_id_t> reserved_by{};
+	std::map<tile_key_t, const TileReservation *> reserved_by{};
 	result.reservations.reserve(world.reservations.size());
 	for (const auto &reservation : world.reservations) {
 		auto builder = builders.find(reservation.builder_id);
 		if (builder == builders.end()
-		    or not reserved_by.emplace(key(reservation.tile), reservation.builder_id).second) {
+		    or reservation.queue_position == 0
+		    or reservation.queue_position > MAX_QUEUED_BUILD_SITES + 1
+		    or not reserved_by.emplace(key(reservation.tile), &reservation).second) {
 			throw Error{MSG(err) << "FVD presentation has invalid reserved tile"};
 		}
 		result.reservations.push_back({reservation.tile, builder->second});
@@ -64,13 +67,15 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 			    or not builders.contains(construction.builder_id)
 			    or builders.at(construction.builder_id) != entity.owner_id
 			    or not reserved_by.contains(key(site))
-			    or reserved_by.at(key(site)) != construction.builder_id) {
+			    or reserved_by.at(key(site))->builder_id != construction.builder_id
+			    or reserved_by.at(key(site))->queue_position != 1) {
 				throw Error{MSG(err) << "FVD presentation construction disagrees with world"};
 			}
 			result.sites.push_back({
 				entity.entity_id, entity.owner_id, construction.builder_id, site,
 				foundation ? SitePresentationPhase::PLANNED
-				           : SitePresentationPhase::BUILDING});
+				           : SitePresentationPhase::BUILDING,
+				1});
 			active.erase(order);
 		}
 		else if (foundation) {
@@ -82,13 +87,15 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 					SitePresentationPhase::ORPHANED});
 				continue;
 			}
-			const auto builder = builders.find(reserved->second);
-			if (builder == builders.end() or builder->second != entity.owner_id) {
-				throw Error{MSG(err) << "FVD queued foundation has a different owner"};
+			const auto &reservation = *reserved->second;
+			const auto builder = builders.find(reservation.builder_id);
+			if (builder == builders.end() or builder->second != entity.owner_id
+			    or reservation.queue_position <= 1) {
+				throw Error{MSG(err) << "FVD queued foundation has invalid ownership or queue position"};
 			}
 			result.sites.push_back({
 				entity.entity_id, entity.owner_id, builder->first, site,
-				SitePresentationPhase::QUEUED});
+				SitePresentationPhase::QUEUED, reservation.queue_position});
 		}
 		else {
 			result.sites.push_back({
@@ -101,24 +108,11 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 	}
 	std::sort(result.sites.begin(), result.sites.end(),
 	          [](const auto &a, const auto &b) { return a.entity_id < b.entity_id; });
-	std::unordered_map<gamestate::entity_id_t, std::vector<size_t>> queues{};
-	for (size_t index = 0; index < result.sites.size(); ++index) {
-		const auto &site = result.sites[index];
-		if (site.phase == SitePresentationPhase::QUEUED
-		    or site.phase == SitePresentationPhase::PLANNED
-		    or site.phase == SitePresentationPhase::BUILDING) {
-			queues[site.builder_id].push_back(index);
-		}
-	}
-	for (auto &[builder, entries] : queues) {
-		std::stable_sort(entries.begin(), entries.end(), [&](size_t a, size_t b) {
-			const bool queued_a = result.sites[a].phase == SitePresentationPhase::QUEUED;
-			const bool queued_b = result.sites[b].phase == SitePresentationPhase::QUEUED;
-			if (queued_a != queued_b) return not queued_a;
-			return result.sites[a].entity_id < result.sites[b].entity_id;
-		});
-		for (size_t index = 0; index < entries.size(); ++index) {
-			result.sites[entries[index]].queue_position = static_cast<uint32_t>(index + 1);
+	std::unordered_map<gamestate::entity_id_t, std::unordered_set<uint32_t>> queue_positions{};
+	for (const auto &site : result.sites) {
+		if (site.queue_position != 0
+		    and not queue_positions[site.builder_id].insert(site.queue_position).second) {
+			throw Error{MSG(err) << "FVD presentation has duplicate construction queue positions"};
 		}
 	}
 	return result;

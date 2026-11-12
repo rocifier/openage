@@ -95,9 +95,11 @@ public:
 	 * @param position Pixel position in window input coordinates.
 	 * @param callback Called with the game entity ID, or no value if the pixel
 	 *                 contains no world object.
+	 * @param filter Optional predicate restricting which entity IDs may be picked.
 	 */
 	void pick_entity(const coord::input &position,
-	                 const std::function<void(std::optional<uint32_t>)> &callback);
+	                 const std::function<void(std::optional<uint32_t>)> &callback,
+	                 const std::function<bool(uint32_t)> &filter = {});
 
 	/**
 	 * Update the render entities and render positions.

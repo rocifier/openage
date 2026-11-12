@@ -118,6 +118,46 @@ void fvd_structure_group_selection() {
 }
 
 void tower_placement_mode() {
+	network::WorldState world{};
+	world.entities = {
+		{10, 2, "fvd.data.entities.Foundation", {5.5, 5.5, 0}},
+		{11, 3, "fvd.data.entities.Foundation", {6.5, 6.5, 0}},
+		{12, 2, "fvd.data.entities.Builder", {7.5, 7.5, 0}},
+		{13, 2, "fvd.data.entities.Foundation", {6.5, 5.5, 0}},
+	};
+	TESTEQUALS(queue_foundation_target(world, 2, 10, {7, 7}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, 10, {6, 5}),
+	           std::optional<gamestate::entity_id_t>{13});
+	TESTEQUALS(queue_foundation_target(world, 2, 13, {5, 5}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, 10, {6, 6}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, std::nullopt, {5, 5}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, 12, {5, 5}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, 11, {6, 6}).has_value(), false);
+	TESTEQUALS(queue_foundation_target(world, 1, 10, {5, 5}).has_value(), false);
+	TESTEQUALS(queue_foundation_target(world, 2, std::nullopt, {7, 7}).has_value(), false);
+	world.reservations.push_back({{6, 5}, 12, 1});
+	TESTEQUALS(queue_foundation_target(world, 2, 10, {6, 5}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, 13, {6, 5}),
+	           std::optional<gamestate::entity_id_t>{13});
+	TESTEQUALS(queue_foundation_target(world, 2, std::nullopt, {6, 5}),
+	           std::optional<gamestate::entity_id_t>{13});
+	TESTEQUALS(queue_foundation_target(world, 2, 13, {5, 5}),
+	           std::optional<gamestate::entity_id_t>{10});
+	TESTEQUALS(queue_foundation_target(world, 2, 11, {6, 5}),
+	           std::optional<gamestate::entity_id_t>{13});
+	world.reservations.push_back({{5, 5}, 12, 2});
+	TESTEQUALS(queue_foundation_target(world, 2, 10, {6, 5}),
+	           std::optional<gamestate::entity_id_t>{13});
+	world.reservations.clear();
+	world.entities[0].remembered = true;
+	TESTEQUALS(queue_foundation_target(world, 2, 10, {5, 5}).has_value(), false);
+
 	// A real Qt double click is a distinct input class. It must reach the
 	// game binding rather than disappearing at InputManager's global context.
 	auto routing = std::make_shared<input::InputContext>("double_click_regression");

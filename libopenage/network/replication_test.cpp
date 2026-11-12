@@ -2,6 +2,8 @@
 
 #include "replication.h"
 
+#include <algorithm>
+
 #include "construction_presentation.h"
 #include "order_presentation.h"
 
@@ -205,7 +207,7 @@ void replication() {
 		{23, 3, "fvd.data.entities.MedievalTowerLevel1", {30.5, 30.5, 0}},
 	};
 	sites_world.reservations = {
-		{{15, 15}, 10}, {{18, 18}, 10}, {{25, 25}, 11}};
+		{{15, 15}, 10, 2}, {{18, 18}, 10, 1}, {{25, 25}, 11, 1}};
 	sites_world.constructions = {
 		{7, 2, 10, {18, 18}, ConstructionPhase::PLANNED,
 		 time::time_t::from_int(12), time::time_t::from_int(12), 21},
@@ -217,7 +219,9 @@ void replication() {
 	TESTEQUALS(views.reservations.size(), size_t{3});
 	TESTEQUALS(views.sites[0].phase == SitePresentationPhase::QUEUED, true);
 	TESTEQUALS(views.sites[0].builder_id, gamestate::entity_id_t{10});
+	TESTEQUALS(views.sites[0].queue_position, uint32_t{2});
 	TESTEQUALS(views.sites[1].phase == SitePresentationPhase::PLANNED, true);
+	TESTEQUALS(views.sites[1].queue_position, uint32_t{1});
 	TESTEQUALS(views.sites[2].phase == SitePresentationPhase::BUILDING, true);
 	TESTEQUALS(views.sites[2].owner_id, gamestate::player_id_t{3});
 	TESTEQUALS(views.sites[3].phase == SitePresentationPhase::COMPLETE, true);
@@ -245,12 +249,54 @@ void replication() {
 	auto retasked_world = sites_world;
 	retasked_world.constructions.front().site_entity_id = 20;
 	retasked_world.constructions.front().target = {15, 15};
+	retasked_world.reservations[0].queue_position = 1;
+	retasked_world.reservations[1].queue_position = 2;
 	auto retasked = make_construction_presentation(retasked_world);
 	TESTEQUALS(retasked.sites.front().phase == SitePresentationPhase::PLANNED, true);
 	TESTEQUALS(retasked.sites[1].phase == SitePresentationPhase::QUEUED, true);
 	auto mismatched = retasked_world;
 	mismatched.constructions[0].owner_id = 3;
 	TESTTHROWS(make_construction_presentation(mismatched));
+
+	// Entity IDs do not determine queue order when old foundations are resumed.
+	auto reordered = sites_world;
+	reordered.entities.push_back({19, 2, "fvd.data.entities.Foundation", {16.5, 16.5, 0}});
+	reordered.reservations.push_back({{16, 16}, 10, 3});
+	auto snapshot = decode_world_state(encode_world_state(reordered));
+	auto snapshot_sites = make_construction_presentation(snapshot);
+	TESTEQUALS(snapshot_sites.sites[0].entity_id, gamestate::entity_id_t{19});
+	TESTEQUALS(snapshot_sites.sites[0].queue_position, uint32_t{3});
+	TESTEQUALS(snapshot_sites.sites[1].entity_id, gamestate::entity_id_t{20});
+	TESTEQUALS(snapshot_sites.sites[1].queue_position, uint32_t{2});
+
+	auto after_delete = reordered;
+	after_delete.world_revision = 2;
+	std::erase_if(after_delete.entities, [](const auto &entity) { return entity.entity_id == 20; });
+	std::erase_if(after_delete.reservations, [](const auto &reservation) {
+		return reservation.tile == coord::tile{15, 15};
+	});
+	after_delete.reservations.back().queue_position = 2;
+	auto renumber = decode_world_delta(encode_world_delta(make_world_delta(reordered, after_delete)));
+	TESTEQUALS(renumber.changed.reservations.size(), size_t{1});
+	TESTEQUALS(renumber.changed.reservations.front().queue_position, uint32_t{2});
+	TESTEQUALS(renumber.removed_reservations.size(), size_t{1});
+	ReplicationTracker queued_client{2};
+	queued_client.accept_snapshot(snapshot);
+	TESTEQUALS(queued_client.accept_delta(renumber), DeltaDisposition::APPLY);
+	auto renumbered_sites = make_construction_presentation(*queued_client.get_world_state());
+	TESTEQUALS(renumbered_sites.sites[0].entity_id, gamestate::entity_id_t{19});
+	TESTEQUALS(renumbered_sites.sites[0].queue_position, uint32_t{2});
+
+	auto bad_position = reordered;
+	bad_position.reservations[0].queue_position = 0;
+	TESTTHROWS(encode_world_state(bad_position));
+	TESTTHROWS(make_construction_presentation(bad_position));
+	bad_position.reservations[0].queue_position = MAX_QUEUED_BUILD_SITES + 2;
+	TESTTHROWS(make_construction_presentation(bad_position));
+	bad_position.reservations[0].queue_position = 1;
+	TESTTHROWS(make_construction_presentation(bad_position));
+	bad_position.reservations[0].queue_position = 3;
+	TESTTHROWS(make_construction_presentation(bad_position));
 
 	// Active order overlays resolve target positions from the same accepted
 	// world as movement and health, so a moving target cannot leave a stale

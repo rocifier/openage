@@ -518,6 +518,7 @@ std::shared_ptr<UniformBufferInput> buff_input = buffer->new_uniform_input(
 
 This creates a `renderer::UniformBufferInput` that can be updated like their counterparts for regular
 uniform inputs.
+For OpenGL, the input stores values at their uniform-block offsets in a buffer sized to include layout padding.
 
 ```c++
 buff_input->update(

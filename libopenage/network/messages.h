@@ -49,6 +49,8 @@ constexpr uint16_t MAX_ENTITY_FACING_KEYS = 16;
 constexpr uint32_t MAX_REJECTION_REASON_SIZE = 4096;
 /** Maximum sites in one ordered tower placement line. */
 constexpr uint32_t MAX_BUILD_LINE_SITES = 256;
+/** Maximum waiting sites after a Builder's active construction order. */
+constexpr uint32_t MAX_QUEUED_BUILD_SITES = 256;
 
 /** Commands a client may request from the authoritative host. */
 enum class CommandKind : uint16_t {
@@ -121,7 +123,7 @@ struct CommandIntent {
 	coord::phys3 target{0, 0, 0};
 	/** Optional target entity for focus attacks and foundation prioritization. */
 	std::optional<gamestate::entity_id_t> target_entity{};
-	/** Append a tower to an existing Builder construction queue. */
+	/** Append a new tower or targeted foundation to the Builder's queue. */
 	bool queue{false};
 	/** Site positions in drag order; empty for ordinary one-site placement. */
 	std::vector<coord::phys3> build_line{};
@@ -248,6 +250,8 @@ struct PlayerState {
 struct TileReservation {
 	coord::tile tile{0, 0};
 	gamestate::entity_id_t builder_id{0};
+	/** 1-based position in the Builder's queue, including the active order. */
+	uint32_t queue_position{0};
 };
 
 /** Network-visible phase of an unfinished construction order. */

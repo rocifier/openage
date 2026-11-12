@@ -26,9 +26,11 @@ constexpr uint32_t FRAME_MAGIC = 0x4656444e;
 // occupant, and supports independent per-player tower exit plans.
 // v22 adds the Builder FLARE command and Builder-only flares in world state,
 // and DELETE_FOUNDATIONS (all of one Builder's foundations).
+// v23 adds authoritative construction queue positions to tile reservations
+// and permits queued targeted foundation commands.
 // Refuse older clients at the handshake rather than mid-match.
 // Minor versions continue to gate compatible relay features.
-constexpr uint16_t PROTOCOL_MAJOR = 22;
+constexpr uint16_t PROTOCOL_MAJOR = 23;
 constexpr uint16_t PROTOCOL_MINOR = 4;
 
 /** Oldest protocol minor version compatible with this implementation. */

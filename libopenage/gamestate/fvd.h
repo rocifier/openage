@@ -83,10 +83,12 @@ struct FVDConstructionState {
 	int progress_percent(const time::time_t &now) const;
 };
 
-/** One footprint tile reserved by an active construction order. */
+/** One footprint tile reserved by an active or queued construction order. */
 struct FVDTileReservation {
 	coord::tile tile;
 	entity_id_t builder_id;
+	/** 1-based position in the Builder's queue, including the active order. */
+	uint32_t queue_position;
 };
 
 /** Read-only description of one active Hunter combat order. */
@@ -196,6 +198,11 @@ public:
 	bool queue_build(const std::shared_ptr<GameState> &state,
 	                 player_id_t owner, const std::vector<entity_id_t> &selected,
 	                 const coord::phys3 &position, const time::time_t &time);
+
+	/** Append an owned, unreserved foundation without replacing its entity. */
+	bool queue_foundation(const std::shared_ptr<GameState> &state,
+	                      player_id_t owner, const std::vector<entity_id_t> &selected,
+	                      entity_id_t foundation_id, const time::time_t &time);
 
 	/** Resume an owned orphan foundation or prioritize a queued foundation. */
 	bool prioritize_foundation(const std::shared_ptr<GameState> &state,
@@ -550,6 +557,17 @@ private:
 	                 player_id_t owner, const std::vector<entity_id_t> &selected,
 	                 const coord::phys3 &position, const time::time_t &time,
 	                 std::optional<entity_id_t> existing_foundation);
+
+	/** Queue a new site or a previously validated foundation. */
+	bool queue_build_site(const std::shared_ptr<GameState> &state,
+	                      player_id_t owner, const std::vector<entity_id_t> &selected,
+	                      const coord::phys3 &position, const time::time_t &time,
+	                      std::optional<entity_id_t> existing_foundation);
+
+	/** Locate a foundation only if it is owned by the requesting player. */
+	std::optional<coord::tile> owned_foundation_site(
+		const std::shared_ptr<GameState> &state, player_id_t owner,
+		entity_id_t foundation_id, const time::time_t &time) const;
 
 	/** Find a reachable vacant adjacent tile with public Pathfinder API. */
 	std::optional<coord::phys3> find_build_stand(

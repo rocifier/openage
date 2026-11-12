@@ -50,6 +50,10 @@ GLuint GlUniformBuffer::get_binding_point() const {
 	return this->binding_point;
 }
 
+size_t GlUniformBuffer::get_size() const {
+	return this->data_size;
+}
+
 void GlUniformBuffer::set_binding_point(GLuint binding_point) {
 	this->binding_point = binding_point;
 	glBindBufferBase(GL_UNIFORM_BUFFER, this->binding_point, *this->handle);
@@ -116,6 +120,9 @@ void GlUniformBuffer::set_unif(UniformBufferInput &in, const char *unif, void co
 
 	auto &update_off = unif_in.update_offs[unif_id];
 	auto offset = update_off.offset;
+	ENSURE(offset <= unif_in.update_data.size()
+	       and size <= unif_in.update_data.size() - offset,
+	       "Uniform " << unif << " exceeds its update buffer");
 	memcpy(unif_in.update_data.data() + offset, val, size);
 	if (not update_off.used) [[unlikely]] { // only true if the uniform value was not set before
 		auto lower_bound = std::lower_bound(

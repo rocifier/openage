@@ -33,21 +33,18 @@ GlUniformBufferInput::GlUniformBufferInput(const std::shared_ptr<UniformBuffer> 
 	UniformBufferInput{buffer} {
 	auto glBuf = std::dynamic_pointer_cast<GlUniformBuffer>(buffer);
 
-	auto uniforms = glBuf->get_uniforms();
+	const auto &uniforms = glBuf->get_uniforms();
 
 	// Reserve space for the used uniforms.
 	this->used_uniforms.reserve(uniforms.size());
 
 	// Calculate the byte-wise offsets of all uniforms.
-	size_t offset = 0;
 	this->update_offs.reserve(uniforms.size());
-	for (auto &uniform : uniforms) {
+	for (const auto &uniform : uniforms) {
 		this->update_offs.push_back({uniform.offset, false});
-		offset += GL_UNIFORM_TYPE_SIZE.get(uniform.type);
 	}
 
-	// Resize the update data buffer to the total size of all uniforms.
-	this->update_data.resize(offset);
+	this->update_data.resize(glBuf->get_size());
 }
 
 bool GlUniformInput::is_complete() const {

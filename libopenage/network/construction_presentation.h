@@ -45,8 +45,9 @@ struct ConstructionPresentation {
  * Interpret host-authoritative entity, order and reservation records for UI.
  *
  * Queued foundations do not have active ConstructionState records. They are
- * distinguished by their remaining Builder-owned reservation. Abandoned
- * foundations remain visible without reservations and can be resumed.
+ * distinguished by their remaining Builder-owned reservation, which also
+ * carries the authoritative queue position. Abandoned foundations remain
+ * visible without reservations and can be resumed.
  * Does not inspect recipient-private kills or simulate construction locally.
  */
 ConstructionPresentation make_construction_presentation(const WorldState &world);

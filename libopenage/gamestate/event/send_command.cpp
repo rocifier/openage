@@ -129,9 +129,19 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			}
 			return;
 		}
-		// Right-clicking a visible foundation while commanding a Builder
-		// replaces its construction queue rather than issuing a Move.
-		// All identity/ownership/queued-site checks stay authoritative.
+		// Targeted Shift-click appends an existing foundation, never a Move.
+		if (command_type == component::command::command_t::MOVE
+		    and params.get("queue", false)) {
+			const bool accepted = params.check_type<entity_id_t>("target_entity")
+			                   and fvd->queue_foundation(
+			                       gstate, owner, ids,
+			                       params.get<entity_id_t>("target_entity", entity_id_t{0}), time);
+			if (result_cb) {
+				result_cb(accepted);
+			}
+			return;
+		}
+		// A normal right-click prioritizes a foundation and replaces the queue.
 		if (command_type == component::command::command_t::MOVE
 		    and owner >= 2 and params.check_type<entity_id_t>("target_entity")) {
 			auto target_id = params.get<entity_id_t>("target_entity");

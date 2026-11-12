@@ -110,7 +110,8 @@ void WorldRenderStage::clear_entities() {
 
 void WorldRenderStage::pick_entity(
 	const coord::input &position,
-	const std::function<void(std::optional<uint32_t>)> &callback) {
+	const std::function<void(std::optional<uint32_t>)> &callback,
+	const std::function<bool(uint32_t)> &filter) {
 	util::StallProfiler profile{"world.pick_entity"};
 	util::StallProfiler lock_profile{"world.pick_entity.lock_wait"};
 	std::shared_lock lock{this->mutex};
@@ -120,7 +121,8 @@ void WorldRenderStage::pick_entity(
 	std::optional<WorldObject::HitTestResult> selected_hit;
 	std::optional<DrawKey> selected_key;
 	for (const auto &object : this->render_objects) {
-		if (not object->is_active() or not object->is_pickable() or object->is_concealed()) {
+		if (not object->is_active() or not object->is_pickable() or object->is_concealed()
+		    or (filter and not filter(object->get_id()))) {
 			continue;
 		}
 		auto hit = object->hit_test(position, this->camera);

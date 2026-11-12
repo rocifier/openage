@@ -1796,7 +1796,14 @@ void Presenter::init_input() {
 			engine_context, game_controller, this->time_loop, this->simulation, this->camera,
 			[this](
 				const coord::input &position,
-				const std::function<void(std::optional<gamestate::entity_id_t>)> &callback) {
+				const input::game::entity_pick_callback_t &callback,
+				const input::game::entity_pick_filter_t &filter) {
+				std::function<bool(uint32_t)> render_filter;
+				if (filter) {
+					render_filter = [filter](uint32_t id) {
+						return filter(static_cast<gamestate::entity_id_t>(id));
+					};
+				}
 				this->world_renderer->pick_entity(
 					position,
 					[callback](std::optional<uint32_t> id) {
@@ -1805,7 +1812,7 @@ void Presenter::init_input() {
 							return;
 						}
 						callback(std::nullopt);
-					});
+					}, render_filter);
 			},
 			[this](network::CommandIntent intent) {
 				if (not this->fvd_lobby_enabled or this->fvd_lobby_hosting)

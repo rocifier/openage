@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 
+#include "config.h"
 #include "error/error.h"
 #include "log/log.h"
 #include "testing/native_test_runner.h"
@@ -19,6 +20,9 @@ namespace openage::job::tests { void test_job_manager(); }
 namespace openage::network::tests { void messages(); void stance_messages(); void fog_messages(); void protocol(); void handshake(); void lobby(); void lobby_rematch_room_visibility(); void lobby_relay_client(); void lobby_latency(); void lobby_capacity(); void authority_succession(); void session(); void rehost_ticket(); void command_mailbox(); void connection_mailbox(); void match_disconnect_coordinator(); void replication(); void world_delta(); void world_delta_flares(); void transport(); void transport_high_fd(); void fvd_loopback(); void fvd_multi_session(); void fvd_process_worker(); void relay(); void relay_registry(); void relay_multi_host_lobby(); void relay_service(); void relay_process_worker(); }
 namespace openage::path::tests { void path_node(); void flow_field(); }
 namespace openage::renderer::tests { void font(); void font_manager(); }
+#if WITH_OPENGL
+namespace openage::renderer::opengl::tests { void uniform_buffer_padding(); }
+#endif
 namespace openage::renderer::resources::tests { void alpha_mask(); void texture_metadata(); void palette_colors(); }
 namespace openage::rng::tests { void run(); }
 namespace openage::util::tests { void constinit_vector(); void enum_(); void fixed_point(); void init(); void matrix(); void quaternion(); void vector(); void siphash(); void array_conversion(); }
@@ -28,8 +32,8 @@ namespace openage::testing::tests { void comparison(); }
 namespace openage::input::game::tests { void tower_line_axis_lock(); void tower_placement_mode(); void horse_selection_priority(); }
 namespace openage::presenter::tests { void hud_mouse_capture(); void fvd_combat_sounds(); void fvd_minimap(); void fvd_hunter_unleashed(); void fvd_construction_sounds(); void guest_interpolation(); void guest_clock_jitter(); void guest_response_latency(); void guest_clock_catchup(); }
 namespace openage::audio::tests { void audio_settings(); void audio_mixer_effects(); void audio_mixer_volume(); void audio_mixer_music(); void audio_decode_wav(); void fvd_audio_files(); void fvd_audio_placement(); void fvd_audio_throttle(); void fvd_audio_bank(); }
-namespace openage::gamestate::tests { void fvd_network_builder_count(); void fvd_scenario(); void fvd_construction(); void fvd_presentation_snapshot(); void fvd_foundation_push_and_timeout(); void fvd_build_queue(); void fvd_build_line_order(); void fvd_match_end_garrison_and_hunter_stop(); void fvd_builder_flare(); void fvd_builder_delete_all_foundations(); void fvd_build_double_row(); void fvd_animation_phase(); void fvd_retask_foundation(); void fvd_builder_demolition(); void fvd_builder_delete_foundation(); void fvd_match_outcome_rules(); void fvd_garrison(); void fvd_allied_garrison(); void fvd_garrison_hop(); void fvd_garrison_all_sides(); void fvd_hunter_spawning(); void fvd_horse_spawn_blocked(); void fvd_hunter_combat(); void fvd_combat_balance(); void fvd_hunter_attack_move_regressions(); void fvd_hunter_builder_aggro(); void fvd_hunter_focus_attack(); void fvd_first_builder_attack_order(); void fvd_hunter_stances(); void fvd_hunter_patrol_stances(); void fvd_fog_of_war(); void fvd_hunter_tower(); void fvd_hunter_rally_point(); void activity_demo(); }
-namespace openage::renderer::world::tests { void structure_shadow_depth(); void adjacent_tower_draw_order(); void terrain_fog_soft_edges(); void selection_ground_rings(); }
+namespace openage::gamestate::tests { void fvd_network_builder_count(); void fvd_scenario(); void fvd_construction(); void fvd_presentation_snapshot(); void fvd_foundation_push_and_timeout(); void fvd_build_queue(); void fvd_build_line_order(); void fvd_match_end_garrison_and_hunter_stop(); void fvd_builder_flare(); void fvd_builder_delete_all_foundations(); void fvd_build_double_row(); void fvd_animation_phase(); void fvd_retask_foundation(); void fvd_queue_existing_foundations(); void fvd_builder_demolition(); void fvd_builder_delete_foundation(); void fvd_match_outcome_rules(); void fvd_garrison(); void fvd_allied_garrison(); void fvd_garrison_hop(); void fvd_garrison_all_sides(); void fvd_hunter_spawning(); void fvd_horse_spawn_blocked(); void fvd_hunter_combat(); void fvd_combat_balance(); void fvd_hunter_attack_move_regressions(); void fvd_hunter_builder_aggro(); void fvd_hunter_focus_attack(); void fvd_first_builder_attack_order(); void fvd_hunter_stances(); void fvd_hunter_patrol_stances(); void fvd_fog_of_war(); void fvd_hunter_tower(); void fvd_hunter_rally_point(); void activity_demo(); }
+namespace openage::renderer::world::tests { void structure_shadow_depth(); void adjacent_tower_draw_order(); void terrain_fog_soft_edges(); void selection_ground_rings(); void foundation_picking(); void foundation_mouse_input(); }
 namespace openage::console::tests { void render(); void interactive(); }
 namespace openage::error { void demo(); }
 namespace openage::input::tests { void action_demo(); }
@@ -87,6 +91,9 @@ constexpr Test native_test_entries[] = {
 	{"openage::path::tests::flow_field", &openage::path::tests::flow_field, false, false},
 	{"openage::renderer::tests::font", &openage::renderer::tests::font, false, false},
 	{"openage::renderer::tests::font_manager", &openage::renderer::tests::font_manager, false, false},
+#if WITH_OPENGL
+	{"openage::renderer::opengl::tests::uniform_buffer_padding", &openage::renderer::opengl::tests::uniform_buffer_padding, true, false},
+#endif
 	{"openage::renderer::resources::tests::alpha_mask", &openage::renderer::resources::tests::alpha_mask, false, false},
 	{"openage::renderer::resources::tests::texture_metadata", &openage::renderer::resources::tests::texture_metadata, false, false},
 	{"openage::renderer::resources::tests::palette_colors", &openage::renderer::resources::tests::palette_colors, false, false},
@@ -131,6 +138,8 @@ constexpr Test native_test_entries[] = {
 	{"openage::renderer::world::tests::adjacent_tower_draw_order", &openage::renderer::world::tests::adjacent_tower_draw_order, true, false},
 	{"openage::renderer::world::tests::terrain_fog_soft_edges", &openage::renderer::world::tests::terrain_fog_soft_edges, true, false},
 	{"openage::renderer::world::tests::selection_ground_rings", &openage::renderer::world::tests::selection_ground_rings, true, false},
+	{"openage::renderer::world::tests::foundation_picking", &openage::renderer::world::tests::foundation_picking, true, false},
+	{"openage::renderer::world::tests::foundation_mouse_input", &openage::renderer::world::tests::foundation_mouse_input, true, false},
 	{"openage::gamestate::tests::fvd_construction", &openage::gamestate::tests::fvd_construction, true, false},
 	{"openage::gamestate::tests::fvd_presentation_snapshot", &openage::gamestate::tests::fvd_presentation_snapshot, true, false},
 	{"openage::gamestate::tests::fvd_foundation_push_and_timeout", &openage::gamestate::tests::fvd_foundation_push_and_timeout, true, false},
@@ -142,6 +151,7 @@ constexpr Test native_test_entries[] = {
 	{"openage::gamestate::tests::fvd_build_double_row", &openage::gamestate::tests::fvd_build_double_row, true, false},
 	{"openage::gamestate::tests::fvd_animation_phase", &openage::gamestate::tests::fvd_animation_phase, false, false},
 	{"openage::gamestate::tests::fvd_retask_foundation", &openage::gamestate::tests::fvd_retask_foundation, true, false},
+	{"openage::gamestate::tests::fvd_queue_existing_foundations", &openage::gamestate::tests::fvd_queue_existing_foundations, true, false},
 	{"openage::gamestate::tests::fvd_builder_demolition", &openage::gamestate::tests::fvd_builder_demolition, true, false},
 	{"openage::gamestate::tests::fvd_builder_delete_foundation", &openage::gamestate::tests::fvd_builder_delete_foundation, true, false},
 	{"openage::gamestate::tests::fvd_match_outcome_rules", &openage::gamestate::tests::fvd_match_outcome_rules, true, false},

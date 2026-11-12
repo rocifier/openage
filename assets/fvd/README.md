@@ -312,14 +312,29 @@ Selecting a tower shows its live HP and its damage and armour fields instead of 
 Tower damage and armour read the configured gameplay values, currently 2 arrow damage and 1 armour.
 Only a selected Builder can enter tower placement mode, using the B key or Build Tower HUD button.
 Select a Builder, click **Build Tower** (or press **B**) and move the cursor to see a footprint preview (green for available, red for occupied, reserved or out of bounds).
-Click once to replace the active construction order, or **hold Shift while clicking** to queue multiple sites for the same Builder. **Shift+left-drag** plans a whole line of towers, constrained to the nearer of the two isometric tile axes, starting from the first dragged tile. The full line is submitted as one ordered command so the drag-start foundation is constructed first, with subsequent sites queued even if multiple inputs share a simulation timestamp. Shift-click and Shift-drag keep placement mode active until Esc or right-click. Queue sites carry tiny numbers in build order, visible only to their owning Builder player.
+Click once to replace the active construction order, or **hold Shift while clicking** to queue multiple sites for the same Builder.
+With the Builder selected, **Shift+left-click or Shift+right-click an owned, abandoned foundation** to append that existing site to the queue without interrupting the current work.
+Queueing a foundation this way does not enter placement mode; Shift+right-click does nothing on empty ground.
+When foundation sprites overlap, an abandoned owned foundation on the clicked ground tile takes precedence.
+If that tile is already reserved, Shift-click can target the visible abandoned foundation instead.
+Completed towers and units overlapping a foundation do not block Shift-click queue targeting.
+If the Builder is idle, work starts on that foundation immediately.
+Already active or queued sites cannot be added twice, and at most 256 sites can wait behind the active order.
+**Shift+left-drag** plans a whole line of towers, constrained to the nearer of the two isometric tile axes, starting from the first dragged tile.
+The full line is submitted as one ordered command so the drag-start foundation is constructed first, with subsequent sites queued even if multiple inputs share a simulation timestamp.
+Shift-click and Shift-drag keep placement mode active until Esc or right-click.
+Wait for the HUD to show the selected Builder before issuing a series of Shift-clicks.
+To preserve their order, wait for each numbered marker before the next click; commands processed at the same simulation time may otherwise be applied out of order.
+Queue sites carry tiny numbers in build order, visible only to their owning Builder player.
 Queued sites reserve their entire footprints immediately; after finishing one tower, the Builder starts the next. Inaccessible queued sites remain as abandoned foundations, and the HUD shows the number waiting.
 Right-click or press **Escape** while choosing a tile to cancel placement without moving the Builder.
 The old Ctrl-left-click construction shortcut has been removed. Press B or use the Build Tower HUD button instead.
 Each queued site displays a persistent, pickable foundation as soon as the order is accepted.
 With the Builder selected, right-click one of its own foundations, including an orphaned one, to clear all other construction orders and work on that foundation.
 Right-clicking the foundation already being built keeps its progress but cancels the rest of the queue.
-Ordinary non-Shift tower placement or moving the Builder to terrain clears the current build queue, releasing its reservations but leaving unfinished foundations orphaned, visible and resumable later by right-clicking them. An interrupted in-progress tower reverts to a foundation.
+Ordinary non-Shift tower placement or moving the Builder to terrain clears the current build queue, releasing its reservations but leaving unfinished foundations orphaned and visible.
+Resume them later with a right-click, or append them with a Shift+left-click or Shift+right-click.
+An interrupted in-progress tower reverts to a foundation.
 Footprint preview and queued tower count are displayed in the HUD.
 Selecting a Builder with an active order also shows its construction phase.
 While walking, the HUD says "Walking to tower site"; while building, it shows a percent-complete progress bar computed from the simulation's own start and finish times.

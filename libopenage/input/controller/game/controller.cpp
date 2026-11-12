@@ -668,23 +668,63 @@ void apply_guest_selection(
 
 } // namespace
 
+std::optional<gamestate::entity_id_t> queue_foundation_target(
+	const network::WorldState &world, gamestate::player_id_t owner,
+	std::optional<gamestate::entity_id_t> picked, const coord::tile &clicked_tile) {
+	auto matches = [owner](const network::EntityState &entity) {
+		return owner >= 2 and entity.owner_id == owner and not entity.remembered
+		    and entity.definition == "fvd.data.entities.Foundation";
+	};
+	auto ground = std::find_if(world.entities.begin(), world.entities.end(),
+	                           [&](const auto &entity) {
+		                           return matches(entity)
+		                               and entity.position.to_tile() == clicked_tile;
+	                           });
+	auto sprite = world.entities.end();
+	if (picked) {
+		sprite = std::find_if(world.entities.begin(), world.entities.end(),
+		                      [&](const auto &entity) {
+			                      return entity.entity_id == *picked and matches(entity);
+		                      });
+	}
+	if (ground != world.entities.end()) {
+		if (sprite != world.entities.end() and sprite != ground) {
+			auto reserved = [&world](const network::EntityState &entity) {
+				const auto tile = entity.position.to_tile();
+				return std::any_of(world.reservations.begin(), world.reservations.end(),
+				                   [&tile](const auto &reservation) {
+					                   return reservation.tile == tile;
+				                   });
+			};
+			if (reserved(*ground) and not reserved(*sprite)) {
+				return sprite->entity_id;
+			}
+		}
+		return ground->entity_id;
+	}
+	if (sprite != world.entities.end()) {
+		return sprite->entity_id;
+	}
+	return std::nullopt;
+}
+
 void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
                     const std::shared_ptr<Controller> &controller,
                     const std::shared_ptr<time::TimeLoop> &time_loop,
                     const std::shared_ptr<openage::gamestate::GameSimulation> &simulation,
                     const std::shared_ptr<renderer::camera::Camera> &camera,
-	                const std::function<void(
-		                const coord::input &,
-		                const std::function<void(std::optional<gamestate::entity_id_t>)> &)> &pick_entity,
+	                const entity_picker_t &pick_entity_filtered,
                     const std::function<bool(network::CommandIntent)> &send_guest_command,
                     const std::function<std::optional<network::WorldState>()> &guest_world,
                     bool online_lobby,
                     const std::function<bool()> &can_spawn_hunter) {
-	binding_func_t create_entity_event{[simulation, time_loop, camera, send_guest_command, guest_world](const event_arguments &args,
-	                                       const std::shared_ptr<Controller> controller) {
-		auto mouse_pos = args.mouse.to_phys3(camera);
+	auto pick_entity = [pick_entity_filtered](const coord::input &position,
+	                                           const entity_pick_callback_t &callback) {
+		pick_entity_filtered(position, callback, {});
+	};
+	auto create_entity_event = [simulation, time_loop, send_guest_command, guest_world](
+		const coord::phys3 &mouse_pos, bool append, const std::shared_ptr<Controller> &controller) {
 		auto state = simulation->get_game()->get_state();
-		const bool append = (args.e.mod_code & Qt::ShiftModifier) != 0;
 		if (state->get_fvd()) {
 			auto selection = controller->get_selection_details();
 			if (selection.kind != SelectionKind::BUILDER) {
@@ -729,7 +769,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 		simulation->get_event_loop()->submit_event(
 			"game.spawn_entity", simulation->get_spawner(), state,
 			time_loop->get_clock()->get_time(), params);
-	}};
+	};
 
 	binding_func_t hunter_route_event{[simulation, time_loop, camera, send_guest_command, guest_world](
 		const event_arguments &args, const std::shared_ptr<Controller> controller) {
@@ -1170,31 +1210,170 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 	ctx->bind(Event{event_class::MOUSE_BUTTON, Qt::MouseButton::LeftButton,
 	                Qt::KeyboardModifier::ShiftModifier, QEvent::MouseButtonPress},
 	          init_drag_selection_action);
+	ctx->bind(Event{event_class::MOUSE_BUTTON_DBL, Qt::MouseButton::LeftButton,
+	                Qt::KeyboardModifier::ShiftModifier, QEvent::MouseButtonDblClick},
+	          init_drag_selection_action);
 
-	binding_func_t drag_selection{
-		[simulation, time_loop, camera, pick_entity, create_entity_event, hunter_route_event,
-		 send_guest_command, guest_world](const event_arguments &args,
-	        const std::shared_ptr<Controller> controller) {
-			if (controller->consume_structure_double_click_release()) {
-				controller->reset_drag_select();
+	struct ShiftClick {
+		std::optional<gamestate::entity_id_t> picked;
+		std::optional<gamestate::entity_id_t> foundation;
+		gamestate::player_id_t owner;
+		bool remote;
+	};
+
+	auto resolve_queue_click = [simulation, pick_entity, pick_entity_filtered, guest_world](
+		const coord::input &position,
+		const coord::phys3 &mouse_pos,
+		gamestate::player_id_t owner,
+		const std::function<void(ShiftClick)> &callback) {
+		auto replica = guest_world ? guest_world() : std::optional<network::WorldState>{};
+		const bool remote = replica.has_value();
+		std::shared_ptr<const network::WorldState> world = remote
+			? std::make_shared<const network::WorldState>(std::move(*replica))
+			: simulation->get_fvd_presentation_state();
+		pick_entity(position,
+		            [callback, world, remote, owner, mouse_pos, position, pick_entity_filtered](
+			            std::optional<gamestate::entity_id_t> picked) {
+			auto finish = [callback, world, remote, owner, mouse_pos, picked](
+				std::optional<gamestate::entity_id_t> hit) {
+				const auto foundation = world
+					? queue_foundation_target(*world, owner, hit, mouse_pos.to_tile())
+					: std::nullopt;
+				callback(ShiftClick{picked, foundation, owner, remote});
+			};
+			std::unordered_set<gamestate::entity_id_t> foundations;
+			if (world and owner >= 2) {
+				for (const auto &entity : world->entities) {
+					if (entity.owner_id == owner and not entity.remembered
+					    and entity.definition == "fvd.data.entities.Foundation") {
+						foundations.insert(entity.entity_id);
+					}
+				}
+			}
+			// Queue targeting must not stop at an overlapping tower or unit.
+			// Retain the unfiltered pick for non-Builder selection handling.
+			if (not foundations.empty()) {
+				pick_entity_filtered(position, finish,
+				                     [foundations = std::move(foundations)](gamestate::entity_id_t id) {
+					                     return foundations.contains(id);
+				                     });
+			}
+			else {
+				finish(picked);
+			}
+		});
+	};
+
+	auto queue_existing_foundation = [simulation, time_loop, send_guest_command](
+		const std::vector<gamestate::entity_id_t> &ids, const ShiftClick &click) {
+		if (not click.foundation) {
+			throw Error{ERR << "Foundation queue click has no foundation target"};
+		}
+		if (click.remote) {
+			if (send_guest_command) {
+				network::CommandIntent intent{
+					0, network::CommandKind::PRIORITIZE_FOUNDATION, ids};
+				intent.target_entity = *click.foundation;
+				intent.queue = true;
+				send_guest_command(std::move(intent));
+			}
+			return;
+		}
+		event::EventHandler::param_map::map_t params{
+			{"type", gamestate::component::command::command_t::MOVE},
+			{"owner", click.owner}, {"entity_ids", ids},
+			{"target_entity", *click.foundation}, {"queue", true},
+			{"result_cb", std::function<void(bool)>{[](bool accepted) {
+				if (not accepted) {
+					log::log(WARN << "FVD foundation queue rejected: invalid Builder, unavailable site or queue full");
+				}
+			}}},
+		};
+		simulation->get_event_loop()->submit_event(
+			"game.send_command", simulation->get_commander(),
+			simulation->get_game()->get_state(),
+			time_loop->get_clock()->get_time(), params);
+	};
+
+	// Shift+right-click queues an existing foundation without entering
+	// placement mode, matching the AoE2 queued-order gesture.
+	binding_func_t queue_foundation_rmb{[resolve_queue_click, queue_existing_foundation, camera](
+		const event_arguments &args, const std::shared_ptr<Controller> controller) {
+		const auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
+		if (owner < 2) {
+			return;
+		}
+		const auto mouse_pos = args.mouse.to_phys3(camera);
+		std::weak_ptr<Controller> weak_controller = controller;
+		resolve_queue_click(args.mouse, mouse_pos, owner,
+		                    [weak_controller, queue_existing_foundation](ShiftClick click) {
+			if (not click.foundation) {
 				return;
 			}
+			auto controller = weak_controller.lock();
+			if (not controller) {
+				return;
+			}
+			auto action = [weak_controller, queue_existing_foundation, click]() {
+				auto active = weak_controller.lock();
+				if (not active or active->get_controlled() != click.owner) {
+					return;
+				}
+				const auto selection = active->get_selection_details();
+				if (selection.ids.size() != 1 or selection.kind != SelectionKind::BUILDER) {
+					return;
+				}
+				queue_existing_foundation(selection.ids, click);
+			};
+			if (controller->defer_until_selection_applied(action)) {
+				return;
+			}
+			action();
+		});
+	}};
+	ctx->bind(Event{event_class::MOUSE_BUTTON, Qt::MouseButton::RightButton,
+	                Qt::KeyboardModifier::ShiftModifier, QEvent::MouseButtonRelease},
+	          binding_action{forward_action_t::SEND, queue_foundation_rmb});
+
+	struct DragProjection {
+		Eigen::Matrix4f matrix;
+		util::Vector2s viewport;
+		Eigen::Vector2f start;
+		Eigen::Vector2f end;
+	};
+
+	auto process_drag_selection =
+		[simulation, time_loop, camera, pick_entity, create_entity_event, hunter_route_event,
+		 send_guest_command, guest_world, queue_existing_foundation](const event_arguments &args,
+	        const std::shared_ptr<Controller> &controller,
+	        const std::optional<coord::input> &start,
+	        const std::optional<coord::tile> &world_start,
+	        const coord::phys3 &mouse_pos,
+	        int drag_threshold,
+	        const std::optional<DragProjection> &projection,
+	        const std::optional<ShiftClick> &click) {
 			const bool shift = (args.e.mod_code & Qt::ShiftModifier) != 0;
-			const auto start = controller->get_drag_select_start_optional();
-			const auto world_start = controller->get_drag_world_start_optional();
 			const auto selection = controller->get_selection_details();
+			auto pick_at_click = [pick_entity, click](
+				const coord::input &position, const entity_pick_callback_t &callback) {
+				if (click) {
+					callback(click->picked);
+				}
+				else {
+					pick_entity(position, callback);
+				}
+			};
 			if (controller->is_garrison_mode_active()) {
-				controller->reset_drag_select();
 				if (selection.kind != SelectionKind::BUILDER or selection.ids.size() != 1) {
 					controller->cancel_garrison_mode();
 					return;
 				}
 				const auto owner = static_cast<gamestate::player_id_t>(controller->get_controlled());
-				const auto clicked_tile = args.mouse.to_phys3(camera).to_tile();
+				const auto clicked_tile = mouse_pos.to_tile();
 				// A thin tower silhouette may not produce a sprite pick.
 				// Resolve the tile from the owner's authoritative presentation
 				// snapshot instead, without relying on paused guest simulation.
-				pick_entity(args.mouse, [simulation, time_loop, send_guest_command,
+				pick_at_click(args.mouse, [simulation, time_loop, send_guest_command,
 				                          guest_world, controller, selection, owner, clicked_tile](
 					std::optional<gamestate::entity_id_t> picked) {
 					if (not controller->is_garrison_mode_active()
@@ -1261,19 +1440,25 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 				});
 				return;
 			}
+			// Queueing an existing foundation leaves placement mode as it was.
+			if (shift and click and click->foundation
+			    and selection.kind == SelectionKind::BUILDER) {
+				if (controller->get_controlled() == click->owner) {
+					queue_existing_foundation(selection.ids, *click);
+				}
+				return;
+			}
 			if (shift and selection.kind == SelectionKind::BUILDER
 			    and controller->begin_tower_placement()) {
 				const auto drag_delta = start ? args.mouse - *start : coord::input_delta{0, 0};
-				const auto threshold = QGuiApplication::styleHints()->startDragDistance();
 				if (start and world_start
-				    and (std::abs(drag_delta.x) >= threshold
-			               or std::abs(drag_delta.y) >= threshold)) {
+				    and (std::abs(drag_delta.x) >= drag_threshold
+			               or std::abs(drag_delta.y) >= drag_threshold)) {
 					const auto sites = tower_line_sites(*world_start,
-					                                    args.mouse.to_phys3(camera).to_tile());
+					                                    mouse_pos.to_tile());
 					// A single authoritative event preserves the line order even
 					// when equal-time events execute newest-first.
 					if (sites.size() > network::MAX_BUILD_LINE_SITES) {
-						controller->reset_drag_select();
 						return;
 					}
 					std::vector<coord::phys3> line;
@@ -1306,31 +1491,40 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 					}
 				}
 				else {
-					create_entity_event(args, controller);
+					if (not click) {
+						throw Error{ERR << "Shift-click target was not captured"};
+					}
+					const auto current_selection = controller->get_selection_details();
+					if (not controller->is_tower_placement_active()
+					    or controller->get_controlled() != click->owner
+					    or current_selection.ids != selection.ids
+					    or current_selection.kind != SelectionKind::BUILDER) {
+						return;
+					}
+					create_entity_event(mouse_pos, true, controller);
 				}
-				controller->reset_drag_select();
 				return;
 			}
 			if (controller->is_tower_placement_active()) {
-				controller->reset_drag_select();
-				create_entity_event(args, controller);
+				create_entity_event(mouse_pos, shift, controller);
 				return;
 			}
 			if (controller->is_attack_move_active() or controller->is_patrol_active()) {
-				controller->reset_drag_select();
 				hunter_route_event(args, controller);
 				return;
 			}
 			auto selection_generation = controller->begin_selection_update();
-			auto drag_start = controller->get_drag_select_start();
+			if (not start) {
+				throw Error{ERR << "Drag select start not set."};
+			}
+			auto drag_start = *start;
 			auto drag_delta = args.mouse - drag_start;
-			auto drag_threshold = QGuiApplication::styleHints()->startDragDistance();
 			if (guest_world) {
 				auto replica = guest_world();
 				if (replica) {
 					if (std::abs(drag_delta.x) < drag_threshold
 					    and std::abs(drag_delta.y) < drag_threshold) {
-						pick_entity(args.mouse,
+						pick_at_click(args.mouse,
 							[controller, simulation, camera, guest_world, selection, shift,
 							 selection_generation, replica = std::move(*replica)](
 								std::optional<gamestate::entity_id_t> id) {
@@ -1344,20 +1538,20 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 					else {
 						// Drag-select locally owned Horses or a Builder from authoritative
 						// positions, without querying the paused guest simulation.
-						Eigen::Matrix4f matrix =
-							camera->get_projection_matrix() * camera->get_view_matrix();
-						const auto viewport = camera->get_viewport_size();
+						if (not projection) {
+							throw Error{ERR << "Drag selection projection was not captured"};
+						}
 						std::vector<gamestate::entity_id_t> picked;
 						for (const auto &entity : replica->entities) {
 							if (entity.owner_id != replica->local_player_id
 							    or (entity.definition != "fvd.data.entities.Horse"
 							        and entity.definition != "fvd.data.entities.Builder")) continue;
 							auto scene = entity.position.to_scene3().to_world_space();
-							Eigen::Vector4f clip = matrix * Eigen::Vector4f{
+							Eigen::Vector4f clip = projection->matrix * Eigen::Vector4f{
 								scene.x(), scene.y(), scene.z(), 1.0f};
 							if (clip.w() <= 0) continue;
-							double x = (clip.x() / clip.w() * 0.5 + 0.5) * viewport[0];
-							double y = (0.5 - clip.y() / clip.w() * 0.5) * viewport[1];
+							double x = (clip.x() / clip.w() * 0.5 + 0.5) * projection->viewport[0];
+							double y = (0.5 - clip.y() / clip.w() * 0.5) * projection->viewport[1];
 							if (x >= std::min(drag_start.x, args.mouse.x)
 							    and x <= std::max(drag_start.x, args.mouse.x)
 							    and y >= std::min(drag_start.y, args.mouse.y)
@@ -1369,14 +1563,13 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 						}
 						apply_guest_selection(controller, *replica, selection_generation, picked);
 					}
-					controller->reset_drag_select();
 					return;
 				}
 			}
 			if (std::abs(drag_delta.x) < drag_threshold
 			    and std::abs(drag_delta.y) < drag_threshold) {
 				auto controlled = controller->get_controlled();
-				pick_entity(
+				pick_at_click(
 					args.mouse,
 					[simulation, time_loop, camera, controller, guest_world, selection,
 						 shift, controlled, selection_generation](
@@ -1405,16 +1598,17 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 							time_loop->get_clock()->get_time(),
 							params);
 					});
-				controller->reset_drag_select();
 				return;
 			}
 
-			Eigen::Matrix4f cam_matrix = camera->get_projection_matrix() * camera->get_view_matrix();
+			if (not projection) {
+				throw Error{ERR << "Drag selection projection was not captured"};
+			}
 			event::EventHandler::param_map::map_t params{
 				{"controlled", controller->get_controlled()},
-				{"drag_start", drag_start.to_viewport(camera).to_ndc_space(camera)},
-				{"drag_end", args.mouse.to_viewport(camera).to_ndc_space(camera)},
-				{"camera_matrix", cam_matrix},
+				{"drag_start", projection->start},
+				{"drag_end", projection->end},
+				{"camera_matrix", projection->matrix},
 				{"select_cb",
 		         std::function<void(const std::vector<gamestate::entity_id_t> ids)>{
 					 [controller, simulation, selection_generation](
@@ -1431,8 +1625,55 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
 				time_loop->get_clock()->get_time(),
 				params);
 
-			// Reset drag selection start
+		};
+
+	binding_func_t drag_selection{
+		[process_drag_selection, camera, resolve_queue_click](
+			const event_arguments &args, const std::shared_ptr<Controller> controller) {
+			if (controller->consume_structure_double_click_release()) {
+				controller->reset_drag_select();
+				return;
+			}
+			const auto start = controller->get_drag_select_start_optional();
+			const auto world_start = controller->get_drag_world_start_optional();
+			const auto mouse_pos = args.mouse.to_phys3(camera);
 			controller->reset_drag_select();
+			const bool shift = (args.e.mod_code & Qt::ShiftModifier) != 0;
+			const auto drag_delta = start ? args.mouse - *start : coord::input_delta{0, 0};
+			const auto threshold = QGuiApplication::styleHints()->startDragDistance();
+			std::optional<DragProjection> projection;
+			if (start and (std::abs(drag_delta.x) >= threshold
+			               or std::abs(drag_delta.y) >= threshold)) {
+				projection = DragProjection{
+					camera->get_projection_matrix() * camera->get_view_matrix(),
+					camera->get_viewport_size(),
+					start->to_viewport(camera).to_ndc_space(camera),
+					args.mouse.to_viewport(camera).to_ndc_space(camera)};
+			}
+			auto dispatch = [process_drag_selection, args, controller, start, world_start,
+			                 mouse_pos, threshold, projection, shift](std::optional<ShiftClick> click) {
+				std::weak_ptr<Controller> weak_controller = controller;
+				auto action = [process_drag_selection, args, weak_controller, start, world_start,
+				               mouse_pos, threshold, projection, click]() {
+					if (auto active = weak_controller.lock()) {
+						process_drag_selection(args, active, start, world_start, mouse_pos,
+						                       threshold, projection, click);
+					}
+				};
+				if (shift and controller->defer_until_selection_applied(action)) {
+					return;
+				}
+				action();
+			};
+			if (not shift or (start and world_start
+			                  and (std::abs(drag_delta.x) >= threshold
+			                       or std::abs(drag_delta.y) >= threshold))) {
+				dispatch(std::nullopt);
+				return;
+			}
+			resolve_queue_click(args.mouse, mouse_pos,
+			                    static_cast<gamestate::player_id_t>(controller->get_controlled()),
+			                    [dispatch](ShiftClick click) { dispatch(click); });
 		}};
 
 	binding_action drag_selection_action{forward_action_t::CLEAR, drag_selection};

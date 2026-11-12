@@ -34,6 +34,11 @@ public:
 	GLuint get_binding_point() const;
 
 	/**
+	 * Get the size of the uniform buffer in bytes.
+	 */
+	size_t get_size() const;
+
+	/**
 	 * Get the uniform buffers uniforms.
 	 *
 	 * @return Uniforms in the shader program.

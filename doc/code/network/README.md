@@ -343,8 +343,8 @@ The connection supplies player identity, so the payload cannot claim an owner.
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 8 | Client-generated command ID |
-| 8 | 2 | Command kind: move `1`, attack-move `2` or build-tower `3` |
-| 10 | 2 | Flags, currently zero |
+| 8 | 2 | Command kind, including move `1`, build-tower `3` and prioritize-foundation `5` |
+| 10 | 2 | Flags for a target entity, queue append, build line and stance |
 | 12 | 4 | Entity count, at most 1,024 |
 | 16 | `8 * count` | Entity IDs |
 | `16 + 8 * count` | 8 | Target northeast coordinate |
@@ -352,6 +352,9 @@ The connection supplies player identity, so the payload cannot claim an owner.
 | `32 + 8 * count` | 8 | Target height coordinate |
 
 Coordinates are signed Q16.16 fixed-point values serialized from their raw 64-bit representation.
+Flag bit 0 appends an 8-byte target entity ID after the coordinates.
+Flag bit 1 appends a build-tower or targeted foundation order to the Builder's queue rather than replacing it.
+Flag bits 2 and 3 indicate a length-prefixed build line and a 2-byte stance, respectively.
 
 ### Command result payload
 
@@ -383,13 +386,20 @@ scores and revision continuity remain recipient-specific.
 | 24 | 4 | Square map size in tiles |
 | 28 | 8 | Recipient player ID |
 | 36 | 8 | Recipient player's kill count |
-| 44 | 4 | Playable player count, at most 8 |
-| 48 | 4 | Entity count, at most 16,384 |
-| 52 | 4 | Reserved tile count, at most 16,384 |
-| 56 | 4 | Active construction count, at most 1,024 |
-| 60 | 4 | Active Hunter attack-order count, at most 16,384 |
-| 64 | 4 | Recent arrow launch-event count (active or within 3 seconds after impact), at most 2,048 |
-| 68 | variable | Player, entity, reservation, construction, attack-order and arrow records in that order |
+| 44 | 2 | Flags for the first Hunter spawn deadline and match outcome |
+| 46 | 2 | Reserved, zero |
+| 48 | 8 | First Hunter spawn deadline, or zero when absent |
+| 56 | 2 | Match winner, or zero when absent |
+| 58 | 2 | Match end reason, or zero when absent |
+| 60 | 8 | Match end time, or zero when absent |
+| 68 | 4 | Playable player count, at most 8 |
+| 72 | 4 | Entity count, at most 16,384 |
+| 76 | 4 | Reserved tile count, at most 16,384 |
+| 80 | 4 | Active construction count, at most 1,024 |
+| 84 | 4 | Active Hunter attack-order count, at most 16,384 |
+| 88 | 4 | Recent arrow launch-event count, at most 2,048 |
+| 92 | 4 | Builder flare count, at most 64 |
+| 96 | variable | Player, entity, reservation, construction, attack-order, arrow and flare records, followed by fog |
 
 A player record contains an 8-byte player ID, a 2-byte Hunter or Builder role and 2 flag bytes.
 Player flag bit 0 is set while that participant remains connected to the running match.
@@ -397,7 +407,9 @@ An entity record contains an 8-byte entity ID, 8-byte owner ID, a length-prefixe
 Entity IDs start at 1 because 0 is reserved for absent entity references in orders and messages.
 Health flag bit 0 is set when both health values apply; entities without a `Live` ability carry zero values and clear the flag.
 Tower-kills flag bit 1 is set only for a Tower owned by the recipient; otherwise the kill-count field is zero and the flag is clear.
-A reservation record contains two signed 8-byte tile coordinates and the 8-byte ID of the Builder holding the tile.
+A reservation record contains two signed 8-byte tile coordinates, the 8-byte ID of the Builder holding the tile and a 4-byte queue position from 1 to 257.
+The active site is position 1, followed by waiting sites in authoritative order.
+All footprint tiles for one site carry the same position; changes to positions are included in incremental deltas.
 A construction record contains its 8-byte order, owner and Builder IDs, two signed 8-byte target tile coordinates, a 2-byte planned or under-construction phase, 2 zero flag bytes, an 8-byte phase deadline and the 8-byte foundation or tower entity ID.
 An attack-order record contains an 8-byte horse ID, three signed Q16.16 destination coordinates, 2 flag bytes, 2 reserved zero bytes and an 8-byte target entity ID.
 Attack-order flag bits 0, 1 and 2 indicate a target ID, arrival at the requested destination and an explicit focus target respectively.
@@ -425,6 +437,8 @@ incompatible with the shortened delta payload.
 Protocol major version 7 adds `MATCH_READY` and strict, one-time role
 rebinding after `START_MATCH`. Earlier versions are incompatible.
 Protocol major version 8 extends every entity record with its future motion-key count and curve keys. Clients with the old record framing cannot connect.
+Protocol major version 23 adds queue positions to reservation records and allows the queue flag on targeted foundation commands.
+Hosts, guests and relays must use the same protocol major version.
 Protocol minor version 1 supports optional relay admission within the same protocol major version.
 Protocol minor version 2 adds relay room creation, discovery and joining.
 The encoder rejects any complete payload larger than the 1 MiB frame limit.

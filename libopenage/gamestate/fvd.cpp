@@ -924,34 +924,84 @@ size_t FVD::get_queued_build_count(entity_id_t builder) const {
 bool FVD::queue_build(const std::shared_ptr<GameState> &state,
                       player_id_t owner, const std::vector<entity_id_t> &selected,
                       const coord::phys3 &position, const time::time_t &time) {
-	if (not this->can_place_tower(state, owner, selected, position, time)) {
+	return this->queue_build_site(state, owner, selected, position, time, std::nullopt);
+}
+
+bool FVD::queue_foundation(const std::shared_ptr<GameState> &state,
+                           player_id_t owner, const std::vector<entity_id_t> &selected,
+                           entity_id_t foundation_id, const time::time_t &time) {
+	const auto site = this->owned_foundation_site(state, owner, foundation_id, time);
+	if (not site) {
+		return false;
+	}
+	return this->queue_build_site(state, owner, selected, site->to_phys3_center(),
+	                              time, foundation_id);
+}
+
+bool FVD::queue_build_site(const std::shared_ptr<GameState> &state,
+                           player_id_t owner, const std::vector<entity_id_t> &selected,
+                           const coord::phys3 &position, const time::time_t &time,
+                           std::optional<entity_id_t> existing_foundation) {
+	if (not this->can_place_tower(state, owner, selected, position, time,
+	                               existing_foundation)) {
 		return false;
 	}
 	auto builder = selected.front();
 	if (not this->build_orders.contains(builder)) {
-		// Shift-clicking the first tower starts work immediately.
-		return this->request_build(state, owner, selected, position, time);
+		return this->start_build(state, owner, selected, position, time, existing_foundation);
 	}
-	constexpr size_t max_queued_towers = 256;
-	auto &waiting = this->queued_builds[builder];
-	if (waiting.size() >= max_queued_towers) {
+	if (this->get_queued_build_count(builder) >= network::MAX_QUEUED_BUILD_SITES) {
 		return false;
 	}
 	auto site = position.to_tile();
-	auto loop = this->event_loop.lock();
-	auto factory = this->entity_factory.lock();
-	if (not loop or not factory) {
-		return false;
+	entity_id_t foundation_id;
+	if (existing_foundation) {
+		foundation_id = *existing_foundation;
 	}
-	this->clear_tower_demolition(state, site, time);
-	// Render queued markers as actual pickable world entities immediately.
-	auto foundation = factory->spawn_game_entity(
-		loop, state, owner, this->foundation, site.to_phys3_center(), time);
+	else {
+		auto loop = this->event_loop.lock();
+		auto factory = this->entity_factory.lock();
+		if (not loop or not factory) [[unlikely]] {
+			throw Error{ERR << "FVD construction services no longer exist"};
+		}
+		this->clear_tower_demolition(state, site, time);
+		auto foundation = factory->spawn_game_entity(
+			loop, state, owner, this->foundation, site.to_phys3_center(), time);
+		foundation_id = foundation->get_id();
+	}
 	for (const auto &tile : this->get_tower_footprint(site)) {
 		this->reserved_tiles.emplace(tile, builder);
 	}
-	waiting.push_back(QueuedBuildSite{site, foundation->get_id()});
+	this->queued_builds[builder].push_back(QueuedBuildSite{site, foundation_id});
 	return true;
+}
+
+std::optional<coord::tile> FVD::owned_foundation_site(
+	const std::shared_ptr<GameState> &state, player_id_t owner,
+	entity_id_t foundation_id, const time::time_t &time) const {
+	if (owner < 2 or owner > this->player_count) {
+		return std::nullopt;
+	}
+	auto found = state->get_game_entities().find(foundation_id);
+	if (found == state->get_game_entities().end()
+	    or found->second->get_definition() != this->foundation
+	    or not found->second->has_component(component::component_t::OWNERSHIP)) {
+		return std::nullopt;
+	}
+	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+		found->second->get_component(component::component_t::OWNERSHIP));
+	if (not ownership or ownership->get_owners().get(time) != owner) {
+		return std::nullopt;
+	}
+	if (not found->second->has_component(component::component_t::POSITION)) [[unlikely]] {
+		throw Error{ERR << "FVD foundation lacks a Position component"};
+	}
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		found->second->get_component(component::component_t::POSITION));
+	if (not position) [[unlikely]] {
+		throw Error{ERR << "FVD foundation has an invalid Position component"};
+	}
+	return position->get_positions().get(time).to_tile();
 }
 
 void FVD::clear_queued_builds(const std::shared_ptr<GameState> &state,
@@ -979,21 +1029,16 @@ bool FVD::prioritize_foundation(const std::shared_ptr<GameState> &state,
 	}
 	auto builder_id = selected.front();
 	auto builder_it = state->get_game_entities().find(builder_id);
-	auto foundation_it = state->get_game_entities().find(foundation_id);
+	const auto site = this->owned_foundation_site(state, owner, foundation_id, time);
 	if (builder_it == state->get_game_entities().end()
-	    or foundation_it == state->get_game_entities().end()
+	    or not site
 	    or builder_it->second->get_definition() != this->builder
-	    or foundation_it->second->get_definition() != this->foundation
 	    or not builder_alive(builder_it->second, time)) {
 		return false;
 	}
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 		builder_it->second->get_component(component::component_t::OWNERSHIP));
-	auto site_ownership = std::dynamic_pointer_cast<component::Ownership>(
-		foundation_it->second->get_component(component::component_t::OWNERSHIP));
-	if (not ownership or not site_ownership
-	    or ownership->get_owners().get(time) != owner
-	    or site_ownership->get_owners().get(time) != owner) {
+	if (not ownership or ownership->get_owners().get(time) != owner) {
 		return false;
 	}
 	auto active = this->build_orders.find(builder_id);
@@ -1005,9 +1050,6 @@ bool FVD::prioritize_foundation(const std::shared_ptr<GameState> &state,
 		return true;
 	}
 	auto pending = this->queued_builds.find(builder_id);
-	const auto site = std::dynamic_pointer_cast<component::Position>(
-		foundation_it->second->get_component(component::component_t::POSITION))
-		->get_positions().get(time).to_tile();
 	const auto wanted = pending == this->queued_builds.end()
 	                    ? std::deque<QueuedBuildSite>::iterator{}
 	                    : std::find_if(pending->second.begin(), pending->second.end(),
@@ -1016,8 +1058,8 @@ bool FVD::prioritize_foundation(const std::shared_ptr<GameState> &state,
 	                                   });
 	const bool queued = pending != this->queued_builds.end()
 	                 and wanted != pending->second.end();
-	if ((not queued and this->is_tile_reserved(site))
-	    or not this->find_build_stand(state, builder_it->second, site, time)) {
+	if ((not queued and this->is_tile_reserved(*site))
+	    or not this->find_build_stand(state, builder_it->second, *site, time)) {
 		return false;
 	}
 	// Check eligibility before mutating the live queue.
@@ -1029,7 +1071,7 @@ bool FVD::prioritize_foundation(const std::shared_ptr<GameState> &state,
 	}
 	// Detach a queued site's reservation before replacing the current order.
 	if (queued) {
-		for (const auto &tile : this->get_tower_footprint(site)) {
+		for (const auto &tile : this->get_tower_footprint(*site)) {
 			auto reserved = this->reserved_tiles.find(tile);
 			if (reserved != this->reserved_tiles.end() and reserved->second == builder_id) {
 				this->reserved_tiles.erase(reserved);
@@ -1037,7 +1079,7 @@ bool FVD::prioritize_foundation(const std::shared_ptr<GameState> &state,
 		}
 	}
 	this->cancel_build(state, builder_id, time);
-	return this->start_build(state, owner, selected, site.to_phys3_center(), time,
+	return this->start_build(state, owner, selected, site->to_phys3_center(), time,
 	                         foundation_id);
 }
 
@@ -2812,8 +2854,38 @@ std::vector<FVDConstructionState> FVD::get_construction_state() const {
 std::vector<FVDTileReservation> FVD::get_reserved_tiles() const {
 	std::vector<FVDTileReservation> result{};
 	result.reserve(this->reserved_tiles.size());
-	for (const auto &[tile, builder_id] : this->reserved_tiles) {
-		result.push_back({tile, builder_id});
+	std::unordered_set<coord::tile> emitted{};
+	auto add_site = [&](entity_id_t builder_id, const coord::tile &site, uint32_t position) {
+		for (const auto &tile : this->get_tower_footprint(site)) {
+			auto reservation = this->reserved_tiles.find(tile);
+			if (reservation == this->reserved_tiles.end()
+			    or reservation->second != builder_id
+			    or not emitted.insert(tile).second) [[unlikely]] {
+				throw Error{ERR << "FVD construction queue disagrees with tile reservations"};
+			}
+			result.push_back({tile, builder_id, position});
+		}
+	};
+	for (const auto &[builder_id, build] : this->build_orders) {
+		add_site(builder_id, build.order->get_target(), 1);
+		auto queued = this->queued_builds.find(builder_id);
+		if (queued != this->queued_builds.end()) {
+			if (queued->second.size() > network::MAX_QUEUED_BUILD_SITES) [[unlikely]] {
+				throw Error{ERR << "FVD construction queue exceeds its limit"};
+			}
+			uint32_t position = 2;
+			for (const auto &site : queued->second) {
+				add_site(builder_id, site.site, position++);
+			}
+		}
+	}
+	for (const auto &[builder_id, queued] : this->queued_builds) {
+		if (not queued.empty() and not this->build_orders.contains(builder_id)) [[unlikely]] {
+			throw Error{ERR << "FVD construction queue has no active order"};
+		}
+	}
+	if (emitted.size() != this->reserved_tiles.size()) [[unlikely]] {
+		throw Error{ERR << "FVD has a tile reservation without a construction order"};
 	}
 	std::sort(result.begin(), result.end(),
 	          [](const auto &left, const auto &right) {

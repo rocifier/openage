@@ -36,8 +36,7 @@ gamestate::component::command::command_t simulation_command(CommandKind kind) {
 	case CommandKind::FOCUS_ATTACK:
 		return gamestate::component::command::command_t::FOCUS_ATTACK;
 	case CommandKind::PRIORITIZE_FOUNDATION:
-		// Existing simulation handler prioritizes a foundation via MOVE
-		// with target_entity, preserving the same ownership checks.
+		// The simulation handles targeted, optionally queued foundation orders.
 		return gamestate::component::command::command_t::MOVE;
 	case CommandKind::SET_STANCE:
 		return gamestate::component::command::command_t::SET_STANCE;
@@ -220,7 +219,8 @@ WorldState capture_fvd_presentation_state(
 		}
 	}
 	for (const auto &reservation : fvd->get_reserved_tiles()) {
-		result.reservations.push_back({reservation.tile, reservation.builder_id});
+		result.reservations.push_back({
+			reservation.tile, reservation.builder_id, reservation.queue_position});
 	}
 	for (const auto &construction : fvd->get_construction_state()) {
 		result.constructions.push_back({

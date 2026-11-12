@@ -46,6 +46,7 @@
 #include "network/construction_presentation.h"
 #include "network/match_connection_state.h"
 #include "network/order_presentation.h"
+#include "network/replication.h"
 #include "network/world_delta.h"
 #include "pathfinding/cost_field.h"
 #include "pathfinding/definitions.h"
@@ -1712,6 +1713,13 @@ void fvd_builder_delete_foundation() {
 	TESTEQUALS(fvd->get_build_order(builder) != nullptr, true);
 	TESTEQUALS(fvd->get_build_order(builder)->get_target(), third);
 	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{0});
+	const auto remaining_view = network::make_construction_presentation(
+		network::capture_fvd_presentation_state(state, at(0.02)));
+	auto remaining_site = std::find_if(
+		remaining_view.sites.begin(), remaining_view.sites.end(),
+		[third_site](const auto &site) { return site.entity_id == third_site; });
+	TESTEQUALS(remaining_site != remaining_view.sites.end(), true);
+	TESTEQUALS(remaining_site->queue_position, uint32_t{1});
 
 	// An abandoned foundation goes through the same Delete command as towers.
 	TESTEQUALS(fvd->cancel_build(state, builder, at(0.03)), true);
@@ -3676,6 +3684,231 @@ void fvd_retask_foundation() {
 	TESTEQUALS(fvd->is_tile_reserved({36, 66}), false);
 	TESTEQUALS(foundations().contains(coord::tile{39, 66}), true);
 	TESTEQUALS(foundations().contains(coord::tile{36, 66}), true);
+}
+
+void fvd_queue_existing_foundations() {
+	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	loop->add_event_handler(std::make_shared<event::SendCommandHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	tests::use_centre_test_layout(state);
+	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
+
+	std::array<entity_id_t, 9> builders{};
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		auto owner = std::dynamic_pointer_cast<component::Ownership>(
+			entity->get_component(component::component_t::OWNERSHIP));
+		builders.at(owner->get_owners().get(at(0))) = id;
+	}
+	const auto builder = builders.at(2);
+	const std::vector<entity_id_t> selected{builder};
+	auto foundation_at = [&](const coord::tile &tile, const time::time_t &when = time::TIME_ZERO) {
+		for (const auto &[id, entity] : state->get_game_entities()) {
+			if (entity->get_definition() != "fvd.data.entities.Foundation") continue;
+			auto position = std::dynamic_pointer_cast<component::Position>(
+				entity->get_component(component::component_t::POSITION));
+			if (position->get_positions().get(when).to_tile() == tile) return id;
+		}
+		throw testing::TestError{MSG(err) << "Missing foundation at expected tile"};
+	};
+	auto queue_foundation = [&](player_id_t owner, const std::vector<entity_id_t> &ids,
+	                            entity_id_t foundation) {
+		bool accepted = false;
+		event::SendCommandHandler handler;
+		handler.invoke(*loop, nullptr, state, at(0),
+		               {{"type", component::command::command_t::MOVE},
+		                {"owner", owner}, {"entity_ids", ids},
+		                {"queue", true}, {"target_entity", foundation},
+		                {"result_cb", std::function<void(bool)>{[&accepted](bool result) {
+			                accepted = result;
+		                }}}});
+		return accepted;
+	};
+
+	TESTEQUALS(fvd->queue_build(state, 2, selected, {54, 66, 0}, at(0)), true);
+	TESTEQUALS(fvd->queue_build(state, 2, selected, {57, 66, 0}, at(0)), true);
+	const auto older = foundation_at({54, 66});
+	const auto newer = foundation_at({57, 66});
+	TESTEQUALS(fvd->cancel_build(state, builder, at(0)), true);
+
+	TESTEQUALS(fvd->queue_build(state, 2, selected, {61, 66, 0}, at(0)), true);
+	TESTEQUALS(fvd->queue_build(state, 2, selected, {48, 66, 0}, at(0)), true);
+	const auto active_foundation = foundation_at({61, 66});
+	const auto first_waiting = foundation_at({48, 66});
+	const auto active_order = fvd->get_build_order(builder)->get_id();
+	TESTEQUALS(queue_foundation(2, selected, newer), true);
+	TESTEQUALS(fvd->get_build_order(builder)->get_id(), active_order);
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{2});
+	TESTEQUALS(queue_foundation(2, selected, active_foundation), false);
+	TESTEQUALS(queue_foundation(2, selected, newer), false);
+
+	// A decoded guest command uses its authenticated player and the same queue.
+	network::MatchConnectionState connections{fvd->get_player_count()};
+	const network::SessionIdentity identity{123, 2};
+	connections.bind_remote(identity);
+	auto commander = std::make_shared<event::Commander>(loop);
+	network::CommandIntent intent{1, network::CommandKind::PRIORITIZE_FOUNDATION, selected};
+	intent.target_entity = older;
+	intent.queue = true;
+	network::AuthenticatedCommand guest{
+		identity, network::decode_command_intent(network::encode_command_intent(intent))};
+	std::optional<bool> guest_result{};
+	network::submit_authenticated_command(
+		guest, connections, loop, commander, state, at(0),
+		[&](bool result) { guest_result = result; });
+	loop->reach_time(at(0), state);
+	TESTEQUALS(guest_result, std::optional<bool>{true});
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{3});
+	TESTEQUALS(fvd->get_build_order(builder)->get_id(), active_order);
+	TESTEQUALS(foundation_at({54, 66}), older);
+	TESTEQUALS(foundation_at({57, 66}), newer);
+
+	auto position_of = [](const network::WorldState &world, entity_id_t id) {
+		const auto presentation = network::make_construction_presentation(world);
+		auto it = std::find_if(presentation.sites.begin(), presentation.sites.end(),
+		                       [id](const auto &site) { return site.entity_id == id; });
+		if (it == presentation.sites.end()) {
+			throw testing::TestError{MSG(err) << "Missing foundation " << id};
+		}
+		return it->queue_position;
+	};
+	const auto complete = network::capture_fvd_state(state, connections, at(0), 0, 1, 2);
+	auto snapshot = network::decode_world_state(network::encode_world_state(complete));
+	TESTEQUALS(position_of(snapshot, newer), uint32_t{3});
+	TESTEQUALS(position_of(snapshot, older), uint32_t{4});
+
+	TESTEQUALS(queue_foundation(2, selected, older), false);
+	TESTEQUALS(queue_foundation(2, selected, entity_id_t{999999}), false);
+	TESTEQUALS(queue_foundation(2, {}, older), false);
+	TESTEQUALS(queue_foundation(2, {builders[3]}, older), false);
+	TESTEQUALS(queue_foundation(3, {builders[3]}, older), false);
+	auto stale_guest = guest;
+	stale_guest.identity.session_id = 124;
+	std::optional<bool> stale_result{};
+	network::submit_authenticated_command(
+		stale_guest, connections, loop, commander, state, at(0),
+		[&](bool result) { stale_result = result; });
+	TESTEQUALS(stale_result, std::optional<bool>{false});
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{3});
+	TESTEQUALS(fvd->get_build_order(builder)->get_id(), active_order);
+
+	// Removing an earlier site renumbers both old IDs in the guest delta.
+	TESTEQUALS(fvd->delete_owned_foundation(state, 2, first_waiting, at(0)), true);
+	const auto after_delete = network::capture_fvd_state(state, connections, at(0), 1, 2, 2);
+	const auto delta = network::decode_world_delta(
+		network::encode_world_delta(network::make_world_delta(complete, after_delete)));
+	network::ReplicationTracker guest_tracker{2};
+	guest_tracker.accept_snapshot(snapshot);
+	TESTEQUALS(guest_tracker.accept_delta(delta), network::DeltaDisposition::APPLY);
+	auto reconstructed = guest_tracker.get_world_state();
+	TESTEQUALS(reconstructed.has_value(), true);
+	TESTEQUALS(position_of(*reconstructed, newer), uint32_t{2});
+	TESTEQUALS(position_of(*reconstructed, older), uint32_t{3});
+
+	TESTEQUALS(fvd->cancel_build(state, builder, at(0)), true);
+	TESTEQUALS(fvd->is_tile_reserved({54, 66}), false);
+	TESTEQUALS(fvd->is_tile_reserved({57, 66}), false);
+
+	const network::SessionIdentity other_identity{125, 3};
+	connections.bind_remote(other_identity);
+	auto forged = guest;
+	forged.identity = other_identity;
+	forged.intent.target_entity = newer;
+	for (const auto &ids : {selected, std::vector<entity_id_t>{builders[3]}}) {
+		forged.intent.entity_ids = ids;
+		std::optional<bool> result{};
+		network::submit_authenticated_command(
+			forged, connections, loop, commander, state, at(0),
+			[&](bool accepted) { result = accepted; });
+		loop->reach_time(at(0), state);
+		TESTEQUALS(result, std::optional<bool>{false});
+	}
+	TESTEQUALS(fvd->is_tile_reserved({57, 66}), false);
+	TESTEQUALS(fvd->get_build_order(builder) == nullptr, true);
+
+	guest.intent.target_entity = newer;
+	guest_result.reset();
+	network::submit_authenticated_command(
+		guest, connections, loop, commander, state, at(0),
+		[&](bool result) { guest_result = result; });
+	loop->reach_time(at(0), state);
+	TESTEQUALS(guest_result, std::optional<bool>{true});
+	TESTEQUALS(fvd->get_build_order(builder)->get_target(), (coord::tile{57, 66}));
+	TESTEQUALS(foundation_at({57, 66}), newer);
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{0});
+	TESTEQUALS(queue_foundation(2, selected, older), true);
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{1});
+	const auto before_advance = network::capture_fvd_state(state, connections, at(0), 0, 3, 2);
+	TESTEQUALS(position_of(before_advance, older), uint32_t{2});
+	double advanced_at = 0;
+	while (advanced_at < 40
+	       and fvd->get_build_order(builder)
+	       and fvd->get_build_order(builder)->get_target() != coord::tile{54, 66}) {
+		advanced_at += 0.05;
+		loop->reach_time(at(advanced_at), state);
+	}
+	TESTEQUALS(fvd->get_build_order(builder) != nullptr, true);
+	TESTEQUALS(fvd->get_build_order(builder)->get_target(), (coord::tile{54, 66}));
+	const auto after_advance = network::capture_fvd_state(state, connections, at(advanced_at), 3, 4, 2);
+	const auto advance_delta = network::decode_world_delta(
+		network::encode_world_delta(network::make_world_delta(before_advance, after_advance)));
+	network::ReplicationTracker advance_tracker{2};
+	advance_tracker.accept_snapshot(network::decode_world_state(network::encode_world_state(before_advance)));
+	TESTEQUALS(advance_tracker.accept_delta(advance_delta), network::DeltaDisposition::APPLY);
+	const auto advanced_view = network::make_construction_presentation(*advance_tracker.get_world_state());
+	auto active_site = std::find_if(advanced_view.sites.begin(), advanced_view.sites.end(),
+	                                [](const auto &site) { return site.site == coord::tile{54, 66}; });
+	TESTEQUALS(active_site != advanced_view.sites.end(), true);
+	TESTEQUALS(active_site->queue_position, uint32_t{1});
+	loop->reach_time(at(40), state);
+	TESTEQUALS(fvd->get_build_order(builder) == nullptr, true);
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{0});
+	TESTEQUALS(state->get_game_entities().contains(newer), false);
+	TESTEQUALS(state->get_game_entities().contains(older), false);
+	const auto completed = network::capture_fvd_presentation_state(state, at(40));
+	for (const auto &tile : {coord::tile{57, 66}, coord::tile{54, 66}}) {
+		TESTEQUALS(std::count_if(completed.entities.begin(), completed.entities.end(),
+		                         [&](const auto &entity) {
+			                         return entity.definition == "fvd.data.entities.MedievalTowerLevel1"
+			                             and entity.position.to_tile() == tile;
+		                         }), 1);
+	}
+
+	// A foreign or dead Builder cannot claim an orphan, even through the command path.
+	TESTEQUALS(fvd->queue_build(state, 3, {builders[3]}, {72, 66, 0}, at(40)), true);
+	const auto foreign = foundation_at({72, 66}, at(40));
+	TESTEQUALS(fvd->cancel_build(state, builders[3], at(40)), true);
+	TESTEQUALS(fvd->queue_foundation(state, 2, selected, foreign, at(40)), false);
+	auto dead_builder = std::dynamic_pointer_cast<component::Live>(
+		state->get_game_entity(builders[3])->get_component(component::component_t::LIVE));
+	dead_builder->set_attribute(at(40), "fvd.data.entities.Health", 0);
+	TESTEQUALS(fvd->queue_foundation(state, 3, {builders[3]}, foreign, at(40)), false);
+	TESTEQUALS(fvd->is_tile_reserved({72, 66}), false);
+
+	// The limit applies equally to new sites and resumed foundations.
+	const auto orphan = foundation_at({61, 66}, at(40));
+	TESTEQUALS(fvd->queue_build(state, 2, selected, {80, 80, 0}, at(40)), true);
+	for (int index = 0; index < 256; ++index) {
+		const coord::tile site{20 + index / 16, 20 + index % 16};
+		TESTEQUALS(fvd->queue_build(state, 2, selected, site.to_phys3_center(), at(40)), true);
+	}
+	TESTEQUALS(fvd->get_queued_build_count(builder), size_t{256});
+	TESTEQUALS(fvd->queue_build(state, 2, selected, {40, 40, 0}, at(40)), false);
+	TESTEQUALS(fvd->queue_foundation(state, 2, selected, orphan, at(40)), false);
+	TESTEQUALS(fvd->is_tile_reserved({61, 66}), false);
+	const auto full_queue = network::capture_fvd_state(state, connections, at(40), 0, 5, 2);
+	const auto full_queue_snapshot = network::decode_world_state(network::encode_world_state(full_queue));
+	TESTEQUALS(position_of(full_queue_snapshot, foundation_at({35, 35}, at(40))), uint32_t{257});
 }
 
 void fvd_hunter_stances() {

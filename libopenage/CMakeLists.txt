@@ -430,6 +430,7 @@ set(_fvd_native_cpp_test_sources
 	"${CMAKE_SOURCE_DIR}/libopenage/presenter/guest_clock_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/presenter/hud_mouse_capture_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/renderer/font/tests.cpp"
+	"${CMAKE_SOURCE_DIR}/libopenage/renderer/opengl/uniform_buffer_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/renderer/resources/texture_data_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/renderer/stages/world/render_stage_test.cpp"
 	"${CMAKE_SOURCE_DIR}/libopenage/rng/rng_tests.cpp"

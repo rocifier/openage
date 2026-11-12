@@ -77,6 +77,11 @@ std::optional<StructureSelection> select_fvd_structure(
 	bool shift, bool double_click,
 	const std::function<bool(const network::EntityState &)> &on_screen);
 
+/** Resolve a visible, owned foundation, preferring an available ground-tile site. */
+std::optional<gamestate::entity_id_t> queue_foundation_target(
+	const network::WorldState &world, gamestate::player_id_t owner,
+	std::optional<gamestate::entity_id_t> picked, const coord::tile &clicked_tile);
+
 /**
  * Interface for game controllers.
  *
@@ -311,10 +316,17 @@ std::vector<gamestate::entity_id_t> units_take_priority(
 std::vector<coord::tile> tower_line_sites(const coord::tile &start,
                                           const coord::tile &end);
 
+using entity_pick_callback_t = std::function<void(std::optional<gamestate::entity_id_t>)>;
+using entity_pick_filter_t = std::function<bool(gamestate::entity_id_t)>;
+using entity_picker_t = std::function<void(const coord::input &,
+                                           const entity_pick_callback_t &,
+                                           const entity_pick_filter_t &)>;
+
 /**
  * Setup default controller action bindings:
  *
- * - B, then Left Mouse click: Build a tower; Shift-click to append sites.
+ * - B, then Left Mouse click: Build a tower; Shift-click to append sites or
+ *   resume owned orphan foundations at the end of the Builder's queue.
  * - Shift+left-drag with Builder: queue a straight line of foundations.
  * - Shift+click structures: add same-type allied structures; double-click
  *   a structure to select its owner's same-type on-screen structures.
@@ -329,7 +341,9 @@ std::vector<coord::tile> tower_line_sites(const coord::tile &start,
  * @param time_loop Time loop for getting simulation time.
  * @param simulation Game simulation.
  * @param camera Active game camera.
- * @param pick_entity Callback for finding the visible entity under a window pixel.
+ * @param pick_entity Callback for finding a visible entity under a window pixel,
+ *                    optionally restricted to matching IDs. It must invoke its
+ *                    result callback before returning.
  * @param can_spawn_hunter Whether this process owns the authoritative FVD simulation.
  */
 void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
@@ -337,9 +351,7 @@ void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
                     const std::shared_ptr<time::TimeLoop> &time_loop,
                     const std::shared_ptr<openage::gamestate::GameSimulation> &simulation,
                     const std::shared_ptr<renderer::camera::Camera> &camera,
-	                const std::function<void(
-		                const coord::input &,
-		                const std::function<void(std::optional<gamestate::entity_id_t>)> &)> &pick_entity,
+	                const entity_picker_t &pick_entity,
                     const std::function<bool(network::CommandIntent)> &send_guest_command = {},
                     const std::function<std::optional<network::WorldState>()> &guest_world = {},
                     bool online_lobby = false,

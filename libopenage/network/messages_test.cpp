@@ -115,6 +115,23 @@ void messages() {
 		TESTTHROWS(decode_command_intent(bytes));
 	}
 
+	CommandIntent queued_foundation{9, CommandKind::PRIORITIZE_FOUNDATION, {101}};
+	queued_foundation.target_entity = 501;
+	queued_foundation.queue = true;
+	auto foundation_bytes = encode_command_intent(queued_foundation);
+	auto decoded_foundation = decode_command_intent(foundation_bytes);
+	TESTEQUALS(decoded_foundation.kind, CommandKind::PRIORITIZE_FOUNDATION);
+	TESTEQUALS(decoded_foundation.queue, true);
+	TESTEQUALS(decoded_foundation.target_entity, std::optional<gamestate::entity_id_t>{501});
+	auto no_foundation = queued_foundation;
+	no_foundation.target_entity.reset();
+	TESTTHROWS(encode_command_intent(no_foundation));
+	auto queued_attack = queued_foundation;
+	queued_attack.kind = CommandKind::FOCUS_ATTACK;
+	TESTTHROWS(encode_command_intent(queued_attack));
+	foundation_bytes[9] = static_cast<uint8_t>(CommandKind::FOCUS_ATTACK);
+	TESTTHROWS(decode_command_intent(foundation_bytes));
+
 	auto queued = intent;
 	queued.kind = CommandKind::BUILD_TOWER;
 	queued.queue = true;
@@ -304,7 +321,7 @@ void messages() {
 	TESTEQUALS(tower_point.target, (coord::phys3{60, 66, 0}));
 	point.target_entity.reset();
 
-	state.reservations = {{{10, 20}, 300}};
+	state.reservations = {{{10, 20}, 300, 1}};
 	state.constructions = {{
 		7, 2, 300, {10, 20}, ConstructionPhase::PLANNED,
 		time::time_t::from_double(4.5), time::time_t::from_double(4.5), 200}};
@@ -391,6 +408,24 @@ void messages() {
 	TESTEQUALS(decoded_state.reservations.front().tile, (coord::tile{10, 20}));
 	TESTEQUALS(decoded_state.reservations.front().builder_id,
 	           gamestate::entity_id_t{300});
+	TESTEQUALS(decoded_state.reservations.front().queue_position, uint32_t{1});
+	WorldState reservation_only{};
+	reservation_only.map_size = 128;
+	reservation_only.local_player_id = 2;
+	reservation_only.players = {{2, PlayerRole::BUILDER}};
+	reservation_only.reservations = {{{10, 20}, 300, 7}};
+	auto reservation_bytes = encode_world_state(reservation_only);
+	TESTEQUALS(reservation_bytes.at(135), uint8_t{7});
+	reservation_bytes[135] = 0;
+	TESTTHROWS(decode_world_state(reservation_bytes));
+	reservation_bytes[134] = 1;
+	reservation_bytes[135] = 2;
+	TESTTHROWS(decode_world_state(reservation_bytes));
+	reservation_only.reservations.front().queue_position = MAX_QUEUED_BUILD_SITES + 2;
+	TESTTHROWS(encode_world_state(reservation_only));
+	reservation_only.reservations.front().queue_position = 1;
+	reservation_only.reservations.front().builder_id = 0;
+	TESTTHROWS(encode_world_state(reservation_only));
 	TESTEQUALS(decoded_state.constructions.size(), size_t{1});
 	TESTEQUALS(decoded_state.constructions.front().order_id, uint64_t{7});
 	decoded_state.constructions.front().phase == ConstructionPhase::PLANNED

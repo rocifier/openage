@@ -206,6 +206,13 @@ player count before hosting. Each guest must join the **same** room.
   and all player screens converge. Check each reservation and site label
   shows the correct owner on Hunter and every Builder screen; distinguish
   queued foundations from the Builder's current planned/building site.
+- On a host and a guest Builder, abandon several foundations, start another
+  build, then Shift+left-click the older foundations in reverse creation order.
+  Verify the existing foundations remain in place, the active work continues,
+  and their queue numbers follow the clicked order on both clients after a
+  snapshot and after deleting an earlier queued site.
+  Verify a normal right-click still replaces the queue, while Shift-clicking
+  an already active or queued site does not duplicate it.
 - Other Builders should queue distinct towers and move while the Hunter
   selects several horses and AttackMoves. Verify ownership, arrows, health,
   death and kill totals agree across game processes.

@@ -2,6 +2,8 @@
 
 #include "input_manager.h"
 
+#include <QMouseEvent>
+
 #include "input/controller/camera/controller.h"
 #include "input/controller/game/controller.h"
 #include "input/controller/hud/controller.h"
@@ -131,6 +133,13 @@ void InputManager::set_motion(int x, int y) {
 
 bool InputManager::process(const QEvent &ev) {
 	util::StallProfiler profile{"input.process"};
+	if (ev.type() == QEvent::MouseButtonPress
+	    or ev.type() == QEvent::MouseButtonRelease
+	    or ev.type() == QEvent::MouseButtonDblClick) {
+		const auto &mouse = static_cast<const QMouseEvent &>(ev);
+		this->set_mouse(static_cast<int>(mouse.position().x()),
+		                static_cast<int>(mouse.position().y()));
+	}
 	input::Event input_ev{ev};
 
 	// Check context list on top of the stack (most recent bound first)
