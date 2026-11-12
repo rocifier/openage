@@ -4,6 +4,8 @@
 
 #include <ostream>
 
+#include "coord/compound_ops.h"
+
 namespace openage {
 namespace coord {
 
@@ -29,7 +31,7 @@ namespace coord {
  * in etc/gdb_pretty/printers.py.
  */
 template<typename CoordType, typename Absolute, typename Relative>
-struct CoordXYZAbsolute {
+struct CoordXYZAbsolute : AbsoluteCompoundOps<Absolute, Relative> {
 
 	using elem_t = CoordType;
 
@@ -66,16 +68,6 @@ struct CoordXYZAbsolute {
 		return Absolute(this->x - other.x, this->y - other.y, this->z - other.z);
 	}
 
-	constexpr Absolute &operator +=(const Relative &other) {
-		*this = *this + other;
-		return static_cast<Absolute &>(*this);
-	}
-
-	constexpr Absolute &operator -=(const Relative &other) {
-		*this = *this - other;
-		return static_cast<Absolute &>(*this);
-	}
-
 	friend constexpr bool operator ==(const Absolute &lhs, const Absolute &rhs) {
 		return (lhs.x == rhs.x) && (lhs.y == rhs.y) && (lhs.z == rhs.z);
 	}
@@ -93,7 +85,7 @@ struct CoordXYZAbsolute {
  * in etc/gdb_pretty/printers.py.
  */
 template<typename CoordType, typename Absolute, typename Relative>
-struct CoordXYZRelative {
+struct CoordXYZRelative : RelativeCompoundOps<Relative> {
 	using elem_t = CoordType;
 
 	// The member variables to store the actual data.
@@ -143,28 +135,6 @@ struct CoordXYZRelative {
 	template<typename ScalarType>
 	constexpr Relative operator /(const ScalarType &scalar) const {
 		return Relative(this->x / scalar, this->y / scalar, this->z / scalar);
-	}
-
-	constexpr Relative &operator +=(const Relative &other) {
-		*this += other;
-		return static_cast<Relative &>(*this);
-	}
-
-	constexpr Relative &operator -=(const Relative &other) {
-		*this -= other;
-		return static_cast<Relative &>(*this);
-	}
-
-	template<typename ScalarType>
-	constexpr Relative &operator *=(const ScalarType &scalar) {
-		*this *= scalar;
-		return static_cast<Relative &>(*this);
-	}
-
-	template<typename ScalarType>
-	constexpr Relative &operator /=(const ScalarType &scalar) {
-		*this /= scalar;
-		return static_cast<Relative &>(*this);
 	}
 
 	friend constexpr bool operator ==(const Relative &lhs, const Relative &rhs) {

@@ -4,6 +4,8 @@
 
 #include <ostream>
 
+#include "coord/compound_ops.h"
+
 namespace openage {
 namespace coord {
 
@@ -29,7 +31,7 @@ namespace coord {
  * in etc/gdb_pretty/printers.py.
  */
 template<typename CoordType, typename Absolute, typename Relative>
-struct CoordNeSeAbsolute {
+struct CoordNeSeAbsolute : AbsoluteCompoundOps<Absolute, Relative> {
 
 	using elem_t = CoordType;
 
@@ -65,16 +67,6 @@ struct CoordNeSeAbsolute {
 		return Absolute(this->ne - other.ne, this->se - other.se);
 	}
 
-	constexpr Absolute &operator +=(const Relative &other) {
-		*this = *this + other;
-		return static_cast<Absolute &>(*this);
-	}
-
-	constexpr Absolute &operator -=(const Relative &other) {
-		*this = *this - other;
-		return static_cast<Absolute &>(*this);
-	}
-
 	friend constexpr bool operator ==(const Absolute &lhs, const Absolute &rhs) {
 		return (lhs.ne == rhs.ne) && (lhs.se == rhs.se);
 	}
@@ -92,7 +84,7 @@ struct CoordNeSeAbsolute {
  * in etc/gdb_pretty/printers.py.
  */
 template<typename CoordType, typename Absolute, typename Relative>
-struct CoordNeSeRelative {
+struct CoordNeSeRelative : RelativeCompoundOps<Relative> {
 	using elem_t = CoordType;
 
 	// The member variables to store the actual data.
@@ -141,28 +133,6 @@ struct CoordNeSeRelative {
 	template<typename ScalarType>
 	constexpr Relative operator /(const ScalarType &scalar) const {
 		return Relative(this->ne / scalar, this->se / scalar);
-	}
-
-	constexpr Relative &operator +=(const Relative &other) {
-		*this += other;
-		return static_cast<Relative &>(*this);
-	}
-
-	constexpr Relative &operator -=(const Relative &other) {
-		*this -= other;
-		return static_cast<Relative &>(*this);
-	}
-
-	template<typename ScalarType>
-	constexpr Relative &operator *=(const ScalarType &scalar) {
-		*this *= scalar;
-		return static_cast<Relative &>(*this);
-	}
-
-	template<typename ScalarType>
-	constexpr Relative &operator /=(const ScalarType &scalar) {
-		*this /= scalar;
-		return static_cast<Relative &>(*this);
 	}
 
 	friend constexpr bool operator ==(const Relative &lhs, const Relative &rhs) {

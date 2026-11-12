@@ -2,6 +2,7 @@
 
 add_sources(libopenage
 	chunk.cpp
+	compound_ops.cpp
 	coord_xy.cpp
 	coord_xyz.cpp
 	coord_nese.cpp

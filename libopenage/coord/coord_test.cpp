@@ -5,6 +5,10 @@
 #include <cstdint>
 
 #include "../testing/testing.h"
+#include "coord_xyz.h"
+#include "phys.h"
+#include "term.h"
+#include "tile.h"
 #include "../util/stringformatter.h"
 
 namespace openage {
@@ -26,6 +30,44 @@ struct TestCoordsAbsolute : CoordXYAbsolute<int, TestCoordsAbsolute, TestCoordsR
 struct TestCoordsRelative : CoordXYRelative<int, TestCoordsAbsolute, TestCoordsRelative> {
     using CoordXYRelative<int, TestCoordsAbsolute, TestCoordsRelative>::CoordXYRelative;
 };
+
+struct TestCoords3Relative;
+struct TestCoords3Absolute;
+
+struct TestCoords3Absolute : CoordXYZAbsolute<int, TestCoords3Absolute, TestCoords3Relative> {
+    using CoordXYZAbsolute<int, TestCoords3Absolute, TestCoords3Relative>::CoordXYZAbsolute;
+};
+
+struct TestCoords3Relative : CoordXYZRelative<int, TestCoords3Absolute, TestCoords3Relative> {
+    using CoordXYZRelative<int, TestCoords3Absolute, TestCoords3Relative>::CoordXYZRelative;
+};
+
+/**
+ * Compound assignment must match the binary operators and return the
+ * assigned object, so that chained assignments accumulate.
+ */
+template <typename Absolute, typename Relative>
+void check_compound_assignment(const Absolute &origin, const Relative &step) {
+    Absolute absolute{origin};
+    TESTEQUALS(&(absolute += step), &absolute);
+    TESTEQUALS(absolute, origin + step);
+    TESTEQUALS(&(absolute -= step), &absolute);
+    TESTEQUALS(absolute, origin);
+    (absolute += step) -= step + step;
+    TESTEQUALS(absolute, origin - step);
+
+    Relative relative{step};
+    TESTEQUALS(&(relative += step), &relative);
+    TESTEQUALS(relative, step + step);
+    TESTEQUALS(&(relative -= step), &relative);
+    TESTEQUALS(relative, step);
+    TESTEQUALS(&(relative *= 6), &relative);
+    TESTEQUALS(relative, step * 6);
+    TESTEQUALS(&(relative /= 3), &relative);
+    TESTEQUALS(relative, step * 2);
+    ((relative += step) *= 2) /= 3;
+    TESTEQUALS(relative, step * 2);
+}
 
 } // anonymous namespace
 
@@ -78,6 +120,14 @@ void coord() {
     // test scalar multiplication and division
     TESTEQUALS(r0 * 3, TestCoordsRelative(9, 12));
     TESTEQUALS(r0 / 3, TestCoordsRelative(1, 1));
+
+    // test compound assignment for every coordinate family
+    check_compound_assignment(TestCoordsAbsolute(1, 2), TestCoordsRelative(3, -4));
+    check_compound_assignment(TestCoords3Absolute(1, 2, 3), TestCoords3Relative(3, -4, 5));
+    check_compound_assignment(term(1, 2), term_delta(3, -4));
+    check_compound_assignment(tile(1, 2), tile_delta(3, -4));
+    check_compound_assignment(tile3(1, 2, 3), tile3_delta(3, -4, 5));
+    check_compound_assignment(phys3(1.5, 2, 3), phys3_delta(3, -4.25, 5));
 
     // test string representation
     util::FString s;

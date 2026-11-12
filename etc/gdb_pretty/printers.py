@@ -123,15 +123,17 @@ class CoordPrinter:
 
         # Each coord type has one parent which is either
         # of CoordNeSe, CoordNeSeUp, CoordXY, CoordXYZ
-        # From this parent we can get the fields
-        self._parent_type = self.__val.type.fields()[0].type
+        # From this parent we can get the fields; its own base classes
+        # only provide operators and hold no data
+        parent_type = self.__val.type.fields()[0].type
+        self._members = [field for field in parent_type.fields() if not field.is_base_class]
 
     def to_string(self):
         """
         Get the coord as a string.
         """
         field_vals = []
-        for child in self._parent_type.fields():
+        for child in self._members:
             # Include the fixed point coordinates in the summary
             val = self.__val[child.name]
             num = format_fixed_point(int(val["raw_value"]), int(val.type.template_argument(1)))
@@ -144,7 +146,7 @@ class CoordPrinter:
         """
         Get the displayed children of the coord.
         """
-        for child in self._parent_type.fields():
+        for child in self._members:
             yield (child.name, self.__val[child.name])
 
 
