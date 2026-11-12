@@ -955,9 +955,20 @@ bool FVD::start_build(const std::shared_ptr<GameState> &state,
 	for (const auto &tile : this->get_tower_footprint(site)) {
 		this->reserved_tiles.emplace(tile, builder_id);
 	}
-	auto travel = *stand == current_position
-	            ? time::TIME_ZERO
-	            : system::Move::move_default(entity, state, *stand, time);
+	// Clear any previous movement curve even if the Builder is already in
+	// reach. Otherwise an old move order could carry it away during the build.
+	time::time_t travel = time::TIME_ZERO;
+	if (*stand == current_position) {
+		auto position_component = std::dynamic_pointer_cast<component::Position>(
+			entity->get_component(component::component_t::POSITION));
+		position_component->set_position(time, current_position);
+		auto move_component = std::dynamic_pointer_cast<component::Move>(
+			entity->get_component(component::component_t::MOVE));
+		move_component->clear_active_route();
+	}
+	else {
+		travel = system::Move::move_default(entity, state, *stand, time);
+	}
 	auto arrival = time + travel;
 	entity_id_t foundation_id;
 	if (existing_foundation) {
