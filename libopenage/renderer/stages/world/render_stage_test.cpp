@@ -36,6 +36,7 @@
 #include "gamestate/terrain_factory.h"
 #include "input/controller/game/binding_context.h"
 #include "input/controller/game/controller.h"
+#include "input/controller/game/game_bindings.h"
 #include "input/controller/hud/binding_context.h"
 #include "input/controller/hud/controller.h"
 #include "input/input_context.h"

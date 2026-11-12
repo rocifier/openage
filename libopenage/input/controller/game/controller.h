@@ -20,14 +20,6 @@
 
 namespace openage {
 
-namespace gamestate {
-class GameSimulation;
-}
-
-namespace time {
-class TimeLoop;
-}
-
 namespace renderer::world {
 class RenderEntity;
 }
@@ -347,41 +339,6 @@ using entity_pick_filter_t = std::function<bool(gamestate::entity_id_t)>;
 using entity_picker_t = std::function<void(const coord::input &,
                                            const entity_pick_callback_t &,
                                            const entity_pick_filter_t &)>;
-
-/**
- * Setup default controller action bindings:
- *
- * - B, then Left Mouse click: Build a tower; Shift-click to append sites or
- *   resume owned orphan foundations at the end of the Builder's queue.
- * - Shift+left-drag with Builder: queue a straight line of foundations.
- * - Shift+click structures: add same-type allied structures; double-click
- *   a structure to select its owner's same-type on-screen structures.
- * - Hunter: single-click Builder towers to inspect HP; no building groups.
- * - F9: Skip the first Hunter spawn delay on the authoritative simulation.
- * - Right Mouse click: Move to terrain; Hunter right-clicks enemy to
- *   focus-attack, while a Builder right-clicks a queued foundation to
- *   clear its other orders and construct that foundation.
- *
- * @param ctx Binding context the actions are added to.
- * @param controller Active controller receiving the shared Hunter stance command.
- * @param time_loop Time loop for getting simulation time.
- * @param simulation Game simulation.
- * @param camera Active game camera.
- * @param pick_entity Callback for finding a visible entity under a window pixel,
- *                    optionally restricted to matching IDs. It must invoke its
- *                    result callback before returning.
- * @param can_spawn_hunter Whether this process owns the authoritative FVD simulation.
- */
-void setup_defaults(const std::shared_ptr<BindingContext> &ctx,
-                    const std::shared_ptr<Controller> &controller,
-                    const std::shared_ptr<time::TimeLoop> &time_loop,
-                    const std::shared_ptr<openage::gamestate::GameSimulation> &simulation,
-                    const std::shared_ptr<renderer::camera::Camera> &camera,
-	                const entity_picker_t &pick_entity,
-                    const std::function<bool(network::CommandIntent)> &send_guest_command = {},
-                    const std::function<std::optional<network::WorldState>()> &guest_world = {},
-                    bool online_lobby = false,
-                    const std::function<bool()> &can_spawn_hunter = {});
 
 } // namespace input::game
 } // namespace openage
