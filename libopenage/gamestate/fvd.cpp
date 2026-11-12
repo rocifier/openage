@@ -69,6 +69,28 @@ int FVDConstructionState::progress_percent(const time::time_t &now) const {
 
 namespace {
 
+// The 0.5-tile-wide Builder selection box defines a 0.25-tile radius.
+// Reach is measured from the foundation's square edge, not its centre.
+// The approach target lies inside this threshold to avoid boundary jitter.
+constexpr double BUILD_SELECTION_RADIUS = 0.25;
+constexpr double BUILD_REACH = 1.2 * BUILD_SELECTION_RADIUS;
+constexpr double BUILD_APPROACH_DISTANCE = BUILD_SELECTION_RADIUS;
+constexpr double BUILD_POSITION_EPSILON = 0.005;
+
+double foundation_edge_distance(const coord::phys3 &position, const coord::tile &site) {
+	const double ne = position.ne.to_double();
+	const double se = position.se.to_double();
+	const double dx = std::max({static_cast<double>(site.ne) - ne, 0.0,
+	                            ne - static_cast<double>(site.ne + 1)});
+	const double dy = std::max({static_cast<double>(site.se) - se, 0.0,
+	                            se - static_cast<double>(site.se + 1)});
+	return std::hypot(dx, dy);
+}
+
+bool within_build_reach(const coord::phys3 &position, const coord::tile &site) {
+	return foundation_edge_distance(position, site) <= BUILD_REACH + BUILD_POSITION_EPSILON;
+}
+
 /** Arrive at a construction site, then complete it at a later simulation time. */
 class BuildProgressHandler : public openage::event::OnceEventHandler {
 public:
@@ -803,10 +825,6 @@ std::optional<coord::phys3> FVD::find_build_stand(
 		    or this->tile_occupied(state, candidate, time, entity->get_id())) {
 			continue;
 		}
-		// Unbuilt foundations (anyone's) are walkable and can be stood on;
-		// with touching rows they may be the only tiles beside a site. A
-		// tower under construction already blocks its tile (occupancy and
-		// path cost), so reservations need no separate check here.
 		candidates.push_back(candidate);
 	}
 	std::stable_sort(candidates.begin(), candidates.end(),
@@ -818,25 +836,38 @@ std::optional<coord::phys3> FVD::find_build_stand(
 		                 return da < db;
 	                 });
 
-	// Consider all eight faces and corners. The nearest tile by straight-line
-	// distance is not always the shortest accessible route around other
-	// towers. Choose by actual path length, with the stable candidate order
-	// providing a deterministic tie-breaker.
+	// Route via the normal pathfinder, then move to a precise position
+	// within the neighbouring tile, close enough to construct.
+	if (within_build_reach(current_position, site)
+	    and origin != site
+	    and not this->tile_occupied(state, origin, time, entity->get_id())) {
+		return current_position;
+	}
 	std::optional<coord::phys3> stand;
 	std::optional<double> best_length;
 	for (const auto &candidate : candidates) {
-		if (candidate == origin) return current_position;
+		const double low_ne = static_cast<double>(candidate.ne);
+		const double low_se = static_cast<double>(candidate.se);
+		const double ne = std::clamp(static_cast<double>(site.ne) + 0.5,
+		                             low_ne + BUILD_APPROACH_DISTANCE,
+		                             low_ne + 1.0 - BUILD_APPROACH_DISTANCE);
+		const double se = std::clamp(static_cast<double>(site.se) + 0.5,
+		                             low_se + BUILD_APPROACH_DISTANCE,
+		                             low_se + 1.0 - BUILD_APPROACH_DISTANCE);
+		const coord::phys3 point{ne, se, 0};
+		if (not within_build_reach(point, site)) continue;
 		auto route = pathfinder->get_path(path::PathRequest{grid, origin, candidate, time});
 		if (route.status != path::PathResult::FOUND or route.waypoints.empty()) continue;
 		double length = 0.0;
 		for (size_t i = 1; i < route.waypoints.size(); ++i) {
-			auto ne = route.waypoints[i].ne - route.waypoints[i - 1].ne;
-			auto se = route.waypoints[i].se - route.waypoints[i - 1].se;
-			length += std::hypot(static_cast<double>(ne), static_cast<double>(se));
+			auto dne = route.waypoints[i].ne - route.waypoints[i - 1].ne;
+			auto dse = route.waypoints[i].se - route.waypoints[i - 1].se;
+			length += std::hypot(static_cast<double>(dne), static_cast<double>(dse));
 		}
+		if (candidate == origin) length = 0.0;
 		if (not best_length or length < *best_length) {
 			best_length = length;
-			stand = candidate.to_phys3_center();
+			stand = point;
 		}
 	}
 	return stand;
@@ -1282,23 +1313,19 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 		this->cancel_build(state, builder, time);
 		return;
 	}
-	// Construction was started only at its approved adjacent stand; moving
-	// away during the timed build still cancels the work as before.
-	if (finish and (current != it->second.stand
+	// Authoritative position and one shared range rule prevent arrival
+	// rounding or network timing from invalidating a valid construction.
+	if (finish and (not within_build_reach(current, tile)
 	                or this->tile_occupied(state, current.to_tile(), time, builder))) {
 		this->cancel_build(state, builder, time);
 		return;
 	}
 	if (not finish and not placed_tower) {
 		const auto blockers = this->build_site_blockers(state, tile, time);
-		const bool at_stand = current == it->second.stand;
-		const auto stand_tile = it->second.stand.to_tile();
-		const bool adjacent = std::abs(stand_tile.ne - tile.ne) <= 1
-		                   and std::abs(stand_tile.se - tile.se) <= 1
-		                   and stand_tile != tile;
+		const bool in_reach = within_build_reach(current, tile);
 		const bool stand_blocked = this->tile_occupied(
-			state, it->second.stand.to_tile(), time, builder);
-		if (not blockers.empty() or not at_stand or not adjacent or stand_blocked) {
+			state, current.to_tile(), time, builder);
+		if (not blockers.empty() or not in_reach or stand_blocked) {
 			// The first attempt after arrival starts the five-second clock.
 			// In transit to a distant site we only arrive here when the
 			// movement event fires, so travel itself does not count.
@@ -1319,7 +1346,7 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 				const bool going = move and move->get_active_target()
 				                and *move->get_active_target() == *stand
 				                and move->get_active_arrival() > time;
-				if (not going and *stand != current) {
+				if (not going and not within_build_reach(current, tile) and *stand != current) {
 					system::Move::move_default(entity, state, *stand, time);
 				}
 				it->second.stand = *stand;
