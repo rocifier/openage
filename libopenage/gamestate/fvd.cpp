@@ -418,6 +418,12 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	}
 	this->builder_selection_radius = selection_width * 0.5;
 	this->horse = settings.get_object("horse").get_name();
+	this->escape_cart = settings.get_object("escape_cart").get_name();
+	const double cart_build_seconds = settings.get_float("cart_construction_time");
+	if (not std::isfinite(cart_build_seconds) or cart_build_seconds < 1.0 or cart_build_seconds > 300.0) {
+		throw Error{ERR << "Escape cart construction time must be 1..300 seconds"};
+	}
+	this->cart_construction_time = time::time_t::from_double(cart_build_seconds);
 	this->foundation = settings.get_object("foundation").get_name();
 	this->tower_demolition = settings.get_object("tower_demolition").get_name();
 	this->tower = settings.get_object("wood_tower").get_name();
@@ -451,6 +457,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	};
 	require_kind(this->builder, network::EntityKind::BUILDER);
 	require_kind(this->horse, network::EntityKind::HORSE);
+	require_kind(this->escape_cart, network::EntityKind::ESCAPE_CART);
 	require_kind(this->foundation, network::EntityKind::FOUNDATION);
 	require_kind(this->tower_demolition, network::EntityKind::TOWER_DEMOLITION);
 	require_kind(this->tower, network::EntityKind::WOOD_TOWER);

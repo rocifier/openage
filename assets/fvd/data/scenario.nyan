@@ -17,13 +17,14 @@ Hunter(Civilisation):
 
 Builders(Civilisation):
     Civilisation.name = "Builders"
-    Civilisation.buildables = {fvd.data.entities.MedievalTowerLevel1}
+    Civilisation.buildables = {fvd.data.entities.MedievalTowerLevel1, fvd.data.entities.EscapeCart}
 
 Scenario(engine.root.Object):
     map_size : int = 128
     chunk_size : int = 16
     player_count : int = 8
     construction_time : float = 0.1
+    cart_construction_time : float = 75.0
     tower_demolition_time : int = 30
     horse_spawn_delay : int = 20
     horse_spawn_interval : int = 1
@@ -43,6 +44,7 @@ Scenario(engine.root.Object):
     builders : Civilisation = Builders
     builder : engine.util.game_entity.GameEntity = fvd.data.entities.Builder
     horse : engine.util.game_entity.GameEntity = fvd.data.entities.Horse
+    escape_cart : engine.util.game_entity.GameEntity = fvd.data.entities.EscapeCart
     foundation : engine.util.game_entity.GameEntity = fvd.data.entities.Foundation
     tower_demolition : engine.util.game_entity.GameEntity = fvd.data.entities.TowerDemolition
     wood_tower : engine.util.game_entity.GameEntity = fvd.data.entities.MedievalTowerLevel1

@@ -763,6 +763,8 @@ private:
 	std::string builders;
 	std::string builder;
 	std::string horse;
+	std::string escape_cart;
+	time::time_t cart_construction_time;
 	std::string horse_attack_animation;
 	std::string foundation;
 	std::string tower_demolition;

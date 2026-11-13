@@ -71,6 +71,56 @@ Builder(engine.util.game_entity.GameEntity):
             Rectangle.width = 0.5
             Rectangle.height = 0.5
 
+
+EscapeCart(engine.util.game_entity.GameEntity):
+    GameEntity.types = {}
+    GameEntity.abilities = {Idle, LineOfSight, Live, Move, Turn, Selectable}
+    GameEntity.modifiers = {}
+    GameEntity.variants = {}
+
+    LineOfSight(engine.ability.type.LineOfSight):
+        LineOfSight.range = 6.0
+
+    Idle(engine.ability.type.Idle):
+        Ability.properties = {engine.ability.property.type.Animated: Animated}
+
+        Animated(engine.ability.property.type.Animated):
+            Animated.animations = {Animation}
+
+            Animation(engine.util.graphics.Animation):
+                Animation.sprite = "../../../fvd/graphics/ethereal-hunter-horse/ethereal-hunter-horse-idle1.sprite"
+
+    Live(engine.ability.type.Live):
+        Live.attributes = {HealthSetting}
+
+        HealthSetting(engine.util.attribute.AttributeSetting):
+            AttributeSetting.attribute = Health
+            AttributeSetting.min_value = 0
+            AttributeSetting.max_value = 250
+            AttributeSetting.starting_value = 250
+
+    Move(engine.ability.type.Move):
+        Move.speed = 4.5
+        Move.modes = {}
+        Move.path_type = fvd.data.terrain.Land
+        Ability.properties = {engine.ability.property.type.Animated: Animated}
+
+        Animated(engine.ability.property.type.Animated):
+            Animated.animations = {Animation}
+
+            Animation(engine.util.graphics.Animation):
+                Animation.sprite = "../../../fvd/graphics/ethereal-hunter-horse/ethereal-hunter-horse-gallop.sprite"
+
+    Turn(engine.ability.type.Turn):
+        Turn.turn_speed = inf
+
+    Selectable(engine.ability.type.Selectable):
+        Selectable.selection_box = Box
+
+        Box(engine.util.selection_box.type.Rectangle):
+            Rectangle.width = 1.0
+            Rectangle.height = 1.0
+
 Horse(engine.util.game_entity.GameEntity):
     GameEntity.types = {}
     GameEntity.abilities = {Idle, LineOfSight, Live, Move, Attack, Death, Turn, Selectable}
