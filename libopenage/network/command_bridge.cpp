@@ -34,6 +34,8 @@ gamestate::component::command::command_t simulation_command(CommandKind kind) {
 		return gamestate::component::command::command_t::ATTACK_MOVE;
 	case CommandKind::BUILD_TOWER:
 		return gamestate::component::command::command_t::BUILD_TOWER;
+	case CommandKind::BUILD_CART:
+		return gamestate::component::command::command_t::BUILD_CART;
 	case CommandKind::FOCUS_ATTACK:
 		return gamestate::component::command::command_t::FOCUS_ATTACK;
 	case CommandKind::PRIORITIZE_FOUNDATION:

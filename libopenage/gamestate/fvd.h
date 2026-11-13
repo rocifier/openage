@@ -244,6 +244,20 @@ public:
 	                   bool finish,
 	                   const time::time_t &time);
 
+	/** Costly mobile transport: the constructing Builder must remain at the site. */
+	bool start_cart_build(const std::shared_ptr<GameState> &state, player_id_t owner,
+	                     const std::vector<entity_id_t> &ids, const time::time_t &time);
+	void complete_cart_build(const std::shared_ptr<GameState> &state, entity_id_t builder_id,
+	                         uint64_t revision, const time::time_t &time);
+	void cancel_cart_build(entity_id_t builder_id);
+	std::vector<player_id_t> get_cart_players(const std::shared_ptr<GameState> &state,
+	                                         entity_id_t cart_id, const time::time_t &time) const;
+	bool move_cart(const std::shared_ptr<GameState> &state, player_id_t owner,
+	               const std::vector<entity_id_t> &ids, const coord::phys3 &target,
+	               const time::time_t &time);
+	bool eject_cart_passenger(const std::shared_ptr<GameState> &state,
+	                         entity_id_t cart_id, player_id_t owner, const time::time_t &time);
+
 	/** Schedule a Builder to enter any allied finished, unoccupied tower. */
 	bool request_garrison(const std::shared_ptr<GameState> &state,
 	                      player_id_t owner, const std::vector<entity_id_t> &ids,
@@ -872,6 +886,12 @@ private:
 	};
 	/** Each allied tower can have a DIFFERENT private exit plan for each player. */
 	std::unordered_map<entity_id_t, std::unordered_map<player_id_t, UngarrisonPoint>> ungarrison_points;
+	struct PendingCartBuild {
+		coord::phys3 position;
+		uint64_t revision;
+	};
+	std::unordered_map<entity_id_t, PendingCartBuild> pending_cart_builds;
+	uint64_t next_cart_revision = 1;
 	std::unordered_map<entity_id_t, entity_id_t> garrisoned_builders;
 	std::unordered_map<entity_id_t, PendingGarrison> pending_garrisons;
 	uint64_t next_garrison_revision = 1;

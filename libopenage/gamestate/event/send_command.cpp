@@ -79,6 +79,21 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			throw Error{ERR << "FVD commands require an authenticated owner"};
 		}
 		auto owner = params.get<player_id_t>("owner");
+		if (command_type == component::command::command_t::BUILD_CART) {
+			const bool accepted = fvd->start_cart_build(gstate, owner, ids, time);
+			if (result_cb) result_cb(accepted);
+			return;
+		}
+		if (command_type == component::command::command_t::MOVE and ids.size() == 1) {
+			auto entity = gstate->get_game_entities().find(ids.front());
+			if (entity != gstate->get_game_entities().end()
+			    and entity->second->get_definition() == "fvd.data.entities.EscapeCart") {
+				const bool accepted = params.check_type<coord::phys3>("target")
+				    and fvd->move_cart(gstate, owner, ids, params.get<coord::phys3>("target"), time);
+				if (result_cb) result_cb(accepted);
+				return;
+			}
+		}
 		if (command_type == component::command::command_t::BUILD_TOWER) {
 			if (not params.check_type<coord::phys3>("target")) {
 				throw Error{ERR << "BuildTower requires a target position"};
@@ -293,6 +308,7 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			}
 			fvd->cancel_attack_move(id);
 			fvd->cancel_pending_garrison(id);
+			fvd->cancel_cart_build(id);
 			fvd->cancel_build(gstate, id, time);
 		}
 		auto command_queue = std::dynamic_pointer_cast<component::CommandQueue>(

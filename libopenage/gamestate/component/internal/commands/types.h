@@ -15,6 +15,7 @@ enum class command_t {
 	IDLE,
 	MOVE,
 	BUILD_TOWER,
+	BUILD_CART,
 	ATTACK_MOVE,
 	FOCUS_ATTACK,
 	SET_STANCE,

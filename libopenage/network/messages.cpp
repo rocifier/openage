@@ -116,7 +116,7 @@ private:
 
 bool is_known_command_kind(uint16_t value) {
 	return value >= static_cast<uint16_t>(CommandKind::MOVE)
-	    && value <= static_cast<uint16_t>(CommandKind::DELETE_FOUNDATIONS);
+	    && value <= static_cast<uint16_t>(CommandKind::BUILD_CART);
 }
 
 bool is_known_hunter_stance(uint16_t value) {
@@ -458,6 +458,10 @@ std::vector<uint8_t> encode_command_intent(const CommandIntent &intent) {
 	if (intent.kind == CommandKind::DEMOLISH_TOWER and intent.entity_ids.size() != 1) {
 		throw Error{MSG(err) << "FVD demolition requires exactly one tower entity"};
 	}
+	if (intent.kind == CommandKind::BUILD_CART
+	    and (intent.entity_ids.size() != 1 or intent.target_entity)) {
+		throw Error{MSG(err) << "Cart construction requires exactly one Builder"};
+	}
 	if (intent.kind == CommandKind::GARRISON and intent.entity_ids.size() != 1) {
 		throw Error{MSG(err) << "Garrison requires exactly one selected Builder"};
 	}
@@ -577,6 +581,8 @@ CommandIntent decode_command_intent(const std::vector<uint8_t> &payload) {
 	        and (intent.entity_ids.size() != 1 or intent.target_entity))
 	    or (intent.kind == CommandKind::SET_UNGARRISON_POINT
 	        and intent.entity_ids.size() != 1)
+	    or (intent.kind == CommandKind::BUILD_CART
+	        and (intent.entity_ids.size() != 1 or intent.target_entity))
 	    or (intent.kind == CommandKind::GARRISON and intent.entity_ids.size() != 1)
 	    or (intent.kind == CommandKind::UNGARRISON
 	        and (intent.entity_ids.size() != 1 or intent.target_entity))) {

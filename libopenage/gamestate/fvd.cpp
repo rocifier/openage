@@ -123,6 +123,27 @@ public:
 	}
 };
 
+
+/** Finish a cart only if the Builder's original construction order is still active. */
+class CartBuildHandler : public openage::event::OnceEventHandler {
+public:
+	CartBuildHandler() : OnceEventHandler{"game.fvd_cart_build"} {}
+	void setup_event(const std::shared_ptr<openage::event::Event> &,
+	                 const std::shared_ptr<openage::event::State> &) override {}
+	void invoke(openage::event::EventLoop &,
+	            const std::shared_ptr<openage::event::EventEntity> &,
+	            const std::shared_ptr<openage::event::State> &state,
+	            const time::time_t &time, const param_map &params) override {
+		auto game = std::dynamic_pointer_cast<GameState>(state);
+		game->get_fvd()->complete_cart_build(game, params.get<entity_id_t>("builder"),
+		                                    params.get<uint64_t>("revision"), time);
+	}
+	time::time_t predict_invoke_time(
+		const std::shared_ptr<openage::event::EventEntity> &,
+		const std::shared_ptr<openage::event::State> &,
+		const time::time_t &at) override { return at; }
+};
+
 /** Complete an accepted garrison at its authoritative movement arrival time. */
 class GarrisonArrivalHandler : public openage::event::OnceEventHandler {
 public:
@@ -597,6 +618,7 @@ void FVD::initialise(const std::shared_ptr<GameState> &state,
 	loop->add_event_handler(std::make_shared<FVDHorseHitHandler>());
 	loop->add_event_handler(std::make_shared<FVDHunterTowerHitHandler>());
 	loop->add_event_handler(std::make_shared<BuildProgressHandler>());
+	loop->add_event_handler(std::make_shared<CartBuildHandler>());
 	loop->add_event_handler(std::make_shared<GarrisonArrivalHandler>());
 	loop->add_event_handler(std::make_shared<TowerDemolitionExpiryHandler>());
 	loop->add_event_handler(std::make_shared<RefreshPathsHandler>());
@@ -1562,6 +1584,163 @@ void FVD::refresh_paths(const std::shared_ptr<GameState> &state,
 			activity_component->add_event(primer(time + duration, entity, loop, state, next_id));
 		}
 	}
+}
+
+
+void FVD::cancel_cart_build(entity_id_t builder_id) {
+	this->pending_cart_builds.erase(builder_id);
+}
+
+bool FVD::start_cart_build(const std::shared_ptr<GameState> &state,
+                           player_id_t owner, const std::vector<entity_id_t> &ids,
+                           const time::time_t &time) {
+	if (this->match_outcome or owner < 2 or owner > this->player_count
+	    or ids.size() != 1 or this->is_garrisoned(ids.front())) return false;
+	const auto builder_id = ids.front();
+	auto found = state->get_game_entities().find(builder_id);
+	if (found == state->get_game_entities().end()
+	    or found->second->get_definition() != this->builder
+	    or not builder_alive(found->second, time)) return false;
+	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+		found->second->get_component(component::component_t::OWNERSHIP));
+	if (not ownership or ownership->get_owners().get(time) != owner) return false;
+	// Replacing an order forfeits the time already spent constructing.
+	this->cancel_build(state, builder_id, time);
+	this->cancel_pending_garrison(builder_id);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		found->second->get_component(component::component_t::POSITION));
+	const auto site = position->get_positions().get(time);
+	if (this->in_hunter_no_build_zone(site.to_tile())) return false;
+	auto activity = std::dynamic_pointer_cast<component::Activity>(
+		found->second->get_component(component::component_t::ACTIVITY));
+	auto queue = std::dynamic_pointer_cast<component::CommandQueue>(
+		found->second->get_component(component::component_t::COMMANDQUEUE));
+	activity->cancel_events(time);
+	while (not queue->get_queue().empty(time)) queue->pop_command(time);
+	activity->init(time);
+	position->set_position(time, site);
+	system::Idle::idle(found->second, time);
+	const auto revision = this->next_cart_revision++;
+	this->pending_cart_builds.insert_or_assign(builder_id, PendingCartBuild{site, revision});
+	auto loop = this->event_loop.lock();
+	if (not loop) [[unlikely]] throw Error{ERR << "Escape cart event loop unavailable"};
+	loop->create_event("game.fvd_cart_build", found->second->get_manager(), state,
+	                   time + this->cart_construction_time,
+	                   {{"builder", builder_id}, {"revision", revision}});
+	return true;
+}
+
+void FVD::complete_cart_build(const std::shared_ptr<GameState> &state,
+                              entity_id_t builder_id, uint64_t revision,
+                              const time::time_t &time) {
+	auto order = this->pending_cart_builds.find(builder_id);
+	if (order == this->pending_cart_builds.end() or order->second.revision != revision) return;
+	const auto site = order->second.position;
+	this->pending_cart_builds.erase(order);
+	auto builder = state->get_game_entities().find(builder_id);
+	if (builder == state->get_game_entities().end() or this->is_garrisoned(builder_id)
+	    or not builder_alive(builder->second, time)) return;
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		builder->second->get_component(component::component_t::POSITION));
+	if (position->get_positions().get(time).to_tile() != site.to_tile()) return;
+	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+		builder->second->get_component(component::component_t::OWNERSHIP));
+	const auto owner = ownership->get_owners().get(time);
+	if (owner < 2 or owner > this->player_count) return;
+	auto loop = this->event_loop.lock();
+	auto factory = this->entity_factory.lock();
+	if (not loop or not factory) [[unlikely]]
+		throw Error{ERR << "Escape cart factory unavailable"};
+	auto cart = factory->spawn_game_entity(loop, state, owner, this->escape_cart, site, time);
+	system::Idle::idle(cart, time);
+}
+
+std::vector<player_id_t> FVD::get_cart_players(
+	const std::shared_ptr<GameState> &state, entity_id_t cart_id,
+	const time::time_t &time) const {
+	std::vector<player_id_t> players;
+	for (const auto &[builder_id, shelter] : this->garrisoned_builders) {
+		if (shelter != cart_id) continue;
+		auto found = state->get_game_entities().find(builder_id);
+		if (found == state->get_game_entities().end()) continue;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			found->second->get_component(component::component_t::OWNERSHIP));
+		if (ownership) players.push_back(ownership->get_owners().get(time));
+	}
+	std::sort(players.begin(), players.end());
+	return players;
+}
+
+bool FVD::move_cart(const std::shared_ptr<GameState> &state, player_id_t owner,
+                    const std::vector<entity_id_t> &ids, const coord::phys3 &target,
+                    const time::time_t &time) {
+	if (this->match_outcome or owner < 2 or owner > this->player_count
+	    or ids.size() != 1 or target.ne < 0 or target.se < 0
+	    or target.ne >= this->map_size or target.se >= this->map_size or target.up != 0)
+		return false;
+	auto found = state->get_game_entities().find(ids.front());
+	if (found == state->get_game_entities().end()
+	    or found->second->get_definition() != this->escape_cart
+	    or not builder_alive(found->second, time)) return false;
+	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+		found->second->get_component(component::component_t::OWNERSHIP));
+	const auto passengers = this->get_cart_players(state, ids.front(), time);
+	if (ownership->get_owners().get(time) != owner
+	    and std::find(passengers.begin(), passengers.end(), owner) == passengers.end())
+		return false;
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		found->second->get_component(component::component_t::POSITION));
+	const auto current = position->get_positions().get(time);
+	auto destination = this->closest_reachable(state, current.to_tile(), target, time);
+	if (not destination) return false;
+	system::Move::move_default(found->second, state, *destination, time);
+	return true;
+}
+
+bool FVD::eject_cart_passenger(const std::shared_ptr<GameState> &state,
+                               entity_id_t cart_id, player_id_t owner,
+                               const time::time_t &time) {
+	auto cart = state->get_game_entities().find(cart_id);
+	if (cart == state->get_game_entities().end()
+	    or cart->second->get_definition() != this->escape_cart) return false;
+	entity_id_t passenger_id = 0;
+	for (const auto &[builder_id, shelter] : this->garrisoned_builders) {
+		if (shelter != cart_id) continue;
+		auto builder = state->get_game_entities().find(builder_id);
+		if (builder == state->get_game_entities().end()) continue;
+		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
+			builder->second->get_component(component::component_t::OWNERSHIP));
+		if (ownership->get_owners().get(time) == owner) {
+			passenger_id = builder_id;
+			break;
+		}
+	}
+	if (passenger_id == 0) return false;
+	auto cart_position = std::dynamic_pointer_cast<component::Position>(
+		cart->second->get_component(component::component_t::POSITION));
+	const auto site = cart_position->get_positions().get(time).to_tile();
+	std::optional<coord::phys3> exit;
+	for (int radius = 1; radius <= 6 and not exit; ++radius) {
+		for (int ne = -radius; ne <= radius and not exit; ++ne)
+			for (int se = -radius; se <= radius and not exit; ++se) {
+				if (std::max(std::abs(ne), std::abs(se)) != radius) continue;
+				coord::tile candidate{site.ne + ne, site.se + se};
+				if (candidate.ne < 0 or candidate.se < 0
+				    or candidate.ne >= this->map_size or candidate.se >= this->map_size
+				    or this->tile_occupied(state, candidate, time)) continue;
+				if (this->closest_reachable(state, site, candidate.to_phys3_center(), time)
+				    == candidate.to_phys3_center()) exit = candidate.to_phys3_center();
+			}
+	}
+	if (not exit) return false;
+	auto builder = state->get_game_entity(passenger_id);
+	auto position = std::dynamic_pointer_cast<component::Position>(
+		builder->get_component(component::component_t::POSITION));
+	position->set_position(time, *exit);
+	system::Idle::idle(builder, time);
+	this->garrisoned_builders.erase(passenger_id);
+	this->vision_cached_at.reset();
+	return true;
 }
 
 bool FVD::is_garrisoned(entity_id_t builder_id) const {

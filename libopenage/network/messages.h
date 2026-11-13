@@ -75,6 +75,8 @@ enum class CommandKind : uint16_t {
 	FLARE = 13,
 	/** Delete all of one selected Builder's foundations. */
 	DELETE_FOUNDATIONS = 14,
+	/** Construct a mobile four-seat escape cart at the Builder's position. */
+	BUILD_CART = 15,
 };
 
 /** Host decision for one client command. */
