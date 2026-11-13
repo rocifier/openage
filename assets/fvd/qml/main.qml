@@ -239,6 +239,7 @@ Item {
 			      ? root.formatMatchTime(root.matchTimeRemaining) : "--:--"
 			color: "#ffffff"
 			font.pixelSize: 18
+			font.weight: Font.Bold
 		}
 		Rectangle {
 			objectName: "fvdMenuButton"
@@ -932,7 +933,8 @@ Item {
 						wrapMode: Text.WordWrap
 						maximumLineCount: 2
 						elide: Text.ElideRight
-						font.pixelSize: 11
+						font.pixelSize: 13
+						font.weight: Font.DemiBold
 						color: "#e1e6dd"
 					}
 					Rectangle {
@@ -951,7 +953,8 @@ Item {
 						Text {
 							anchors.centerIn: parent
 							text: root.hud === null ? "—" : root.hud.health
-							font.pixelSize: 11
+							font.pixelSize: 12
+							font.weight: Font.Bold
 							color: "white"
 							style: Text.Outline
 							styleColor: "#77000000"
@@ -968,25 +971,25 @@ Item {
 				Text {
 					text: "⚔  " + (root.isTower ? "Damage: " + root.hud.damage
 					                 : root.canAttack ? "Hunter cavalry" : "Builder unit")
-					font.pixelSize: 11; color: "#f1f3ec"
+					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#f1f3ec"
 				}
 				Text {
 					text: "⬡  " + (root.isTower ? "Armour: " + root.hud.armor
 					                 : root.canAttack ? root.stance : "Construction")
-					font.pixelSize: 11; color: "#f1f3ec"
+					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#f1f3ec"
 				}
 				Text {
 					width: parent.width; elide: Text.ElideRight
 					text: "✦  " + (root.hud !== null && root.hud.killsLabel.length > 0
 					                 ? root.hud.killsLabel + (root.hud.killsAvailable ? root.hud.kills : "—")
 					                 : root.constructionStatus.length > 0 ? root.constructionStatus : "Ready")
-					font.pixelSize: 11; color: "#f1f3ec"
+					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#f1f3ec"
 				}
 				Text {
 					visible: root.queuedTowers > 0 || root.constructionPercent >= 0
 					text: root.constructionPercent >= 0
 					      ? "Building: " + root.constructionPercent + "%" : "Queued: " + root.queuedTowers
-					font.pixelSize: 11; color: "#ccead0"
+					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#ccead0"
 				}
 			}
 			Rectangle { width: 1; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter; color: "#60dbe5d8" }
@@ -995,7 +998,7 @@ Item {
 				width: hudRow.width - selectionCard.width - statCard.width
 				       - playersCard.width - 3 * hudRow.spacing - 3
 				height: parent.height
-				Text { text: "ACTIONS"; font.pixelSize: 10; font.letterSpacing: 1; color: "#cbd8cb" }
+				Text { text: "ACTIONS"; font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1; color: "#cbd8cb" }
 				Grid {
 					id: actionGrid
 					anchors.top: parent.top
@@ -1039,7 +1042,7 @@ Item {
 								anchors.verticalCenter: parent.verticalCenter
 								text: modelData.label
 								elide: Text.ElideRight
-								font.pixelSize: 11; color: "#f5f7f2"
+								font.pixelSize: 12; font.weight: Font.DemiBold; color: "#f5f7f2"
 							}
 							MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor }
 						}
@@ -1051,7 +1054,7 @@ Item {
 				id: playersCard
 				width: hudRow.width < 900 ? 126 : 170
 				height: parent.height
-				Text { text: "♟  Players"; font.family: "Georgia"; font.pixelSize: 14; color: "white" }
+				Text { text: "♟  Players"; font.family: "Georgia"; font.pixelSize: 14; font.weight: Font.Bold; color: "white" }
 				Column {
 					anchors.top: parent.top
 					anchors.topMargin: 24
@@ -1069,7 +1072,7 @@ Item {
 								width: playersCard.width - 22
 								text: modelData.name + (root.hud !== null && modelData.number === root.hud.controlled ? " (You)" : "")
 								elide: Text.ElideRight
-								font.pixelSize: 10; color: "#d8ded6"
+								font.pixelSize: 12; font.weight: Font.DemiBold; color: "#d8ded6"
 								style: Text.Outline; styleColor: "#99000000"
 							}
 						}
