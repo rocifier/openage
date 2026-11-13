@@ -2298,7 +2298,7 @@ void Presenter::render() {
 						         != entity->cart_passengers.end()));
 					if (cart and entity != world->entities.end()) {
 						selection_subtitle = QString{"Passengers %1/4 · Right click to move"}
-						                         .arg(entity->cart_passengers.size());
+						                         .arg(static_cast<int>(entity->cart_passengers.size()));
 					}
 				}
 			}
