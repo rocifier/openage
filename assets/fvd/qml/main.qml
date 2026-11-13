@@ -922,7 +922,6 @@ Item {
 						width: parent.width
 						text: root.hud === null ? "No selection" : root.hud.selection
 						elide: Text.ElideRight
-						font.family: "Georgia"
 						font.bold: true
 						font.pixelSize: 18
 						color: "white"
@@ -968,28 +967,51 @@ Item {
 				width: hudRow.width < 900 ? 112 : 175
 				anchors.verticalCenter: parent.verticalCenter
 				spacing: 8
-				Text {
-					text: "⚔  " + (root.isTower ? "Damage: " + root.hud.damage
-					                 : root.canAttack ? "Hunter cavalry" : "Builder unit")
-					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#f1f3ec"
+				// Keep the stat area blank when no entity is selected.
+				visible: root.hud !== null && root.hud.selectionCount > 0
+				Repeater {
+					model: [
+						{ icon: "⚔", label: root.isTower ? "Damage: " + root.hud.damage
+						                             : root.canAttack ? "Hunter cavalry" : "Builder unit" },
+						{ icon: "⬡", label: root.isTower ? "Armour: " + root.hud.armor
+						                             : root.canAttack ? root.stance : "Construction" },
+						{ icon: "✦", label: root.hud !== null && root.hud.killsLabel.length > 0
+						                          ? root.hud.killsLabel + (root.hud.killsAvailable ? root.hud.kills : "—")
+						                          : root.constructionStatus.length > 0 ? root.constructionStatus : "Ready" }
+					]
+					delegate: Row {
+						spacing: 7
+						Text {
+							width: 19
+							text: modelData.icon
+							horizontalAlignment: Text.AlignHCenter
+							font.pixelSize: 13
+							font.weight: Font.DemiBold
+							color: "#f1f3ec"
+						}
+						Text {
+							width: Math.max(0, statCard.width - 26)
+							text: modelData.label
+							elide: Text.ElideRight
+							font.pixelSize: 13
+							font.weight: Font.DemiBold
+							color: "#f1f3ec"
+						}
+					}
 				}
-				Text {
-					text: "⬡  " + (root.isTower ? "Armour: " + root.hud.armor
-					                 : root.canAttack ? root.stance : "Construction")
-					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#f1f3ec"
-				}
-				Text {
-					width: parent.width; elide: Text.ElideRight
-					text: "✦  " + (root.hud !== null && root.hud.killsLabel.length > 0
-					                 ? root.hud.killsLabel + (root.hud.killsAvailable ? root.hud.kills : "—")
-					                 : root.constructionStatus.length > 0 ? root.constructionStatus : "Ready")
-					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#f1f3ec"
-				}
-				Text {
+				Row {
 					visible: root.queuedTowers > 0 || root.constructionPercent >= 0
-					text: root.constructionPercent >= 0
-					      ? "Building: " + root.constructionPercent + "%" : "Queued: " + root.queuedTowers
-					font.pixelSize: 13; font.weight: Font.DemiBold; color: "#ccead0"
+					spacing: 7
+					Item { width: 19; height: 1 }
+					Text {
+						width: Math.max(0, statCard.width - 26)
+						text: root.constructionPercent >= 0
+						      ? "Building: " + root.constructionPercent + "%" : "Queued: " + root.queuedTowers
+						elide: Text.ElideRight
+						font.pixelSize: 13
+						font.weight: Font.DemiBold
+						color: "#ccead0"
+					}
 				}
 			}
 			Rectangle { width: 1; height: parent.height - 12; anchors.verticalCenter: parent.verticalCenter; color: "#60dbe5d8" }
@@ -1054,7 +1076,7 @@ Item {
 				id: playersCard
 				width: hudRow.width < 900 ? 126 : 170
 				height: parent.height
-				Text { text: "♟  Players"; font.family: "Georgia"; font.pixelSize: 14; font.weight: Font.Bold; color: "white" }
+				Text { text: "PLAYERS"; font.pixelSize: 11; font.weight: Font.Bold; font.letterSpacing: 1; color: "#cbd8cb" }
 				Column {
 					anchors.top: parent.top
 					anchors.topMargin: 24
