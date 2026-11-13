@@ -216,6 +216,9 @@ WorldState capture_fvd_presentation_state(
 			entity_state.health = hp->first;
 			entity_state.maximum_health = hp->second;
 		}
+		if (classify(entity->get_definition()) == EntityKind::ESCAPE_CART) {
+			entity_state.cart_passengers = fvd->get_cart_players(state, entity_id, time);
+		}
 		if (is_tower_definition(entity->get_definition())) {
 			entity_state.garrisoned_builder = fvd->get_garrisoned_builder(entity_id);
 			entity_state.garrison_player = fvd->get_garrisoned_player(state, entity_id, time);

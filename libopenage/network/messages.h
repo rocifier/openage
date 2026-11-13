@@ -186,6 +186,8 @@ struct EntityState {
 	std::optional<gamestate::entity_id_t> ungarrison_source_tower{};
 	/** Public occupant's player colour; the hidden Builder ID stays private. */
 	std::optional<gamestate::player_id_t> garrison_player{};
+	/** Public occupants, sorted by player slot; never expose private Builder IDs. */
+	std::vector<gamestate::player_id_t> cart_passengers{};
 
 	/**
 	 * Get the kind named by this entity's definition.

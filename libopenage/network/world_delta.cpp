@@ -115,6 +115,7 @@ void difference_entities(const WorldState &before, const WorldState &after,
 		    or previous.hunter_stance != entry.hunter_stance
 		    or previous.garrisoned_builder != entry.garrisoned_builder
 		    or previous.garrison_player != entry.garrison_player
+		    or previous.cart_passengers != entry.cart_passengers
 		    or previous.ungarrison_source_tower != entry.ungarrison_source_tower
 		    or previous.remembered != entry.remembered
 		    or previous.animation_action != entry.animation_action
@@ -282,10 +283,14 @@ std::vector<ConfirmedCombatEffect> confirmed_combat_effects(
 				const bool sheltered = std::any_of(
 					current.entities.begin(), current.entities.end(),
 					[&](const EntityState &entry) {
-						return is_tower(entry.kind())
-						    and entry.garrison_player == prior.owner_id
-						    and (not entry.garrisoned_builder
-						         or *entry.garrisoned_builder == prior.entity_id);
+						return (is_tower(entry.kind())
+						        and entry.garrison_player == prior.owner_id
+						        and (not entry.garrisoned_builder
+						             or *entry.garrisoned_builder == prior.entity_id))
+						    or (entry.kind() == EntityKind::ESCAPE_CART
+						        and std::find(entry.cart_passengers.begin(),
+						                      entry.cart_passengers.end(), prior.owner_id)
+						            != entry.cart_passengers.end());
 					});
 				if (sheltered) continue;
 			}

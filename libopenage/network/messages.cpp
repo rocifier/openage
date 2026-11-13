@@ -27,6 +27,7 @@ constexpr uint16_t ENTITY_REMEMBERED = 1 << 3;
 constexpr uint16_t ENTITY_HAS_GARRISONED_BUILDER = 1 << 4;
 constexpr uint16_t ENTITY_HAS_UNGARRISON_SOURCE = 1 << 5;
 constexpr uint16_t ENTITY_HAS_GARRISON_PLAYER = 1 << 6;
+constexpr uint16_t ENTITY_HAS_CART_PASSENGERS = 1 << 7;
 constexpr uint16_t ATTACK_HAS_TARGET = 1 << 0;
 constexpr uint16_t ATTACK_REACHED_DESTINATION = 1 << 1;
 constexpr uint16_t ATTACK_FOCUS_TARGET = 1 << 2;
@@ -146,7 +147,7 @@ bool valid_remembered(const EntityState &entity, gamestate::player_id_t local_pl
 	   and entity.owner_id != local_player and not entity.health and not entity.tower_kills
 	   and not entity.hunter_stance and not entity.garrisoned_builder
 	   and not entity.ungarrison_source_tower
-	   and not entity.garrison_player
+	   and not entity.garrison_player and entity.cart_passengers.empty()
 	   and entity.motion_keys.empty() and entity.facing_keys.empty();
 }
 
@@ -732,6 +733,15 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		         or *entity.garrison_player > MAX_STATE_PLAYERS)) {
 			throw Error{MSG(err) << "Invalid public garrison flag player"};
 		}
+		if (not entity.cart_passengers.empty()) {
+			if (entity.kind() != EntityKind::ESCAPE_CART or entity.cart_passengers.size() > 4
+			    or not std::is_sorted(entity.cart_passengers.begin(), entity.cart_passengers.end())
+			    or std::adjacent_find(entity.cart_passengers.begin(), entity.cart_passengers.end())
+			       != entity.cart_passengers.end()
+			    or entity.cart_passengers.front() < 2
+			    or entity.cart_passengers.back() > MAX_STATE_PLAYERS)
+				throw Error{MSG(err) << "Invalid escape cart occupant slots"};
+		}
 		if (entity.remembered and not valid_remembered(entity, state.local_player_id)) {
 			throw Error{MSG(err) << "FVD remembered entity must be a plain enemy building"};
 		}
@@ -745,7 +755,8 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		                   | (entity.remembered ? ENTITY_REMEMBERED : 0)
 		                   | (entity.garrisoned_builder ? ENTITY_HAS_GARRISONED_BUILDER : 0)
 		                   | (entity.ungarrison_source_tower ? ENTITY_HAS_UNGARRISON_SOURCE : 0)
-		                   | (entity.garrison_player ? ENTITY_HAS_GARRISON_PLAYER : 0));
+		                   | (entity.garrison_player ? ENTITY_HAS_GARRISON_PLAYER : 0)
+		                   | (entity.cart_passengers.empty() ? 0 : ENTITY_HAS_CART_PASSENGERS));
 		append_u16(output, static_cast<uint16_t>(
 			entity.hunter_stance.value_or(gamestate::HunterStance::OBSERVE)));
 		append_i64(output, entity.health.value_or(0));
@@ -759,6 +770,10 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		}
 		if (entity.garrison_player) {
 			append_u64(output, *entity.garrison_player);
+		}
+		if (not entity.cart_passengers.empty()) {
+			append_u16(output, static_cast<uint16_t>(entity.cart_passengers.size()));
+			for (const auto player : entity.cart_passengers) append_u64(output, player);
 		}
 		// Replicate the simulation's actual scheduled position segments,
 		// rather than asking guests to infer motion from sampled locations.
@@ -982,7 +997,8 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		const auto hunter_stance = reader.u16();
 		if ((flags & ~(ENTITY_HAS_HEALTH | ENTITY_HAS_TOWER_KILLS | ENTITY_HAS_HUNTER_STANCE
 		               | ENTITY_REMEMBERED | ENTITY_HAS_GARRISONED_BUILDER
-		               | ENTITY_HAS_UNGARRISON_SOURCE | ENTITY_HAS_GARRISON_PLAYER)) != 0
+		               | ENTITY_HAS_UNGARRISON_SOURCE | ENTITY_HAS_GARRISON_PLAYER
+		               | ENTITY_HAS_CART_PASSENGERS)) != 0
 		    or ((flags & ENTITY_HAS_HUNTER_STANCE) == 0 and hunter_stance != 0)) {
 			throw Error{MSG(err) << "Unsupported FVD entity state flags"};
 		}
@@ -1011,6 +1027,18 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 			    or player_id < 2 or player_id > MAX_STATE_PLAYERS)
 				throw Error{MSG(err) << "Invalid public tower flag"};
 			entity.garrison_player = player_id;
+		}
+		if ((flags & ENTITY_HAS_CART_PASSENGERS) != 0) {
+			const auto count = reader.u16();
+			if (count == 0 or count > 4 or entity.kind() != EntityKind::ESCAPE_CART)
+				throw Error{MSG(err) << "Invalid escape cart passenger count"};
+			for (uint16_t index = 0; index < count; ++index) {
+				const auto player = reader.u64();
+				if (player < 2 or player > MAX_STATE_PLAYERS
+				    or (not entity.cart_passengers.empty() and player <= entity.cart_passengers.back()))
+					throw Error{MSG(err) << "Invalid escape cart occupant slot"};
+				entity.cart_passengers.push_back(player);
+			}
 		}
 		if (entity.garrisoned_builder
 		    and entity.garrison_player.value_or(entity.owner_id) != state.local_player_id)
@@ -1106,6 +1134,15 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		         or *entity.garrison_player < 2
 		         or *entity.garrison_player > MAX_STATE_PLAYERS)) {
 			throw Error{MSG(err) << "Invalid public garrison flag player"};
+		}
+		if (not entity.cart_passengers.empty()) {
+			if (entity.kind() != EntityKind::ESCAPE_CART or entity.cart_passengers.size() > 4
+			    or not std::is_sorted(entity.cart_passengers.begin(), entity.cart_passengers.end())
+			    or std::adjacent_find(entity.cart_passengers.begin(), entity.cart_passengers.end())
+			       != entity.cart_passengers.end()
+			    or entity.cart_passengers.front() < 2
+			    or entity.cart_passengers.back() > MAX_STATE_PLAYERS)
+				throw Error{MSG(err) << "Invalid escape cart occupant slots"};
 		}
 		if (entity.remembered and not valid_remembered(entity, state.local_player_id)) {
 			throw Error{MSG(err) << "FVD remembered entity must be a plain enemy building"};
