@@ -880,8 +880,9 @@ void GameBindings::garrison(const Release &release,
 				}
 			}
 		}
-		const auto tower = cart_id ? std::nullopt : friendly_tower_target(
-			snapshot.world.get(), owner, picked, clicked_tile);
+		std::optional<TowerTarget> tower;
+		if (not cart_id)
+			tower = friendly_tower_target(snapshot.world.get(), owner, picked, clicked_tile);
 		if (not cart_id and not tower) {
 			log::log(INFO << "FVD garrison: click a friendly completed tower");
 			return; // Keep T mode armed for another click or Esc.
