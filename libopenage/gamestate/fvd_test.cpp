@@ -863,6 +863,111 @@ void fvd_scenario() {
 }
 
 /** A real authoritative Builder shelters inside a completed tower and exits unharmed. */
+
+/**
+ * Four independent Builder players can share a moving escape cart, retain
+ * private identities, leave independently and survive transport destruction.
+ */
+void fvd_escape_cart() {
+	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	tests::use_centre_test_layout(state);
+	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
+
+	auto cart = entities->spawn_game_entity(
+		loop, state, 2, "fvd.data.entities.EscapeCart", {82.5, 82.5, 0}, at(0));
+	const auto cart_id = cart->get_id();
+	std::vector<entity_id_t> passengers;
+	for (const auto &[owner, location] : std::vector<std::pair<player_id_t, coord::phys3>>{
+	         {2, {81.5, 82.5, 0}}, {3, {82.5, 81.5, 0}},
+	         {4, {83.5, 82.5, 0}}, {5, {82.5, 83.5, 0}}}) {
+		auto builder = entities->spawn_game_entity(
+			loop, state, owner, "fvd.data.entities.Builder", location, at(0));
+		passengers.push_back(builder->get_id());
+		TESTEQUALS(fvd->request_garrison(
+			state, owner, {builder->get_id()}, cart_id, at(0)), true);
+	}
+	// Four reserved arrivals already fill the cart; a fifth is rejected
+	// even before any Builder has finished stepping aboard.
+	auto fifth = entities->spawn_game_entity(
+		loop, state, 6, "fvd.data.entities.Builder", {81.5, 81.5, 0}, at(0));
+	TESTEQUALS(fvd->request_garrison(state, 6, {fifth->get_id()}, cart_id, at(0)), false);
+	loop->reach_time(at(0.25), state);
+	for (const auto builder_id : passengers)
+		TESTEQUALS(fvd->is_garrisoned(builder_id), true);
+	TESTEQUALS(fvd->get_cart_players(state, cart_id, at(0.25)),
+	           (std::vector<player_id_t>{2, 3, 4, 5}));
+	TESTEQUALS(fvd->ungarrison_builder(state, 6, {cart_id}, at(0.25)), false);
+
+	network::MatchConnectionState guests{8};
+	for (player_id_t player : {player_id_t{1}, player_id_t{2}, player_id_t{3}}) {
+		const auto view = network::capture_fvd_state(
+			state, guests, at(0.25), 0, 1, player);
+		const auto roundtrip = network::decode_world_state(network::encode_world_state(view));
+		const auto found = std::find_if(roundtrip.entities.begin(), roundtrip.entities.end(),
+		    [cart_id](const auto &entry) { return entry.entity_id == cart_id; });
+		TESTEQUALS(found != roundtrip.entities.end(), true);
+		TESTEQUALS(found->cart_passengers.size(), size_t{4});
+		TESTEQUALS(found->garrisoned_builder.has_value(), false);
+	}
+	TESTEQUALS(fvd->move_cart(state, 6, {cart_id}, {86.5, 82.5, 0}, at(0.25)), false);
+	TESTEQUALS(fvd->move_cart(state, 3, {cart_id}, {86.5, 82.5, 0}, at(0.25)), true);
+	TESTEQUALS(fvd->ungarrison_builder(state, 5, {cart_id}, at(0.25)), true);
+	TESTEQUALS(fvd->is_garrisoned(passengers.back()), false);
+	TESTEQUALS(fvd->get_cart_players(state, cart_id, at(0.25)).size(), size_t{3});
+	// A lethal Hunter hit ejects everyone who remains inside.
+	fvd->hunter_tower_hit(state, cart_id, 500, at(0.5));
+	TESTEQUALS(state->get_game_entities().contains(cart_id), false);
+	for (const auto builder_id : passengers) {
+		TESTEQUALS(fvd->is_garrisoned(builder_id), false);
+		TESTEQUALS(state->get_game_entities().contains(builder_id), true);
+	}
+}
+
+void fvd_escape_cart_construction() {
+	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto mods = std::make_shared<assets::ModManager>(root / "assets");
+	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
+	mods->register_modpack(root / "assets" / "fvd" / "modpack.toml");
+	mods->activate_modpacks({"engine", "fvd"});
+	auto loop = std::make_shared<openage::event::EventLoop>();
+	loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto entities = std::make_shared<EntityFactory>();
+	auto terrain = std::make_shared<TerrainFactory>();
+	Game game{loop, mods, entities, terrain};
+	auto state = game.get_state();
+	auto fvd = state->get_fvd();
+	tests::use_centre_test_layout(state);
+	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
+	auto builder = entities->spawn_game_entity(
+		loop, state, 2, "fvd.data.entities.Builder", {82.5, 82.5, 0}, at(0));
+	TESTEQUALS(fvd->start_cart_build(state, 2, {builder->get_id()}, at(0)), true);
+	TESTEQUALS(fvd->start_cart_build(state, 3, {builder->get_id()}, at(0)), false);
+	auto count_carts = [&]() {
+		return std::count_if(state->get_game_entities().begin(), state->get_game_entities().end(),
+		    [](const auto &entry) {
+			return entry.second->get_definition() == "fvd.data.entities.EscapeCart";
+		    });
+	};
+	TESTEQUALS(count_carts(), 0);
+	loop->reach_time(at(74), state);
+	TESTEQUALS(count_carts(), 0);
+	loop->reach_time(at(75), state);
+	TESTEQUALS(count_carts(), 1);
+}
+
 void fvd_garrison() {
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
 	auto mods = std::make_shared<assets::ModManager>(root / "assets");

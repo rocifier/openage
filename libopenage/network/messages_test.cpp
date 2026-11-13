@@ -164,6 +164,16 @@ void messages() {
 	invalid_target_flag[11] = 1;
 	TESTTHROWS(decode_command_intent(invalid_target_flag));
 
+	// Carts use a new, non-targeted command kind with exactly one Builder.
+	CommandIntent cart_build{45, CommandKind::BUILD_CART, {201}};
+	TESTEQUALS(decode_command_intent(encode_command_intent(cart_build)).kind,
+	           CommandKind::BUILD_CART);
+	cart_build.entity_ids.push_back(202);
+	TESTTHROWS(encode_command_intent(cart_build));
+	cart_build.entity_ids = {201};
+	cart_build.target_entity = 501;
+	TESTTHROWS(encode_command_intent(cart_build));
+
 	// Demolition carries exactly one selected tower ID and no optional intent.
 	CommandIntent demolition{12, CommandKind::DEMOLISH_TOWER, {201}};
 	auto demolition_roundtrip = decode_command_intent(encode_command_intent(demolition));
