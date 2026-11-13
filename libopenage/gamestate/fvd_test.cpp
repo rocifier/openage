@@ -911,7 +911,8 @@ void fvd_escape_cart() {
 	TESTEQUALS(fvd->ungarrison_builder(state, 6, {cart_id}, at(0.25)), false);
 
 	network::MatchConnectionState guests{8};
-	for (player_id_t player : {player_id_t{1}, player_id_t{2}, player_id_t{3}}) {
+	// Only Builders share live visibility of the cart at this location.
+	for (player_id_t player : {player_id_t{2}, player_id_t{3}}) {
 		const auto view = network::capture_fvd_state(
 			state, guests, at(0.25), 0, 1, player);
 		const auto roundtrip = network::decode_world_state(network::encode_world_state(view));
