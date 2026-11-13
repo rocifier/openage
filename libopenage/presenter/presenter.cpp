@@ -1448,6 +1448,46 @@ void Presenter::init_input() {
 			this->fvd_audio->toggle_mute();
 			return;
 		}
+		// 1 selects this player's Builder, or the tower sheltering them.
+		// Resolve from the recipient-visible authoritative snapshot so this
+		// works for both the host and guests, including allied garrison towers.
+		if (ev.type() == QEvent::KeyRelease and ev.key() == Qt::Key_1
+		    and ev.modifiers() == Qt::NoModifier and this->game_controller
+		    and this->fvd_hud_state and this->simulation
+		    and this->simulation->get_game()->get_state()->get_fvd()
+		    and this->game_controller->get_controlled() >= 2) {
+			const auto player = this->game_controller->get_controlled();
+			const auto replicated = this->fvd_replication
+			    ? this->fvd_replication->get_world_state()
+			    : std::optional<network::WorldState>{};
+			const auto local = replicated ? nullptr : this->simulation->get_fvd_presentation_state();
+			const network::WorldState *world = replicated ? &*replicated : local.get();
+			if (world) {
+				// The sheltered Builder may be absent from the visible entities.
+				// Prefer the tower's public occupant identity over any stale unit.
+				const auto tower = std::find_if(world->entities.begin(), world->entities.end(),
+				    [player](const network::EntityState &entity) {
+					return not entity.remembered and network::is_tower(entity.kind())
+					    and entity.garrison_player == player;
+				    });
+				if (tower != world->entities.end()) {
+					this->game_controller->set_selected(
+					    {tower->entity_id}, input::game::SelectionKind::TOWER);
+				}
+				else {
+					const auto builder = std::find_if(world->entities.begin(), world->entities.end(),
+					    [player](const network::EntityState &entity) {
+						return not entity.remembered and entity.owner_id == player
+						    and entity.kind() == network::EntityKind::BUILDER;
+					    });
+					if (builder != world->entities.end()) {
+						this->game_controller->set_selected(
+						    {builder->entity_id}, input::game::SelectionKind::BUILDER);
+					}
+				}
+			}
+			return;
+		}
 		// Route T directly at the Presenter boundary. This works even when
 		// a higher-priority input context consumes the global key binding.
 		// begin_garrison_mode() also defers while click-selection resolves.
