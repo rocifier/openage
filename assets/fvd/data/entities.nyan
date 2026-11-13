@@ -98,8 +98,8 @@ Horse(engine.util.game_entity.GameEntity):
         HealthSetting(engine.util.attribute.AttributeSetting):
             AttributeSetting.attribute = Health
             AttributeSetting.min_value = 0
-            AttributeSetting.max_value = 90
-            AttributeSetting.starting_value = 90
+            AttributeSetting.max_value = 100
+            AttributeSetting.starting_value = 100
 
     Move(engine.ability.type.Move):
         Move.speed = 3.0

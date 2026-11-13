@@ -33,7 +33,7 @@ Scenario(engine.root.Object):
     stone_tower_arrow_damage : int = 10
     tower_upgrade_kills : int = 100
     tower_armor : int = 1
-    horse_melee_damage : int = 3
+    horse_melee_damage : int = 40
     arrow_travel_time : float = 0.2
     hunter_tower_damage : int = 100
     hunter_tower_range : float = 10.0

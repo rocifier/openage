@@ -2419,7 +2419,7 @@ void fvd_hunter_combat() {
 	loop->reach_time(at(15.2), state);
 	auto horse_live = std::dynamic_pointer_cast<component::Live>(
 		one->get_component(component::component_t::LIVE));
-	TESTEQUALS(horse_live->get_attribute(at(15.2), "fvd.data.entities.Health")->get(at(15.2)), int64_t{84});
+	TESTEQUALS(horse_live->get_attribute(at(15.2), "fvd.data.entities.Health")->get(at(15.2)), int64_t{94});
 
 	// An already-lethal in-flight shot resolves once; extra hits against a
 	// corpse cannot award another kill. Normal tower volleys are much weaker
@@ -2539,25 +2539,25 @@ void fvd_combat_balance() {
 	auto rules = state->get_db_view()->get_object("fvd.data.scenario.Scenario");
 	const int64_t melee_damage = rules.get_int("horse_melee_damage");
 	TESTEQUALS(fvd->get_tower_damage(), int64_t{6});
-	TESTEQUALS(melee_damage, int64_t{3});
+	TESTEQUALS(melee_damage, int64_t{40});
 	TESTEQUALS(fvd->get_tower_armor(), int64_t{1});
 	// Existing reloads: towers 0.8s (+0.2s flight), horses 0.6s.
 	// Compute stationary group DPS in the same integer-volley model as
 	// combat_tick, rather than assuming fractional damage per hit.
 	for (int64_t tower_count : {1, 3, 4}) {
 		const int64_t total_damage = tower_count * fvd->get_tower_damage();
-		const int64_t volleys = (90 + total_damage - 1) / total_damage;
+		const int64_t volleys = (100 + total_damage - 1) / total_damage;
 		const double lethal_time = (volleys - 1) * 0.8 + 0.2;
-		// One tower: 11.4s; three focused towers: 3.4s; four: 2.6s.
-		const double expected = tower_count == 1 ? 11.4 : (tower_count == 3 ? 3.4 : 2.6);
+		// One tower: 13.0s; three focused towers: 4.2s; four: 3.4s.
+		const double expected = tower_count == 1 ? 13.0 : (tower_count == 3 ? 4.2 : 3.4);
 		TESTEQUALS_FLOAT(lethal_time, expected, 0.001);
 	}
-	// Three horses striking through tower armor need 142 melee volleys,
-	// 0.6s apart, to remove 850 HP (~85s), so a lone tower outlasts them.
+	// Three horses striking through tower armor need 8 melee volleys,
+	// 0.6s apart, to remove 850 HP (~4.65s).
 	const int64_t horse_hit = std::max<int64_t>(1, melee_damage - fvd->get_tower_armor());
 	const int64_t melee_volleys = (850 + 3 * horse_hit - 1) / (3 * horse_hit);
-	TESTEQUALS(melee_volleys, int64_t{142});
-	TESTEQUALS_FLOAT((melee_volleys - 1) * 0.6 + 0.45, 85.05, 0.001);
+	TESTEQUALS(melee_volleys, int64_t{8});
+	TESTEQUALS_FLOAT((melee_volleys - 1) * 0.6 + 0.45, 4.65, 0.001);
 
 	// Create a fully built tower via the same construction pipeline as
 	// gameplay, then focus three real, immediately adjacent Hunter horses.
@@ -2595,35 +2595,24 @@ void fvd_combat_balance() {
 		auto live = std::dynamic_pointer_cast<component::Live>(
 			horse->get_component(component::component_t::LIVE));
 		TESTEQUALS(live->get_attribute(
-			at(15), "fvd.data.entities.Health")->get(at(15)), int64_t{90});
+			at(15), "fvd.data.entities.Health")->get(at(15)), int64_t{100});
 		attackers.push_back(horse->get_id());
 	}
 	TESTEQUALS(fvd->issue_focus_attack(state, 1, attackers, tower, at(15)), true);
-	std::vector<double> horse_deaths{};
-	double elapsed = 0.0;
-	for (size_t tick = 0; tick <= 250 and horse_deaths.size() < attackers.size(); ++tick) {
-		elapsed = static_cast<double>(tick) * 0.2;
-		const auto now = at(15.0 + elapsed);
+	// With the stronger Hunter melee damage, a group of three horses now
+	// destroys a lone wooden tower before its arrows can kill one horse.
+	// Advance the real scheduler through the expected combat window rather
+	// than retaining the old post-balance horse-death timings.
+	for (size_t tick = 0; tick <= 40; ++tick) {
+		const auto now = at(15.0 + static_cast<double>(tick) * 0.2);
 		loop->reach_time(now, state);
 		fvd->combat_tick(state, now);
-		const auto alive = static_cast<size_t>(std::count_if(
-			attackers.begin(), attackers.end(), [&](entity_id_t id) {
-				return state->get_game_entities().contains(id);
-			}));
-		while (horse_deaths.size() < attackers.size() - alive) {
-			horse_deaths.push_back(elapsed);
-		}
+		if (not state->get_game_entities().contains(tower)) break;
 	}
-	// The actual scheduler matches the ideal model: the tower shoots the
-	// horses one at a time, 15 volleys each, while 117 melee hits of 2
-	// (19 + 39 + 59 by the three horses) leave it standing at 616 HP.
-	TESTEQUALS(horse_deaths.size(), size_t{3});
-	TESTEQUALS_FLOAT(horse_deaths[0], 11.4, 0.001);
-	TESTEQUALS_FLOAT(horse_deaths[1], 23.4, 0.001);
-	TESTEQUALS_FLOAT(horse_deaths[2], 35.4, 0.001);
-	TESTEQUALS(state->get_game_entities().contains(tower), true);
-	TESTEQUALS(tower_live->get_attribute(
-		at(15.0 + elapsed), "fvd.data.entities.Health")->get(at(15.0 + elapsed)), int64_t{616});
+	TESTEQUALS(state->get_game_entities().contains(tower), false);
+	for (const auto horse_id : attackers) {
+		TESTEQUALS(state->get_game_entities().contains(horse_id), true);
+	}
 }
 
 void fvd_hunter_attack_move_regressions() {
