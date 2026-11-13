@@ -959,6 +959,7 @@ bool FVD::start_build(const std::shared_ptr<GameState> &state,
 
 	// A valid new construction command supersedes walking into a tower.
 	this->cancel_pending_garrison(builder_id);
+	this->cancel_cart_build(builder_id);
 	// Old movement commands must not restart while the build order is active.
 	this->cancel_build(state, builder_id, time);
 	auto activity = std::dynamic_pointer_cast<component::Activity>(
@@ -1605,12 +1606,12 @@ bool FVD::start_cart_build(const std::shared_ptr<GameState> &state,
 		found->second->get_component(component::component_t::OWNERSHIP));
 	if (not ownership or ownership->get_owners().get(time) != owner) return false;
 	// Replacing an order forfeits the time already spent constructing.
-	this->cancel_build(state, builder_id, time);
-	this->cancel_pending_garrison(builder_id);
 	auto position = std::dynamic_pointer_cast<component::Position>(
 		found->second->get_component(component::component_t::POSITION));
 	const auto site = position->get_positions().get(time);
 	if (this->in_hunter_no_build_zone(site.to_tile())) return false;
+	this->cancel_build(state, builder_id, time);
+	this->cancel_pending_garrison(builder_id);
 	auto activity = std::dynamic_pointer_cast<component::Activity>(
 		found->second->get_component(component::component_t::ACTIVITY));
 	auto queue = std::dynamic_pointer_cast<component::CommandQueue>(
@@ -1619,6 +1620,8 @@ bool FVD::start_cart_build(const std::shared_ptr<GameState> &state,
 	while (not queue->get_queue().empty(time)) queue->pop_command(time);
 	activity->init(time);
 	position->set_position(time, site);
+	std::dynamic_pointer_cast<component::Move>(
+		found->second->get_component(component::component_t::MOVE))->clear_active_route();
 	system::Idle::idle(found->second, time);
 	const auto revision = this->next_cart_revision++;
 	this->pending_cart_builds.insert_or_assign(builder_id, PendingCartBuild{site, revision});
@@ -1858,20 +1861,25 @@ bool FVD::request_garrison(const std::shared_ptr<GameState> &state,
 	if (builder == state->get_game_entities().end()
 	    or tower == state->get_game_entities().end()
 	    or builder->second->get_definition() != this->builder
-	    or not this->is_tower(tower->second->get_definition())
-	    or not builder_alive(builder->second, time)
-	    or not this->tower_footprints.contains(tower_id)
-	    or this->tower_footprints.at(tower_id).under_construction) return false;
+	    or (not this->is_tower(tower->second->get_definition())
+	        and tower->second->get_definition() != this->escape_cart)
+	    or not builder_alive(builder->second, time)) return false;
+	const bool cart = tower->second->get_definition() == this->escape_cart;
+	if (not cart and (not this->tower_footprints.contains(tower_id)
+	    or this->tower_footprints.at(tower_id).under_construction)) return false;
 	auto builder_ownership = std::dynamic_pointer_cast<component::Ownership>(
 		builder->second->get_component(component::component_t::OWNERSHIP));
 	auto tower_ownership = std::dynamic_pointer_cast<component::Ownership>(
 		tower->second->get_component(component::component_t::OWNERSHIP));
 	if (not builder_ownership or builder_ownership->get_owners().get(time) != owner
 	    or not tower_ownership or tower_ownership->get_owners().get(time) < 2) return false;
-	if (this->get_garrisoned_builder(tower_id)) return false;
+	const size_t occupants = cart ? this->get_cart_players(state, tower_id, time).size()
+	                              : (this->get_garrisoned_builder(tower_id) ? 1 : 0);
+	size_t pending_count = 0;
 	for (const auto &[pending_builder, pending] : this->pending_garrisons) {
-		if (pending.tower_id == tower_id) return false;
+		if (pending.tower_id == tower_id) ++pending_count;
 	}
+	if (occupants + pending_count >= (cart ? 4u : 1u)) return false;
 	auto tower_pos = std::dynamic_pointer_cast<component::Position>(
 		tower->second->get_component(component::component_t::POSITION));
 	auto position = std::dynamic_pointer_cast<component::Position>(
@@ -1889,6 +1897,7 @@ bool FVD::request_garrison(const std::shared_ptr<GameState> &state,
 
 	// Reuse construction's cancellation semantics: keep visible, reusable foundations.
 	this->cancel_build(state, builder_id, time);
+	this->cancel_cart_build(builder_id);
 	auto activity = std::dynamic_pointer_cast<component::Activity>(
 		builder->second->get_component(component::component_t::ACTIVITY));
 	auto queue = std::dynamic_pointer_cast<component::CommandQueue>(
@@ -1921,10 +1930,15 @@ void FVD::advance_garrison(const std::shared_ptr<GameState> &state,
 	auto tower = state->get_game_entities().find(tower_id);
 	if (builder == state->get_game_entities().end()
 	    or tower == state->get_game_entities().end()
-	    or not builder_alive(builder->second, time)
-	    or not this->tower_footprints.contains(tower_id)
-	    or this->tower_footprints.at(tower_id).under_construction) return;
-	if (this->get_garrisoned_builder(tower_id)) return;
+	    or not builder_alive(builder->second, time)) return;
+	const bool cart = tower->second->get_definition() == this->escape_cart;
+	if (cart) {
+		if (this->get_cart_players(state, tower_id, time).size() >= 4) return;
+	}
+	else if (not this->is_tower(tower->second->get_definition())
+	         or not this->tower_footprints.contains(tower_id)
+	         or this->tower_footprints.at(tower_id).under_construction
+	         or this->get_garrisoned_builder(tower_id)) return;
 	auto builder_pos = std::dynamic_pointer_cast<component::Position>(
 		builder->second->get_component(component::component_t::POSITION));
 	auto tower_pos = std::dynamic_pointer_cast<component::Position>(
@@ -1942,6 +1956,10 @@ bool FVD::ungarrison_builder(const std::shared_ptr<GameState> &state,
                               player_id_t owner, const std::vector<entity_id_t> &ids,
                               const time::time_t &time) {
 	if (owner < 2 or owner > this->player_count or ids.size() != 1) return false;
+	auto found = state->get_game_entities().find(ids.front());
+	if (found != state->get_game_entities().end()
+	    and found->second->get_definition() == this->escape_cart)
+		return this->eject_cart_passenger(state, ids.front(), owner, time);
 	return this->eject_builder(state, ids.front(), owner, time, true);
 }
 
