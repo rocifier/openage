@@ -256,6 +256,8 @@ protected:
 
 	/** Delete all foundations of the one selected own Builder (HUD button). */
 	void send_fvd_delete_foundations();
+	/** Build a costly mobile escape cart with the selected Builder. */
+	void send_fvd_build_cart();
 
 	/** Send a flare at a map position through the local or guest command path. */
 	void send_fvd_flare(const coord::phys3 &position);

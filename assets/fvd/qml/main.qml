@@ -21,6 +21,7 @@ Item {
 	readonly property bool garrisoning: hud !== null && hud.garrisoning === true
 	readonly property bool canUngarrison: hud !== null && hud.canUngarrison === true
 	readonly property bool isTower: hud !== null && hud.isTower
+	readonly property bool isCart: hud !== null && hud.isCart
 	readonly property bool isFoundation: hud !== null && hud.isFoundation === true
 	readonly property bool canAttack: hud !== null && hud.canAttack
 	readonly property bool attacking: hud !== null && hud.attacking
@@ -972,9 +973,9 @@ Item {
 				Repeater {
 					model: [
 						{ icon: "⚔", label: root.isTower ? "Damage: " + root.hud.damage
-						                             : root.canAttack ? "Hunter cavalry" : "Builder unit" },
+						                             : root.canAttack ? "Hunter cavalry" : root.isCart ? "Escape cart" : "Builder unit" },
 						{ icon: "⬡", label: root.isTower ? "Armour: " + root.hud.armor
-						                             : root.canAttack ? root.stance : "Construction" },
+						                             : root.canAttack ? root.stance : root.isCart ? "Mobile shelter" : "Construction" },
 						{ icon: "✦", label: root.hud !== null && root.hud.killsLabel.length > 0
 						                          ? root.hud.killsLabel + (root.hud.killsAvailable ? root.hud.kills : "—")
 						                          : root.constructionStatus.length > 0 ? root.constructionStatus : "Ready" }
@@ -1031,6 +1032,7 @@ Item {
 					Repeater {
 						model: [
 							{ name: "fvdActionButton", label: root.canAttack ? "Attack move (A)" : root.placing ? "Cancel (Esc)" : "Build tower (B)", icon: root.canAttack ? "⚔" : "♜", show: root.canBuild || root.canAttack, active: root.attacking || root.placing },
+							{ name: "fvdCartButton", label: "Build cart (V)", icon: "▣", show: root.canBuild, active: false },
 							{ name: "fvdGarrisonButton", label: root.garrisoning ? "Choose tower" : "Garrison (T)", icon: "♜", show: root.canGarrison, active: root.garrisoning },
 							{ name: "fvdUngarrisonButton", label: "Ungarrison (G)", icon: "⇧", show: root.canUngarrison, active: false },
 							{ name: "fvdPatrolButton", label: "Patrol (P)", icon: "⟳", show: root.canAttack, active: root.patrolling },

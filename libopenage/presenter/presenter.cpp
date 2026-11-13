@@ -396,6 +396,24 @@ void Presenter::send_fvd_delete_foundations() {
 		this->time_loop->get_clock()->get_time(), network::command_params(intent, owner));
 }
 
+void Presenter::send_fvd_build_cart() {
+	if (not this->game_controller or not this->simulation) return;
+	const auto selection = this->game_controller->get_selection_details();
+	const auto owner = static_cast<gamestate::player_id_t>(this->game_controller->get_controlled());
+	if (owner < 2 or selection.kind != input::game::SelectionKind::BUILDER
+	    or selection.ids.size() != 1) return;
+	network::CommandIntent intent{0, network::CommandKind::BUILD_CART, selection.ids};
+	if (this->fvd_lobby_enabled and not this->fvd_lobby_hosting) {
+		if (this->fvd_gameplay_active and this->fvd_lobby_client)
+			this->fvd_lobby_client->send_guest_command(std::move(intent));
+		return;
+	}
+	this->simulation->get_event_loop()->submit_event(
+		"game.send_command", this->simulation->get_commander(),
+		this->simulation->get_game()->get_state(),
+		this->time_loop->get_clock()->get_time(), network::command_params(intent, owner));
+}
+
 void Presenter::send_fvd_flare(const coord::phys3 &position) {
 	if (not this->game_controller or not this->simulation) {
 		return;
@@ -1619,6 +1637,7 @@ void Presenter::init_input() {
 			         std::pair{"fvdEffectsToggle", HudAction::TOGGLE_EFFECTS},
 			         std::pair{"fvdFlareButton", HudAction::FLARE},
 			         std::pair{"fvdDeleteFoundationsButton", HudAction::DELETE_FOUNDATIONS},
+			         std::pair{"fvdCartButton", HudAction::BUILD_CART},
 			         std::pair{"fvdGarrisonButton", HudAction::GARRISON},
 			         std::pair{"fvdUngarrisonButton", HudAction::UNGARRISON}}) {
 				if (this->gui->contains_item(name, ev.position())) {
@@ -1670,6 +1689,9 @@ void Presenter::init_input() {
 				break;
 			case HudAction::DELETE_FOUNDATIONS:
 				this->send_fvd_delete_foundations();
+				break;
+			case HudAction::BUILD_CART:
+				this->send_fvd_build_cart();
 				break;
 			case HudAction::GARRISON:
 				// Same as T; clicking the button again backs out like Esc.
