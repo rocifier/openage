@@ -308,7 +308,8 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 			return false;
 		}
 	}
-	else if (owner != 1 or (not this->is_tower(definition) and definition != this->builder)) {
+	else if (owner != 1 or (not this->is_tower(definition) and definition != this->builder
+	                       and definition != this->escape_cart)) {
 		return false;
 	}
 	const int64_t armour = this->is_tower(definition) ? this->tower_armor : 0;
@@ -322,7 +323,8 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 	if (auto render = entity->get_render_entity()) {
 		const int64_t max_health = definition == this->stone_tower ? this->stone_tower_max_health
 		                           : this->is_tower(definition) ? this->tower_max_health
-		                           : definition == this->horse ? 90 : 25;
+		                           : definition == this->horse ? 100
+		                           : definition == this->escape_cart ? 250 : 25;
 		render->update_health(*live->get_attribute(time, HEALTH), max_health, time);
 	}
 	if (new_hp > 0) {
@@ -341,6 +343,14 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 		}
 		if (definition == this->builder) {
 			this->cancel_build(state, target, time);
+			this->cancel_cart_build(target);
+		}
+		if (definition == this->escape_cart) {
+			// A destroyed cart releases its passengers instead of silently
+			// deleting their concealed identities from the game.
+			for (auto player : this->get_cart_players(state, target, time)) {
+				this->eject_cart_passenger(state, target, player, time);
+			}
 		}
 		state->remove_game_entity(target, time);
 	}
@@ -424,6 +434,7 @@ bool FVD::issue_focus_attack(const std::shared_ptr<GameState> &state,
 	}
 	auto target = target_it->second;
 	if (target->get_definition() != this->builder
+	    and target->get_definition() != this->escape_cart
 	    and not this->is_tower(target->get_definition())) {
 		return false;
 	}
@@ -547,7 +558,8 @@ bool FVD::hunter_target_eligible(const std::shared_ptr<GameState> &state,
 		return footprint != this->tower_footprints.end()
 		    and not footprint->second.under_construction;
 	}
-	return other->second->get_definition() == this->builder;
+	return other->second->get_definition() == this->builder
+	    or other->second->get_definition() == this->escape_cart;
 }
 
 std::optional<entity_id_t> FVD::nearest_hunter_target(
@@ -615,7 +627,10 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
                       const time::time_t &time) {
 	if (this->match_outcome) return;
 	const auto horses = entities_by_definition(state, this->horse);
-	const auto builders = entities_by_definition(state, this->builder);
+	auto builders = entities_by_definition(state, this->builder);
+	const auto carts = entities_by_definition(state, this->escape_cart);
+	builders.insert(builders.end(), carts.begin(), carts.end());
+	std::sort(builders.begin(), builders.end());
 	auto towers = entities_by_definition(state, this->tower);
 	const auto stone_towers = entities_by_definition(state, this->stone_tower);
 	towers.insert(towers.end(), stone_towers.begin(), stone_towers.end());
