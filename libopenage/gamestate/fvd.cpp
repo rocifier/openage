@@ -1735,7 +1735,9 @@ bool FVD::eject_cart_passenger(const std::shared_ptr<GameState> &state,
 				    == candidate.to_phys3_center()) exit = candidate.to_phys3_center();
 			}
 	}
-	if (not exit) return false;
+	// A destroyed cart must not strand concealed passengers. If every nearby
+	// tile is blocked, place them at the cart's former (passable) centre.
+	if (not exit) exit = site.to_phys3_center();
 	auto builder = state->get_game_entity(passenger_id);
 	auto position = std::dynamic_pointer_cast<component::Position>(
 		builder->get_component(component::component_t::POSITION));
