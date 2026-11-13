@@ -895,7 +895,8 @@ Item {
 						anchors.margins: 2
 						visible: root.hud !== null && root.hud.selectionKind !== ""
 						source: root.hud === null || root.hud.selectionKind === "" ? ""
-						        : root.hud.selectionKind === "horse" ? "horse_portrait.png" : "builder_portrait_cutout.png"
+						        : (root.hud.selectionKind === "horse" || root.hud.selectionKind === "cart")
+						        ? "horse_portrait.png" : "builder_portrait_cutout.png"
 						fillMode: Image.PreserveAspectCrop
 						layer.enabled: true
 						layer.effect: ShaderEffect {
