@@ -1448,10 +1448,12 @@ void Presenter::init_input() {
 			this->fvd_audio->toggle_mute();
 			return;
 		}
-		// 1 selects this player's Builder, or the tower sheltering them.
+		// In multiplayer, 1 selects this player's Builder or shelter tower.
+		// Solo keeps its original 1-8 faction-switching bindings.
 		// Resolve from the recipient-visible authoritative snapshot so this
 		// works for both the host and guests, including allied garrison towers.
-		if (ev.type() == QEvent::KeyRelease and ev.key() == Qt::Key_1
+		if (this->fvd_lobby_enabled and this->fvd_gameplay_active
+		    and ev.type() == QEvent::KeyRelease and ev.key() == Qt::Key_1
 		    and ev.modifiers() == Qt::NoModifier and this->game_controller
 		    and this->fvd_hud_state and this->simulation
 		    and this->simulation->get_game()->get_state()->get_fvd()
