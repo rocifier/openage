@@ -1467,6 +1467,18 @@ void Presenter::init_input() {
 			if (world) {
 				// The sheltered Builder may be absent from the visible entities.
 				// Prefer the tower's public occupant identity over any stale unit.
+				const auto cart = std::find_if(world->entities.begin(), world->entities.end(),
+				    [player](const network::EntityState &entity) {
+					return entity.kind() == network::EntityKind::ESCAPE_CART
+					    and std::find(entity.cart_passengers.begin(),
+					                  entity.cart_passengers.end(), player)
+					        != entity.cart_passengers.end();
+				    });
+				if (cart != world->entities.end()) {
+					this->game_controller->set_selected(
+					    {cart->entity_id}, input::game::SelectionKind::CART);
+					return;
+				}
 				const auto tower = std::find_if(world->entities.begin(), world->entities.end(),
 				    [player](const network::EntityState &entity) {
 					return not entity.remembered and network::is_tower(entity.kind())
@@ -1809,7 +1821,7 @@ void Presenter::init_input() {
 			// The global input context must forward placement keys to
 			// the FVD-specific game binding context.
 			for (auto key : {Qt::Key_B, Qt::Key_A, Qt::Key_P, Qt::Key_Z, Qt::Key_X, Qt::Key_C,
-			                 Qt::Key_T, Qt::Key_G, Qt::Key_Delete, Qt::Key_Escape, Qt::Key_F9}) {
+			                 Qt::Key_T, Qt::Key_G, Qt::Key_V, Qt::Key_Delete, Qt::Key_Escape, Qt::Key_F9}) {
 				input_ctx->bind(
 					input::Event{input::event_class::KEYBOARD, key,
 					             Qt::KeyboardModifier::NoModifier, QEvent::KeyRelease},
@@ -1879,6 +1891,7 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("canGarrison", false);
 			this->fvd_hud_state->insert("garrisoning", false);
 			this->fvd_hud_state->insert("canUngarrison", false);
+			this->fvd_hud_state->insert("isCart", false);
 			this->fvd_hud_state->insert("placementFootprint", QVariantList{});
 			this->fvd_hud_state->insert("siteMarkers", QVariantList{});
 			this->fvd_hud_state->insert("reservedFootprints", QVariantList{});
@@ -2180,6 +2193,7 @@ void Presenter::render() {
 		if (this->fvd_hud_state) {
 			auto controlled = this->game_controller->get_controlled();
 			auto tower = selected.kind == input::game::SelectionKind::TOWER;
+			const bool cart = selected.kind == input::game::SelectionKind::CART;
 			auto builder = selected.kind == input::game::SelectionKind::BUILDER;
 			auto hunter_horse = selected.kind == input::game::SelectionKind::HORSE
 			                 or selected.kind == input::game::SelectionKind::GROUP_HORSES;
@@ -2206,6 +2220,10 @@ void Presenter::render() {
 			else if (tower) {
 				selection_label = QString{"Tower"};
 				selection_subtitle = QString{"Right click: set rally point"};
+			}
+			else if (cart) {
+				selection_label = QString{"Escape Cart"};
+				selection_subtitle = QString{"Right click to move · G to exit"};
 			}
 			else if (selected.kind == input::game::SelectionKind::FOUNDATION) {
 				selection_label = QString{"Foundation"};
@@ -2251,10 +2269,15 @@ void Presenter::render() {
 						    .arg(static_cast<qlonglong>(*entity->health))
 						    .arg(static_cast<qlonglong>(*entity->maximum_health));
 					}
-					can_ungarrison = tower and controlled >= 2
-						and entity != world->entities.end()
-						and entity->garrison_player
-						and *entity->garrison_player == controlled;
+					can_ungarrison = controlled >= 2 and entity != world->entities.end()
+						and ((tower and entity->garrison_player == controlled)
+						     or (cart and std::find(entity->cart_passengers.begin(),
+						                     entity->cart_passengers.end(), controlled)
+						         != entity->cart_passengers.end()));
+					if (cart and entity != world->entities.end()) {
+						selection_subtitle = QString{"Passengers %1/4 · Right click to move"}
+						                         .arg(entity->cart_passengers.size());
+					}
 				}
 			}
 			this->fvd_hud_state->insert("controlled", static_cast<int>(controlled));
@@ -2262,7 +2285,8 @@ void Presenter::render() {
 			this->fvd_hud_state->insert("selectionCount", static_cast<int>(selected.ids.size()));
 			this->fvd_hud_state->insert("selectionSubtitle", selection_subtitle);
 			this->fvd_hud_state->insert("selectionKind",
-				builder ? QString{"builder"} : hunter_horse ? QString{"horse"} : QString{});
+				builder ? QString{"builder"} : hunter_horse ? QString{"horse"}
+				: cart ? QString{"cart"} : QString{});
 			this->fvd_hud_state->insert("selectionOwner", selected.render_entity
 				? static_cast<int>(selected.render_entity->get_player_id()) : 0);
 			this->fvd_hud_state->insert("isTower", tower);
@@ -2270,6 +2294,7 @@ void Presenter::render() {
 				selected.kind == input::game::SelectionKind::FOUNDATION);
 			this->fvd_hud_state->insert("health", health);
 			this->fvd_hud_state->insert("canBuild", controlled >= 2 and builder);
+			this->fvd_hud_state->insert("isCart", cart);
 			this->fvd_hud_state->insert("canGarrison",
 				controlled >= 2 and builder and selected.ids.size() == 1);
 			this->fvd_hud_state->insert("garrisoning", this->game_controller->is_garrison_mode_active());
