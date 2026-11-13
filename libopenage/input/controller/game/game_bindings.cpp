@@ -102,6 +102,8 @@ SelectionKind selection_kind_of(network::EntityKind kind) {
 		return SelectionKind::BUILDER;
 	case network::EntityKind::HORSE:
 		return SelectionKind::HORSE;
+	case network::EntityKind::ESCAPE_CART:
+		return SelectionKind::CART;
 	case network::EntityKind::WOOD_TOWER:
 	case network::EntityKind::STONE_TOWER:
 		return SelectionKind::TOWER;
@@ -181,6 +183,13 @@ bool apply_structure_click(
 		    and std::abs(clip.x() / clip.w()) <= 1.0f
 		    and std::abs(clip.y() / clip.w()) <= 1.0f;
 	};
+	const auto car = std::find_if(world->entities.begin(), world->entities.end(),
+	    [clicked](const network::EntityState &entry) { return entry.entity_id == clicked; });
+	if (viewer >= 2 and car != world->entities.end() and not car->remembered
+	    and car->owner_id >= 2 and car->kind() == network::EntityKind::ESCAPE_CART) {
+		controller->set_selected_if_current(generation, {clicked}, SelectionKind::CART);
+		return true;
+	}
 	const auto result = select_fvd_structure(
 		*world, viewer, clicked, previous, shift, double_click, on_screen);
 	if (not result) return false;
@@ -213,7 +222,8 @@ void apply_guest_selection(
 		const bool own = found->owner_id == world.local_player_id;
 		const bool allied_tower = world.local_player_id >= 2
 		                       and found->owner_id >= 2
-		                       and network::is_tower(found->kind());
+		                       and (network::is_tower(found->kind())
+		                            or found->kind() == network::EntityKind::ESCAPE_CART);
 		if (not own and not allied_tower) {
 			continue;
 		}
@@ -278,6 +288,14 @@ void GameBindings::bind(const std::shared_ptr<BindingContext> &ctx,
 	if (fvd) {
 		bind_key(*ctx, Qt::Key_Delete, [self](const controller_t &ctl) {
 			self->demolish_selected(ctl);
+		});
+		bind_key(*ctx, Qt::Key_V, [self](const controller_t &ctl) {
+			const auto selection = ctl->get_selection_details();
+			if (ctl->get_controlled() < 2 or selection.kind != SelectionKind::BUILDER
+			    or selection.ids.size() != 1) return;
+			self->commands->dispatch(
+				network::CommandIntent{0, network::CommandKind::BUILD_CART, selection.ids},
+				player_of(*ctl));
 		});
 		bind_key(*ctx, Qt::Key_T, [](const controller_t &ctl) {
 			ctl->begin_garrison_mode();
@@ -451,7 +469,8 @@ void GameBindings::ungarrison(const controller_t &controller) const {
 	const auto selection = controller->get_selection_details();
 	const auto owner = player_of(*controller);
 	if (owner < 2 or selection.ids.size() != 1
-	    or selection.kind != SelectionKind::TOWER) {
+	    or (selection.kind != SelectionKind::TOWER
+	        and selection.kind != SelectionKind::CART)) {
 		return;
 	}
 	this->commands->dispatch(
@@ -504,6 +523,12 @@ void GameBindings::submit_order(const event_arguments &args, const controller_t 
 	}
 	const auto selection = controller->get_selection_details();
 	const auto owner = player_of(*controller);
+	if (owner >= 2 and selection.kind == SelectionKind::CART
+	    and selection.ids.size() == 1) {
+		this->commands->dispatch(network::CommandIntent{
+			0, network::CommandKind::MOVE, selection.ids, args.mouse.to_phys3(this->camera)}, owner);
+		return;
+	}
 	if (owner >= 2 and selection.kind == SelectionKind::TOWER
 	    and selection.ids.size() == 1) {
 		this->set_ungarrison_point(args, selection, owner);
@@ -843,15 +868,27 @@ void GameBindings::garrison(const Release &release,
 		const auto snapshot = commands->snapshot();
 		// Without a snapshot the pick is sent unchecked; the
 		// simulation validates the target's type and owner.
-		const auto tower = friendly_tower_target(
+		std::optional<gamestate::entity_id_t> cart_id;
+		if (snapshot.world) {
+			for (const auto &entry : snapshot.world->entities) {
+				if (entry.kind() != network::EntityKind::ESCAPE_CART
+				    or entry.remembered or entry.owner_id < 2) continue;
+				if ((picked and entry.entity_id == *picked)
+				    or (not picked and entry.position.to_tile() == clicked_tile)) {
+					cart_id = entry.entity_id;
+					break;
+				}
+			}
+		}
+		const auto tower = cart_id ? std::nullopt : friendly_tower_target(
 			snapshot.world.get(), owner, picked, clicked_tile);
-		if (not tower) {
+		if (not cart_id and not tower) {
 			log::log(INFO << "FVD garrison: click a friendly completed tower");
 			return; // Keep T mode armed for another click or Esc.
 		}
 		controller->cancel_garrison_mode();
 		network::CommandIntent intent{0, network::CommandKind::GARRISON, selection.ids};
-		intent.target_entity = tower->id;
+		intent.target_entity = cart_id ? *cart_id : tower->id;
 		commands->dispatch(snapshot.route, intent, owner, [](bool accepted) {
 			if (not accepted) {
 				log::log(WARN << "FVD garrison rejected: tower must be finished, empty and reachable");

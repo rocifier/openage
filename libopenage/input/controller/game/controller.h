@@ -32,6 +32,7 @@ class BindingContext;
 enum class SelectionKind {
 	NONE,
 	BUILDER,
+	CART,
 	TOWER,
 	GROUP_TOWERS,
 	GROUP_CONSTRUCTING_TOWERS,

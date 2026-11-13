@@ -280,7 +280,8 @@ bool Controller::issue_ungarrison() {
 	{
 		std::unique_lock lock{this->mutex};
 		if (this->active_faction_id < 2 or this->selected.size() != 1
-		    or this->selected_kind != SelectionKind::TOWER or not this->ungarrison_action) {
+		    or (this->selected_kind != SelectionKind::TOWER
+	        and this->selected_kind != SelectionKind::CART) or not this->ungarrison_action) {
 			return false;
 		}
 		action = this->ungarrison_action;
