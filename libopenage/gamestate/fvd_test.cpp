@@ -923,7 +923,14 @@ void fvd_escape_cart() {
 		TESTEQUALS(found->garrisoned_builder.has_value(), false);
 	}
 	TESTEQUALS(fvd->move_cart(state, 6, {cart_id}, {86.5, 82.5, 0}, at(0.25)), false);
-	TESTEQUALS(fvd->move_cart(state, 3, {cart_id}, {86.5, 82.5, 0}, at(0.25)), true);
+	// Garrisoning never confers driving permission on a passenger.
+	TESTEQUALS(fvd->move_cart(state, 3, {cart_id}, {86.5, 82.5, 0}, at(0.25)), false);
+	TESTEQUALS(fvd->move_cart(state, 2, {cart_id}, {86.5, 82.5, 0}, at(0.25)), true);
+	TESTEQUALS(fvd->ungarrison_builder(state, 2, {cart_id}, at(0.25)), true);
+	TESTEQUALS(fvd->is_garrisoned(passengers.front()), false);
+	// The owner retains driving authority even without being a passenger.
+	TESTEQUALS(fvd->move_cart(state, 2, {cart_id}, {87.5, 82.5, 0}, at(0.25)), true);
+	TESTEQUALS(fvd->move_cart(state, 4, {cart_id}, {87.5, 82.5, 0}, at(0.25)), false);
 	TESTEQUALS(fvd->ungarrison_builder(state, 5, {cart_id}, at(0.25)), true);
 	TESTEQUALS(fvd->is_garrisoned(passengers.back()), false);
 	TESTEQUALS(fvd->get_cart_players(state, cart_id, at(0.25)).size(), size_t{3});
@@ -954,8 +961,9 @@ void fvd_escape_cart_construction() {
 	auto at = [](double seconds) { return time::time_t::from_double(seconds); };
 	auto builder = entities->spawn_game_entity(
 		loop, state, 2, "fvd.data.entities.Builder", {82.5, 82.5, 0}, at(0));
-	TESTEQUALS(fvd->start_cart_build(state, 2, {builder->get_id()}, at(0)), true);
-	TESTEQUALS(fvd->start_cart_build(state, 3, {builder->get_id()}, at(0)), false);
+	const auto builder_id = builder->get_id();
+	TESTEQUALS(fvd->start_cart_build(state, 2, {builder_id}, at(0)), true);
+	TESTEQUALS(fvd->start_cart_build(state, 3, {builder_id}, at(0)), false);
 	auto count_carts = [&]() {
 		return std::count_if(state->get_game_entities().begin(), state->get_game_entities().end(),
 		    [](const auto &entry) {
@@ -963,9 +971,50 @@ void fvd_escape_cart_construction() {
 		    });
 	};
 	TESTEQUALS(count_carts(), 0);
+	const auto initial = fvd->get_construction_state();
+	TESTEQUALS(initial.size(), size_t{1});
+	TESTEQUALS(initial.front().phase, FVDConstructionPhase::BUILDING_CART);
+	TESTEQUALS(initial.front().builder_id, builder_id);
+	TESTEQUALS(initial.front().site_entity_id, builder_id);
+	TESTEQUALS(initial.front().phase_end_time, at(75));
+	TESTEQUALS(initial.front().progress_percent(at(0)), 0);
+	loop->reach_time(at(30), state);
+	TESTEQUALS(fvd->get_construction_state().front().progress_percent(at(30)), 40);
+	// Repeated command is accepted without changing order ID, start, end or position.
+	TESTEQUALS(fvd->start_cart_build(state, 2, {builder_id}, at(30)), true);
+	const auto unchanged = fvd->get_construction_state();
+	TESTEQUALS(unchanged.size(), size_t{1});
+	TESTEQUALS(unchanged.front().order_id, initial.front().order_id);
+	TESTEQUALS(unchanged.front().phase_start_time, at(0));
+	TESTEQUALS(unchanged.front().phase_end_time, at(75));
+	// Construction is a real authoritative network record, but does not
+	// masquerade as a tower footprint in the construction renderer.
+	network::MatchConnectionState guests{8};
+	const auto builder_view = network::capture_fvd_state(state, guests, at(30), 0, 1, 2);
+	const auto on_wire = network::decode_world_state(network::encode_world_state(builder_view));
+	TESTEQUALS(on_wire.constructions.size(), size_t{1});
+	TESTEQUALS(on_wire.constructions.front().phase, network::ConstructionPhase::BUILDING_CART);
+	TESTEQUALS(on_wire.constructions.front().progress_percent(at(30)), 40);
+	TESTEQUALS(network::make_construction_presentation(on_wire).sites.empty(), true);
 	loop->reach_time(at(74), state);
 	TESTEQUALS(count_carts(), 0);
 	loop->reach_time(at(75), state);
+	TESTEQUALS(count_carts(), 1);
+	TESTEQUALS(fvd->get_construction_state().empty(), true);
+
+	// Cancellation immediately removes the progress record and a stale
+	// scheduled completion is unable to spawn a second cart.
+	TESTEQUALS(fvd->start_cart_build(state, 2, {builder_id}, at(76)), true);
+	const auto before_cancel = network::capture_fvd_state(state, guests, at(76), 0, 1, 2);
+	TESTEQUALS(before_cancel.constructions.size(), size_t{1});
+	fvd->cancel_cart_build(builder_id);
+	const auto after_cancel = network::capture_fvd_state(state, guests, at(76), 1, 2, 2);
+	TESTEQUALS(after_cancel.constructions.empty(), true);
+	const auto delta = network::make_world_delta(before_cancel, after_cancel);
+	const auto rebuilt = network::apply_world_delta(
+		before_cancel, network::decode_world_delta(network::encode_world_delta(delta)));
+	TESTEQUALS(rebuilt.constructions.empty(), true);
+	loop->reach_time(at(151), state);
 	TESTEQUALS(count_carts(), 1);
 }
 
