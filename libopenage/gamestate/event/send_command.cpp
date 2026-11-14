@@ -89,7 +89,8 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			if (entity != gstate->get_game_entities().end()
 			    and entity->second->get_definition() == "fvd.data.entities.EscapeCart") {
 				const bool accepted = params.check_type<coord::phys3>("target")
-				    and fvd->move_cart(gstate, owner, ids, params.get<coord::phys3>("target"), time);
+				    and fvd->move_cart(gstate, owner, ids,
+				                       params.get<coord::phys3>("target", coord::phys3{0, 0, 0}), time);
 				if (result_cb) result_cb(accepted);
 				return;
 			}
