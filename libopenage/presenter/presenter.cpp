@@ -1951,6 +1951,7 @@ void Presenter::init_input() {
 			this->fvd_cart_build_observed_builder.reset();
 			this->fvd_cart_build_expected_end.reset();
 			this->fvd_cart_build_site.reset();
+			this->fvd_cart_build_prior_cart_id = 0;
 			this->fvd_cart_build_notice_until.reset();
 			this->fvd_hud_state->insert("canAttack", false);
 			this->fvd_hud_state->insert("attacking", false);
@@ -2870,6 +2871,17 @@ void Presenter::render() {
 							if (order.builder_id != builder_id
 							    or order.owner_id != controlled) continue;
 							if (order.phase == network::ConstructionPhase::BUILDING_CART) {
+								if (this->fvd_cart_build_observed_builder != builder_id
+								    or this->fvd_cart_build_expected_end != order.phase_end_time) {
+									// Don't mistake a pre-existing cart parked on the same
+									// tile for the newly completed construction.
+									this->fvd_cart_build_prior_cart_id = 0;
+									for (const auto &entry : construction_world->entities)
+										if (entry.kind() == network::EntityKind::ESCAPE_CART
+										    and entry.owner_id == controlled)
+											this->fvd_cart_build_prior_cart_id = std::max(
+											    this->fvd_cart_build_prior_cart_id, entry.entity_id);
+								}
 								cart_building = true;
 								construction_percent = order.progress_percent(guest_time.value_or(now));
 								construction_status = QString{"Building cart: %1%"}
@@ -2896,14 +2908,13 @@ void Presenter::render() {
 					    and this->fvd_cart_build_expected_end and construction_world) {
 						// A newly spawned cart at the assembly site means completion;
 						// otherwise the authoritative build order was cancelled.
-						this->fvd_cart_build_notice_completed = this->fvd_cart_build_site
-						    and std::any_of(construction_world->entities.begin(),
-						                    construction_world->entities.end(),
-						                    [&](const network::EntityState &entry) {
+						this->fvd_cart_build_notice_completed = std::any_of(
+						    construction_world->entities.begin(), construction_world->entities.end(),
+						    [&](const network::EntityState &entry) {
 								return entry.kind() == network::EntityKind::ESCAPE_CART
 								    and entry.owner_id == controlled
-								    and entry.position.to_tile() == *this->fvd_cart_build_site;
-						                    });
+								    and entry.entity_id > this->fvd_cart_build_prior_cart_id;
+						    });
 						this->fvd_cart_build_notice_until = display_time + time::time_t::from_int(4);
 						this->fvd_cart_build_expected_end.reset();
 					}

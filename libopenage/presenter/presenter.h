@@ -371,6 +371,8 @@ protected:
 	std::optional<gamestate::entity_id_t> fvd_cart_build_observed_builder{};
 	std::optional<time::time_t> fvd_cart_build_expected_end{};
 	std::optional<coord::tile> fvd_cart_build_site{};
+	/** Highest owned cart ID when this build first became visible. */
+	gamestate::entity_id_t fvd_cart_build_prior_cart_id{0};
 	std::optional<time::time_t> fvd_cart_build_notice_until{};
 	bool fvd_cart_build_notice_completed{false};
 
