@@ -2612,24 +2612,42 @@ void Presenter::render() {
 						coord::phys_t::from_double(ne),
 						coord::phys_t::from_double(se), 0});
 				};
-				// Occupied towers display the Builder player's flag, not the
-				// tower owner's colour. Heights are fixed for this prototype.
-				// Position them through the same camera projection as tile overlays.
+				// Screen-space flags follow visible, authoritative shelter entities.
+				// Towers have one flag at their fixed top height; carts display a
+				// row of up to four, in replicated (sorted) player-slot order.
+				// Neither path exposes the concealed Builder entity IDs.
 				QVariantList occupied_flags;
 				if (construction_world) {
 					for (const auto &entity : construction_world->entities) {
-						if (not network::is_tower(entity.kind())
-						    or not entity.garrison_player or entity.remembered) continue;
+						if (entity.remembered) continue;
+						const bool tower = network::is_tower(entity.kind());
+						const bool cart = entity.kind() == network::EntityKind::ESCAPE_CART;
+						if ((not tower or not entity.garrison_player)
+						    and (not cart or entity.cart_passengers.empty())) continue;
 						auto at = entity.position;
-						at.up += coord::phys_t::from_double(4.5);
+						at.up += coord::phys_t::from_double(tower ? 4.5 : 2.0);
 						const auto screen = project_position(at);
-						if (screen.x() < -30 or screen.y() < -30
-						    or screen.x() > viewport[0] + 30
-						    or screen.y() > viewport[1] + 30) continue;
-						occupied_flags.push_back(QVariantMap{
-							{"x", screen.x()}, {"y", screen.y()},
-							{"player", static_cast<int>(*entity.garrison_player)},
-						});
+						// The existing QML flag is 26 px wide, with the pole at x.
+						// Spread cart flags at 32 px pitch and centre the *whole*
+						// row (including its fabric) over the moving cart.
+						auto push_flag = [&](gamestate::player_id_t player, float x) {
+							if (x < -30 or screen.y() < -40
+							    or x > viewport[0] + 30 or screen.y() > viewport[1] + 40) return;
+							occupied_flags.push_back(QVariantMap{
+								{"x", x}, {"y", screen.y()},
+								{"player", static_cast<int>(player)},
+							});
+						};
+						if (tower) {
+							push_flag(*entity.garrison_player, screen.x());
+						}
+						else {
+							const float count = static_cast<float>(entity.cart_passengers.size());
+							const float first = screen.x() - (32.0f * (count - 1.0f) + 26.0f) / 2.0f;
+							for (size_t i = 0; i < entity.cart_passengers.size(); ++i) {
+								push_flag(entity.cart_passengers[i], first + 32.0f * static_cast<float>(i));
+							}
+						}
 					}
 				}
 				if (not occupied_flags.isEmpty()
