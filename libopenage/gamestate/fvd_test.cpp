@@ -931,9 +931,20 @@ void fvd_escape_cart() {
 	// The owner retains driving authority even without being a passenger.
 	TESTEQUALS(fvd->move_cart(state, 2, {cart_id}, {87.5, 82.5, 0}, at(0.25)), true);
 	TESTEQUALS(fvd->move_cart(state, 4, {cart_id}, {87.5, 82.5, 0}, at(0.25)), false);
+	// The guest's flag roster changes on boarding/ungarrisoning, not at
+	// every sampled cart position. Motion stays on the render entity curve.
+	const auto before_exit = network::capture_fvd_state(state, guests, at(0.25), 0, 1, 3);
 	TESTEQUALS(fvd->ungarrison_builder(state, 5, {cart_id}, at(0.25)), true);
 	TESTEQUALS(fvd->is_garrisoned(passengers.back()), false);
-	TESTEQUALS(fvd->get_cart_players(state, cart_id, at(0.25)).size(), size_t{3});
+	TESTEQUALS(fvd->get_cart_players(state, cart_id, at(0.25)).size(), size_t{2});
+	const auto after_exit = network::capture_fvd_state(state, guests, at(0.25), 1, 2, 3);
+	const auto delta = network::make_world_delta(before_exit, after_exit);
+	const auto roundtrip_delta = network::decode_world_delta(network::encode_world_delta(delta));
+	const auto delivered = network::apply_world_delta(before_exit, roundtrip_delta);
+	const auto cart_in_guest = std::find_if(delivered.entities.begin(), delivered.entities.end(),
+	    [cart_id](const auto &entry) { return entry.entity_id == cart_id; });
+	TESTEQUALS(cart_in_guest != delivered.entities.end(), true);
+	TESTEQUALS(cart_in_guest->cart_passengers, (std::vector<player_id_t>{3, 4}));
 	// A lethal Hunter hit ejects everyone who remains inside.
 	fvd->hunter_tower_hit(state, cart_id, 500, at(0.5));
 	TESTEQUALS(state->get_game_entities().contains(cart_id), false);
