@@ -2625,6 +2625,16 @@ void Presenter::render() {
 						if ((not tower or not entity.garrison_player)
 						    and (not cart or entity.cart_passengers.empty())) continue;
 						auto at = entity.position;
+						if (cart and guest_time) {
+							// Passenger slots are replicated only when occupancy changes.
+							// Flag positions are NOT networked: sample the exact same
+							// host-authored motion curve and presentation clock as the
+							// cart sprite. Raw snapshot positions jump at update boundaries.
+							const auto proxy = this->fvd_guest_entities.find(entity.entity_id);
+							if (proxy == this->fvd_guest_entities.end()
+							    or not proxy->second or not proxy->second->is_active()) continue;
+							at = proxy->second->get_position_at(*guest_time).to_phys3();
+						}
 						at.up += coord::phys_t::from_double(tower ? 4.5 : 2.0);
 						const auto screen = project_position(at);
 						// The existing QML flag is 26 px wide, with the pole at x.
