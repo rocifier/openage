@@ -2846,6 +2846,7 @@ void Presenter::render() {
 				}
 				QString construction_status{};
 				int construction_percent = -1;
+				bool cart_building = false;
 				int queued_towers = 0;
 				// What "Delete all foundations" would remove: this Builder's
 				// queued and walked-to sites, and the player's abandoned ones.
@@ -2868,18 +2869,53 @@ void Presenter::render() {
 						for (const auto &order : construction_world->constructions) {
 							if (order.builder_id != builder_id
 							    or order.owner_id != controlled) continue;
-							if (order.phase == network::ConstructionPhase::PLANNED) {
+							if (order.phase == network::ConstructionPhase::BUILDING_CART) {
+								cart_building = true;
+								construction_percent = order.progress_percent(guest_time.value_or(now));
+								construction_status = QString{"Building cart: %1%"}
+									.arg(construction_percent);
+								this->fvd_cart_build_observed_builder = builder_id;
+								this->fvd_cart_build_expected_end = order.phase_end_time;
+								this->fvd_cart_build_site = order.target;
+								this->fvd_cart_build_notice_until.reset();
+							}
+							else if (order.phase == network::ConstructionPhase::PLANNED) {
 								if (construction_status.isEmpty())
 									construction_status = QString{"Walking to tower site"};
 							}
 							else {
-								construction_percent = order.progress_percent(now);
+								construction_percent = order.progress_percent(guest_time.value_or(now));
 								construction_status = QString{"Building: %1%"}
 									.arg(construction_percent);
 							}
 						}
 					}
+					const auto display_time = guest_time.value_or(now);
+					if (not cart_building
+					    and this->fvd_cart_build_observed_builder == selected.ids.front()
+					    and this->fvd_cart_build_expected_end and construction_world) {
+						// A newly spawned cart at the assembly site means completion;
+						// otherwise the authoritative build order was cancelled.
+						this->fvd_cart_build_notice_completed = this->fvd_cart_build_site
+						    and std::any_of(construction_world->entities.begin(),
+						                    construction_world->entities.end(),
+						                    [&](const network::EntityState &entry) {
+								return entry.kind() == network::EntityKind::ESCAPE_CART
+								    and entry.owner_id == controlled
+								    and entry.position.to_tile() == *this->fvd_cart_build_site;
+						                    });
+						this->fvd_cart_build_notice_until = display_time + time::time_t::from_int(4);
+						this->fvd_cart_build_expected_end.reset();
+					}
+					if (not cart_building and construction_status.isEmpty()
+					    and this->fvd_cart_build_observed_builder == selected.ids.front()
+					    and this->fvd_cart_build_notice_until
+					    and display_time < *this->fvd_cart_build_notice_until)
+						construction_status = this->fvd_cart_build_notice_completed
+						    ? QString{"Escape cart completed"}
+						    : QString{"Cart construction cancelled"};
 				}
+				this->fvd_hud_state->insert("cartBuilding", cart_building);
 				this->fvd_hud_state->insert("queuedTowers", queued_towers);
 				this->fvd_hud_state->insert("deletableFoundations", deletable_foundations);
 				this->fvd_hud_state->insert("constructionStatus", construction_status);
