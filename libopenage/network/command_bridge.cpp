@@ -239,7 +239,10 @@ WorldState capture_fvd_presentation_state(
 			construction.owner,
 			construction.builder_id,
 			construction.target,
-			construction.phase == gamestate::FVDConstructionPhase::PLANNED ? ConstructionPhase::PLANNED : ConstructionPhase::UNDER_CONSTRUCTION,
+			construction.phase == gamestate::FVDConstructionPhase::PLANNED
+				? ConstructionPhase::PLANNED
+				: construction.phase == gamestate::FVDConstructionPhase::BUILDING_CART
+					? ConstructionPhase::BUILDING_CART : ConstructionPhase::UNDER_CONSTRUCTION,
 			construction.phase_end_time,
 			construction.phase_start_time,
 			construction.site_entity_id,

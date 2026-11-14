@@ -270,9 +270,11 @@ struct TileReservation {
 enum class ConstructionPhase : uint16_t {
 	PLANNED = 1,
 	UNDER_CONSTRUCTION = 2,
+	/** Cart assembly by the Builder; no foundation or footprint. */
+	BUILDING_CART = 3,
 };
 
-/** One authoritative unfinished tower construction order. */
+/** One authoritative unfinished tower or cart construction order. */
 struct ConstructionState {
 	uint64_t order_id{0};
 	gamestate::player_id_t owner_id{0};
