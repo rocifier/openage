@@ -525,8 +525,19 @@ void GameBindings::submit_order(const event_arguments &args, const controller_t 
 	const auto owner = player_of(*controller);
 	if (owner >= 2 and selection.kind == SelectionKind::CART
 	    and selection.ids.size() == 1) {
-		this->commands->dispatch(network::CommandIntent{
-			0, network::CommandKind::MOVE, selection.ids, args.mouse.to_phys3(this->camera)}, owner);
+		// Passengers can select allied carts to disembark, but only the
+		// cart owner may send movement orders.
+		const auto snapshot = this->commands->snapshot();
+		const bool owns_cart = snapshot.world and std::any_of(
+			snapshot.world->entities.begin(), snapshot.world->entities.end(),
+			[&](const network::EntityState &entity) {
+				return entity.entity_id == selection.ids.front()
+				    and entity.kind() == network::EntityKind::ESCAPE_CART
+				    and entity.owner_id == owner;
+			});
+		if (owns_cart)
+			this->commands->dispatch(network::CommandIntent{
+				0, network::CommandKind::MOVE, selection.ids, args.mouse.to_phys3(this->camera)}, owner);
 		return;
 	}
 	if (owner >= 2 and selection.kind == SelectionKind::TOWER

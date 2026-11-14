@@ -55,7 +55,7 @@
 namespace openage::gamestate {
 
 int FVDConstructionState::progress_percent(const time::time_t &now) const {
-	if (this->phase != FVDConstructionPhase::UNDER_CONSTRUCTION) {
+	if (this->phase == FVDConstructionPhase::PLANNED) {
 		return 0;
 	}
 	const auto duration = this->phase_end_time - this->phase_start_time;
@@ -1605,7 +1605,9 @@ bool FVD::start_cart_build(const std::shared_ptr<GameState> &state,
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 		found->second->get_component(component::component_t::OWNERSHIP));
 	if (not ownership or ownership->get_owners().get(time) != owner) return false;
-	// Replacing an order forfeits the time already spent constructing.
+	// Repeated UI presses or delayed duplicate commands must preserve this timer.
+	if (this->pending_cart_builds.contains(builder_id)) return true;
+	// Replacing a different order forfeits its previous work.
 	auto position = std::dynamic_pointer_cast<component::Position>(
 		found->second->get_component(component::component_t::POSITION));
 	const auto site = position->get_positions().get(time);
@@ -1624,7 +1626,8 @@ bool FVD::start_cart_build(const std::shared_ptr<GameState> &state,
 		found->second->get_component(component::component_t::MOVE))->clear_active_route();
 	system::Idle::idle(found->second, time);
 	const auto revision = this->next_cart_revision++;
-	this->pending_cart_builds.insert_or_assign(builder_id, PendingCartBuild{site, revision});
+	this->pending_cart_builds.emplace(builder_id, PendingCartBuild{
+		site, owner, revision, this->next_build_id++, time});
 	auto loop = this->event_loop.lock();
 	if (not loop) [[unlikely]] throw Error{ERR << "Escape cart event loop unavailable"};
 	loop->create_event("game.fvd_cart_build", found->second->get_manager(), state,
@@ -1687,10 +1690,8 @@ bool FVD::move_cart(const std::shared_ptr<GameState> &state, player_id_t owner,
 	    or not builder_alive(found->second, time)) return false;
 	auto ownership = std::dynamic_pointer_cast<component::Ownership>(
 		found->second->get_component(component::component_t::OWNERSHIP));
-	const auto passengers = this->get_cart_players(state, ids.front(), time);
-	if (ownership->get_owners().get(time) != owner
-	    and std::find(passengers.begin(), passengers.end(), owner) == passengers.end())
-		return false;
+	// The occupants may exit independently, but only the owner drives.
+	if (not ownership or ownership->get_owners().get(time) != owner) return false;
 	auto position = std::dynamic_pointer_cast<component::Position>(
 		found->second->get_component(component::component_t::POSITION));
 	const auto current = position->get_positions().get(time);
@@ -3102,7 +3103,7 @@ size_t FVD::get_map_size() const {
 
 std::vector<FVDConstructionState> FVD::get_construction_state() const {
 	std::vector<FVDConstructionState> result{};
-	result.reserve(this->build_orders.size());
+	result.reserve(this->build_orders.size() + this->pending_cart_builds.size());
 	for (const auto &[builder_id, build] : this->build_orders) {
 		result.push_back({
 			build.order->get_id(),
@@ -3117,6 +3118,14 @@ std::vector<FVDConstructionState> FVD::get_construction_state() const {
 				: build.arrival,
 			build.tower_id.value_or(build.foundation_id),
 			build.arrival,
+		});
+	}
+	for (const auto &[builder_id, build] : this->pending_cart_builds) {
+		result.push_back({
+			build.order_id, build.owner, builder_id, build.position.to_tile(),
+			FVDConstructionPhase::BUILDING_CART,
+			build.started_at + this->cart_construction_time,
+			builder_id, build.started_at,
 		});
 	}
 	std::sort(result.begin(), result.end(),

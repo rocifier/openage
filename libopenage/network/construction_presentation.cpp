@@ -42,6 +42,16 @@ ConstructionPresentation make_construction_presentation(const WorldState &world)
 
 	std::unordered_map<gamestate::entity_id_t, const ConstructionState *> active{};
 	for (const auto &construction : world.constructions) {
+		if (construction.phase == ConstructionPhase::BUILDING_CART) {
+			// Cart construction is timed, but has no foundation/footprint
+			// and should not enter the tower site presentation overlay.
+			auto builder = builders.find(construction.builder_id);
+			if (builder == builders.end() or builder->second != construction.owner_id
+			    or construction.site_entity_id != construction.builder_id
+			    or construction.phase_end_time <= construction.phase_start_time)
+				throw Error{MSG(err) << "FVD presentation has invalid cart construction"};
+			continue;
+		}
 		if (construction.site_entity_id == 0
 		    or not active.emplace(construction.site_entity_id, &construction).second) {
 			throw Error{MSG(err) << "FVD presentation has duplicate construction site"};

@@ -29,9 +29,10 @@ constexpr uint32_t FRAME_MAGIC = 0x4656444e;
 // v23 adds authoritative construction queue positions to tile reservations
 // and permits queued targeted foundation commands.
 // v24 adds Builder escape cart construction and mobile transport support.
+// v25 adds a distinct cart construction phase to replicated construction orders.
 // Refuse older clients at the handshake rather than mid-match.
 // Minor versions continue to gate compatible relay features.
-constexpr uint16_t PROTOCOL_MAJOR = 24;
+constexpr uint16_t PROTOCOL_MAJOR = 25;
 constexpr uint16_t PROTOCOL_MINOR = 4;
 
 /** Oldest protocol minor version compatible with this implementation. */

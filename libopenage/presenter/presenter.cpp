@@ -397,7 +397,8 @@ void Presenter::send_fvd_delete_foundations() {
 }
 
 void Presenter::send_fvd_build_cart() {
-	if (not this->game_controller or not this->simulation) return;
+	if (not this->game_controller or not this->simulation
+	    or (this->fvd_hud_state and this->fvd_hud_state->value("cartBuilding").toBool())) return;
 	const auto selection = this->game_controller->get_selection_details();
 	const auto owner = static_cast<gamestate::player_id_t>(this->game_controller->get_controlled());
 	if (owner < 2 or selection.kind != input::game::SelectionKind::BUILDER
@@ -1921,6 +1922,11 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("queuedTowers", 0);
 			this->fvd_hud_state->insert("constructionStatus", QString{});
 			this->fvd_hud_state->insert("constructionPercent", -1);
+			this->fvd_hud_state->insert("cartBuilding", false);
+			this->fvd_cart_build_observed_builder.reset();
+			this->fvd_cart_build_expected_end.reset();
+			this->fvd_cart_build_prior_cart_id = 0;
+			this->fvd_cart_build_notice_until.reset();
 			this->fvd_hud_state->insert("canAttack", false);
 			this->fvd_hud_state->insert("attacking", false);
 			this->fvd_hud_state->insert("patrolling", false);
@@ -2606,24 +2612,52 @@ void Presenter::render() {
 						coord::phys_t::from_double(ne),
 						coord::phys_t::from_double(se), 0});
 				};
-				// Occupied towers display the Builder player's flag, not the
-				// tower owner's colour. Heights are fixed for this prototype.
-				// Position them through the same camera projection as tile overlays.
+				// Screen-space flags follow visible, authoritative shelter entities.
+				// Towers have one flag at their fixed top height; carts display a
+				// row of up to four, in replicated (sorted) player-slot order.
+				// Neither path exposes the concealed Builder entity IDs.
 				QVariantList occupied_flags;
 				if (construction_world) {
 					for (const auto &entity : construction_world->entities) {
-						if (not network::is_tower(entity.kind())
-						    or not entity.garrison_player or entity.remembered) continue;
+						if (entity.remembered) continue;
+						const bool tower = network::is_tower(entity.kind());
+						const bool cart = entity.kind() == network::EntityKind::ESCAPE_CART;
+						if ((not tower or not entity.garrison_player)
+						    and (not cart or entity.cart_passengers.empty())) continue;
 						auto at = entity.position;
-						at.up += coord::phys_t::from_double(4.5);
+						if (cart and guest_time) {
+							// Passenger slots are replicated only when occupancy changes.
+							// Flag positions are NOT networked: sample the exact same
+							// host-authored motion curve and presentation clock as the
+							// cart sprite. Raw snapshot positions jump at update boundaries.
+							const auto proxy = this->fvd_guest_entities.find(entity.entity_id);
+							if (proxy == this->fvd_guest_entities.end()
+							    or not proxy->second or not proxy->second->is_active()) continue;
+							at = proxy->second->get_position_at(*guest_time).to_phys3();
+						}
+						at.up += coord::phys_t::from_double(tower ? 4.5 : 2.0);
 						const auto screen = project_position(at);
-						if (screen.x() < -30 or screen.y() < -30
-						    or screen.x() > viewport[0] + 30
-						    or screen.y() > viewport[1] + 30) continue;
-						occupied_flags.push_back(QVariantMap{
-							{"x", screen.x()}, {"y", screen.y()},
-							{"player", static_cast<int>(*entity.garrison_player)},
-						});
+						// The existing QML flag is 26 px wide, with the pole at x.
+						// Spread cart flags at 32 px pitch and centre the *whole*
+						// row (including its fabric) over the moving cart.
+						auto push_flag = [&](gamestate::player_id_t player, float x) {
+							if (x < -30 or screen.y() < -40
+							    or x > viewport[0] + 30 or screen.y() > viewport[1] + 40) return;
+							occupied_flags.push_back(QVariantMap{
+								{"x", x}, {"y", screen.y()},
+								{"player", static_cast<int>(player)},
+							});
+						};
+						if (tower) {
+							push_flag(*entity.garrison_player, screen.x());
+						}
+						else {
+							const float count = static_cast<float>(entity.cart_passengers.size());
+							const float first = screen.x() - (32.0f * (count - 1.0f) + 26.0f) / 2.0f;
+							for (size_t i = 0; i < entity.cart_passengers.size(); ++i) {
+								push_flag(entity.cart_passengers[i], first + 32.0f * static_cast<float>(i));
+							}
+						}
 					}
 				}
 				if (not occupied_flags.isEmpty()
@@ -2815,6 +2849,7 @@ void Presenter::render() {
 				}
 				QString construction_status{};
 				int construction_percent = -1;
+				bool cart_building = false;
 				int queued_towers = 0;
 				// What "Delete all foundations" would remove: this Builder's
 				// queued and walked-to sites, and the player's abandoned ones.
@@ -2837,18 +2872,62 @@ void Presenter::render() {
 						for (const auto &order : construction_world->constructions) {
 							if (order.builder_id != builder_id
 							    or order.owner_id != controlled) continue;
-							if (order.phase == network::ConstructionPhase::PLANNED) {
+							if (order.phase == network::ConstructionPhase::BUILDING_CART) {
+								if (this->fvd_cart_build_observed_builder != builder_id
+								    or this->fvd_cart_build_expected_end != order.phase_end_time) {
+									// Don't mistake a pre-existing cart parked on the same
+									// tile for the newly completed construction.
+									this->fvd_cart_build_prior_cart_id = 0;
+									for (const auto &entry : construction_world->entities)
+										if (entry.kind() == network::EntityKind::ESCAPE_CART
+										    and entry.owner_id == controlled)
+											this->fvd_cart_build_prior_cart_id = std::max(
+											    this->fvd_cart_build_prior_cart_id, entry.entity_id);
+								}
+								cart_building = true;
+								construction_percent = order.progress_percent(guest_time.value_or(now));
+								construction_status = QString{"Building cart: %1%"}
+									.arg(construction_percent);
+								this->fvd_cart_build_observed_builder = builder_id;
+								this->fvd_cart_build_expected_end = order.phase_end_time;
+								this->fvd_cart_build_notice_until.reset();
+							}
+							else if (order.phase == network::ConstructionPhase::PLANNED) {
 								if (construction_status.isEmpty())
 									construction_status = QString{"Walking to tower site"};
 							}
 							else {
-								construction_percent = order.progress_percent(now);
+								construction_percent = order.progress_percent(guest_time.value_or(now));
 								construction_status = QString{"Building: %1%"}
 									.arg(construction_percent);
 							}
 						}
 					}
+					const auto display_time = guest_time.value_or(now);
+					if (not cart_building
+					    and this->fvd_cart_build_observed_builder == selected.ids.front()
+					    and this->fvd_cart_build_expected_end and construction_world) {
+						// A newly spawned cart at the assembly site means completion;
+						// otherwise the authoritative build order was cancelled.
+						this->fvd_cart_build_notice_completed = std::any_of(
+						    construction_world->entities.begin(), construction_world->entities.end(),
+						    [&](const network::EntityState &entry) {
+								return entry.kind() == network::EntityKind::ESCAPE_CART
+								    and entry.owner_id == controlled
+								    and entry.entity_id > this->fvd_cart_build_prior_cart_id;
+						    });
+						this->fvd_cart_build_notice_until = display_time + time::time_t::from_int(4);
+						this->fvd_cart_build_expected_end.reset();
+					}
+					if (not cart_building and construction_status.isEmpty()
+					    and this->fvd_cart_build_observed_builder == selected.ids.front()
+					    and this->fvd_cart_build_notice_until
+					    and display_time < *this->fvd_cart_build_notice_until)
+						construction_status = this->fvd_cart_build_notice_completed
+						    ? QString{"Escape cart completed"}
+						    : QString{"Cart construction cancelled"};
 				}
+				this->fvd_hud_state->insert("cartBuilding", cart_building);
 				this->fvd_hud_state->insert("queuedTowers", queued_towers);
 				this->fvd_hud_state->insert("deletableFoundations", deletable_foundations);
 				this->fvd_hud_state->insert("constructionStatus", construction_status);

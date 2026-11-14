@@ -17,6 +17,7 @@ Item {
 	readonly property string constructionStatus: hud === null ? "" : hud.constructionStatus
 	readonly property int constructionPercent: hud === null ? -1 : hud.constructionPercent
 	readonly property bool canBuild: hud !== null && hud.canBuild
+	readonly property bool cartBuilding: hud !== null && hud.cartBuilding === true
 	readonly property bool canGarrison: hud !== null && hud.canGarrison === true
 	readonly property bool garrisoning: hud !== null && hud.garrisoning === true
 	readonly property bool canUngarrison: hud !== null && hud.canUngarrison === true
@@ -1008,7 +1009,7 @@ Item {
 					Text {
 						width: Math.max(0, statCard.width - 26)
 						text: root.constructionPercent >= 0
-						      ? "Building: " + root.constructionPercent + "%" : "Queued: " + root.queuedTowers
+						      ? (root.cartBuilding ? "Cart: " : "Building: ") + root.constructionPercent + "%" : "Queued: " + root.queuedTowers
 						elide: Text.ElideRight
 						font.pixelSize: 13
 						font.weight: Font.DemiBold
@@ -1033,7 +1034,7 @@ Item {
 					Repeater {
 						model: [
 							{ name: "fvdActionButton", label: root.canAttack ? "Attack move (A)" : root.placing ? "Cancel (Esc)" : "Build tower (B)", icon: root.canAttack ? "⚔" : "♜", show: root.canBuild || root.canAttack, active: root.attacking || root.placing },
-							{ name: "fvdCartButton", label: "Build cart (V)", icon: "▣", show: root.canBuild, active: false },
+							{ name: "fvdCartButton", label: root.cartBuilding ? "Building " + root.constructionPercent + "%" : "Build cart (V)", icon: "▣", show: root.canBuild, active: root.cartBuilding },
 							{ name: "fvdGarrisonButton", label: root.garrisoning ? "Choose tower" : "Garrison (T)", icon: "♜", show: root.canGarrison, active: root.garrisoning },
 							{ name: "fvdUngarrisonButton", label: "Ungarrison (G)", icon: "⇧", show: root.canUngarrison, active: false },
 							{ name: "fvdPatrolButton", label: "Patrol (P)", icon: "⟳", show: root.canAttack, active: root.patrolling },

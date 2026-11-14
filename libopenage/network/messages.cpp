@@ -137,7 +137,7 @@ bool is_known_player_role(uint16_t value) {
 
 bool is_known_construction_phase(uint16_t value) {
 	return value >= static_cast<uint16_t>(ConstructionPhase::PLANNED)
-	    && value <= static_cast<uint16_t>(ConstructionPhase::UNDER_CONSTRUCTION);
+	    && value <= static_cast<uint16_t>(ConstructionPhase::BUILDING_CART);
 }
 
 /** A remembered entity is an enemy building with nothing but its last place. */
@@ -220,7 +220,7 @@ EntityKind EntityState::kind() const {
 }
 
 int ConstructionState::progress_percent(const time::time_t &now) const {
-	if (this->phase != ConstructionPhase::UNDER_CONSTRUCTION) {
+	if (this->phase == ConstructionPhase::PLANNED) {
 		return 0;
 	}
 	const auto duration = this->phase_end_time - this->phase_start_time;
@@ -830,7 +830,7 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		    or not is_known_construction_phase(static_cast<uint16_t>(construction.phase))
 		    or (construction.phase == ConstructionPhase::PLANNED
 		        and construction.phase_start_time != construction.phase_end_time)
-		    or (construction.phase == ConstructionPhase::UNDER_CONSTRUCTION
+		    or (construction.phase != ConstructionPhase::PLANNED
 		        and construction.phase_start_time >= construction.phase_end_time)) {
 			throw Error{MSG(err) << "FVD state contains an invalid construction order"};
 		}
@@ -1178,7 +1178,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		    or not is_known_construction_phase(phase)
 		    or (phase == static_cast<uint16_t>(ConstructionPhase::PLANNED)
 		        and construction.phase_start_time != construction.phase_end_time)
-		    or (phase == static_cast<uint16_t>(ConstructionPhase::UNDER_CONSTRUCTION)
+		    or (phase != static_cast<uint16_t>(ConstructionPhase::PLANNED)
 		        and construction.phase_start_time >= construction.phase_end_time)) {
 			throw Error{MSG(err) << "FVD state contains an invalid construction order"};
 		}
