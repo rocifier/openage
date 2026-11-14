@@ -65,6 +65,7 @@ class BuildTowerCommand;
 enum class FVDConstructionPhase : uint16_t {
 	PLANNED = 1,
 	UNDER_CONSTRUCTION = 2,
+	BUILDING_CART = 3,
 };
 
 /** Read-only description of one active construction order. */
@@ -888,7 +889,10 @@ private:
 	std::unordered_map<entity_id_t, std::unordered_map<player_id_t, UngarrisonPoint>> ungarrison_points;
 	struct PendingCartBuild {
 		coord::phys3 position;
+		player_id_t owner;
 		uint64_t revision;
+		uint64_t order_id;
+		time::time_t started_at;
 	};
 	std::unordered_map<entity_id_t, PendingCartBuild> pending_cart_builds;
 	uint64_t next_cart_revision = 1;
