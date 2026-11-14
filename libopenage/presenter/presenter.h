@@ -258,8 +258,6 @@ protected:
 	void send_fvd_delete_foundations();
 	/** Build a costly mobile escape cart with the selected Builder. */
 	void send_fvd_build_cart();
-	/** Stop the current cart build using the existing Idle command. */
-	void send_fvd_cancel_cart();
 
 	/** Send a flare at a map position through the local or guest command path. */
 	void send_fvd_flare(const coord::phys3 &position);
@@ -370,7 +368,6 @@ protected:
 	/** Retain the last observed build to distinguish cancellation from completion. */
 	std::optional<gamestate::entity_id_t> fvd_cart_build_observed_builder{};
 	std::optional<time::time_t> fvd_cart_build_expected_end{};
-	std::optional<coord::tile> fvd_cart_build_site{};
 	/** Highest owned cart ID when this build first became visible. */
 	gamestate::entity_id_t fvd_cart_build_prior_cart_id{0};
 	std::optional<time::time_t> fvd_cart_build_notice_until{};

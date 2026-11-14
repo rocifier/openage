@@ -1035,7 +1035,6 @@ Item {
 						model: [
 							{ name: "fvdActionButton", label: root.canAttack ? "Attack move (A)" : root.placing ? "Cancel (Esc)" : "Build tower (B)", icon: root.canAttack ? "⚔" : "♜", show: root.canBuild || root.canAttack, active: root.attacking || root.placing },
 							{ name: "fvdCartButton", label: root.cartBuilding ? "Building " + root.constructionPercent + "%" : "Build cart (V)", icon: "▣", show: root.canBuild, active: root.cartBuilding },
-							{ name: "fvdCartCancelButton", label: "Cancel cart", icon: "×", show: root.canBuild && root.cartBuilding, active: false },
 							{ name: "fvdGarrisonButton", label: root.garrisoning ? "Choose tower" : "Garrison (T)", icon: "♜", show: root.canGarrison, active: root.garrisoning },
 							{ name: "fvdUngarrisonButton", label: "Ungarrison (G)", icon: "⇧", show: root.canUngarrison, active: false },
 							{ name: "fvdPatrolButton", label: "Patrol (P)", icon: "⟳", show: root.canAttack, active: root.patrolling },
