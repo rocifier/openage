@@ -258,6 +258,8 @@ protected:
 	void send_fvd_delete_foundations();
 	/** Build a costly mobile escape cart with the selected Builder. */
 	void send_fvd_build_cart();
+	/** Stop the current cart build using the existing Idle command. */
+	void send_fvd_cancel_cart();
 
 	/** Send a flare at a map position through the local or guest command path. */
 	void send_fvd_flare(const coord::phys3 &position);
@@ -364,6 +366,13 @@ protected:
 	ConstructionSoundTracker fvd_construction_sounds{};
 	/** Simulation time of the last world diffed for construction sounds. */
 	std::optional<time::time_t> fvd_construction_sound_time{};
+
+	/** Retain the last observed build to distinguish cancellation from completion. */
+	std::optional<gamestate::entity_id_t> fvd_cart_build_observed_builder{};
+	std::optional<time::time_t> fvd_cart_build_expected_end{};
+	std::optional<coord::tile> fvd_cart_build_site{};
+	std::optional<time::time_t> fvd_cart_build_notice_until{};
+	bool fvd_cart_build_notice_completed{false};
 
 	/** Last processed authoritative projectile ID (avoid duplicate visuals). */
 	uint64_t fvd_last_guest_arrow_id{0};

@@ -397,12 +397,34 @@ void Presenter::send_fvd_delete_foundations() {
 }
 
 void Presenter::send_fvd_build_cart() {
-	if (not this->game_controller or not this->simulation) return;
+	if (not this->game_controller or not this->simulation
+	    or (this->fvd_hud_state and this->fvd_hud_state->value("cartBuilding").toBool())) return;
 	const auto selection = this->game_controller->get_selection_details();
 	const auto owner = static_cast<gamestate::player_id_t>(this->game_controller->get_controlled());
 	if (owner < 2 or selection.kind != input::game::SelectionKind::BUILDER
 	    or selection.ids.size() != 1) return;
 	network::CommandIntent intent{0, network::CommandKind::BUILD_CART, selection.ids};
+	if (this->fvd_lobby_enabled and not this->fvd_lobby_hosting) {
+		if (this->fvd_gameplay_active and this->fvd_lobby_client)
+			this->fvd_lobby_client->send_guest_command(std::move(intent));
+		return;
+	}
+	this->simulation->get_event_loop()->submit_event(
+		"game.send_command", this->simulation->get_commander(),
+		this->simulation->get_game()->get_state(),
+		this->time_loop->get_clock()->get_time(), network::command_params(intent, owner));
+}
+
+void Presenter::send_fvd_cancel_cart() {
+	if (not this->game_controller or not this->simulation or not this->fvd_hud_state
+	    or not this->fvd_hud_state->value("cartBuilding").toBool()) return;
+	const auto selection = this->game_controller->get_selection_details();
+	const auto owner = static_cast<gamestate::player_id_t>(this->game_controller->get_controlled());
+	if (owner < 2 or selection.kind != input::game::SelectionKind::BUILDER
+	    or selection.ids.size() != 1) return;
+	// An Idle command cancels cart construction through the existing
+	// authoritative command handling without a new wire command kind.
+	network::CommandIntent intent{0, network::CommandKind::IDLE, selection.ids};
 	if (this->fvd_lobby_enabled and not this->fvd_lobby_hosting) {
 		if (this->fvd_gameplay_active and this->fvd_lobby_client)
 			this->fvd_lobby_client->send_guest_command(std::move(intent));
@@ -1638,6 +1660,7 @@ void Presenter::init_input() {
 			         std::pair{"fvdFlareButton", HudAction::FLARE},
 			         std::pair{"fvdDeleteFoundationsButton", HudAction::DELETE_FOUNDATIONS},
 			         std::pair{"fvdCartButton", HudAction::BUILD_CART},
+			         std::pair{"fvdCartCancelButton", HudAction::CANCEL_CART},
 			         std::pair{"fvdGarrisonButton", HudAction::GARRISON},
 			         std::pair{"fvdUngarrisonButton", HudAction::UNGARRISON}}) {
 				if (this->gui->contains_item(name, ev.position())) {
@@ -1692,6 +1715,9 @@ void Presenter::init_input() {
 				break;
 			case HudAction::BUILD_CART:
 				this->send_fvd_build_cart();
+				break;
+			case HudAction::CANCEL_CART:
+				this->send_fvd_cancel_cart();
 				break;
 			case HudAction::GARRISON:
 				// Same as T; clicking the button again backs out like Esc.
@@ -1921,6 +1947,11 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("queuedTowers", 0);
 			this->fvd_hud_state->insert("constructionStatus", QString{});
 			this->fvd_hud_state->insert("constructionPercent", -1);
+			this->fvd_hud_state->insert("cartBuilding", false);
+			this->fvd_cart_build_observed_builder.reset();
+			this->fvd_cart_build_expected_end.reset();
+			this->fvd_cart_build_site.reset();
+			this->fvd_cart_build_notice_until.reset();
 			this->fvd_hud_state->insert("canAttack", false);
 			this->fvd_hud_state->insert("attacking", false);
 			this->fvd_hud_state->insert("patrolling", false);
