@@ -144,6 +144,27 @@ public:
 		const time::time_t &at) override { return at; }
 };
 
+/** Stop a cart only if it still follows the route that scheduled this event. */
+class CartMoveArrivalHandler : public openage::event::OnceEventHandler {
+public:
+	CartMoveArrivalHandler() : OnceEventHandler{"game.fvd_cart_move_arrival"} {}
+	void setup_event(const std::shared_ptr<openage::event::Event> &,
+	                 const std::shared_ptr<openage::event::State> &) override {}
+	void invoke(openage::event::EventLoop &,
+	            const std::shared_ptr<openage::event::EventEntity> &,
+	            const std::shared_ptr<openage::event::State> &state,
+	            const time::time_t &time, const param_map &params) override {
+		auto game = std::dynamic_pointer_cast<GameState>(state);
+		game->get_fvd()->finish_cart_move(
+			game, params.get<entity_id_t>("cart"),
+			params.get<coord::phys3>("target", coord::phys3{0, 0, 0}), time);
+	}
+	time::time_t predict_invoke_time(
+		const std::shared_ptr<openage::event::EventEntity> &,
+		const std::shared_ptr<openage::event::State> &,
+		const time::time_t &at) override { return at; }
+};
+
 /** Complete an accepted garrison at its authoritative movement arrival time. */
 class GarrisonArrivalHandler : public openage::event::OnceEventHandler {
 public:
@@ -619,6 +640,7 @@ void FVD::initialise(const std::shared_ptr<GameState> &state,
 	loop->add_event_handler(std::make_shared<FVDHunterTowerHitHandler>());
 	loop->add_event_handler(std::make_shared<BuildProgressHandler>());
 	loop->add_event_handler(std::make_shared<CartBuildHandler>());
+	loop->add_event_handler(std::make_shared<CartMoveArrivalHandler>());
 	loop->add_event_handler(std::make_shared<GarrisonArrivalHandler>());
 	loop->add_event_handler(std::make_shared<TowerDemolitionExpiryHandler>());
 	loop->add_event_handler(std::make_shared<RefreshPathsHandler>());
@@ -1697,8 +1719,30 @@ bool FVD::move_cart(const std::shared_ptr<GameState> &state, player_id_t owner,
 	const auto current = position->get_positions().get(time);
 	auto destination = this->closest_reachable(state, current.to_tile(), target, time);
 	if (not destination) return false;
-	system::Move::move_default(found->second, state, *destination, time);
+	const auto travel = system::Move::move_default(found->second, state, *destination, time);
+	if (travel <= time::TIME_ZERO) {
+		system::Idle::idle(found->second, time);
+		return true;
+	}
+	auto loop = this->event_loop.lock();
+	if (not loop) [[unlikely]] throw Error{ERR << "Escape cart event loop unavailable"};
+	loop->create_event("game.fvd_cart_move_arrival", found->second->get_manager(), state,
+	                   time + travel,
+	                   {{"cart", found->second->get_id()}, {"target", *destination}});
 	return true;
+}
+
+void FVD::finish_cart_move(const std::shared_ptr<GameState> &state, entity_id_t cart_id,
+                           const coord::phys3 &target, const time::time_t &time) {
+	auto found = state->get_game_entities().find(cart_id);
+	if (found == state->get_game_entities().end()
+	    or found->second->get_definition() != this->escape_cart) return;
+	auto move = std::dynamic_pointer_cast<component::Move>(
+		found->second->get_component(component::component_t::MOVE));
+	if (not move or not move->get_active_target()
+	    or *move->get_active_target() != target
+	    or move->get_active_arrival() != time) return;
+	system::Idle::idle(found->second, time);
 }
 
 bool FVD::eject_cart_passenger(const std::shared_ptr<GameState> &state,

@@ -88,7 +88,7 @@ EscapeCart(engine.util.game_entity.GameEntity):
             Animated.animations = {Animation}
 
             Animation(engine.util.graphics.Animation):
-                Animation.sprite = "../../../fvd/graphics/ethereal-hunter-horse/ethereal-hunter-horse-idle1.sprite"
+                Animation.sprite = "../../../fvd/graphics/escape-cart/escape_cart_idle.sprite"
 
     Live(engine.ability.type.Live):
         Live.attributes = {HealthSetting}
@@ -109,7 +109,7 @@ EscapeCart(engine.util.game_entity.GameEntity):
             Animated.animations = {Animation}
 
             Animation(engine.util.graphics.Animation):
-                Animation.sprite = "../../../fvd/graphics/ethereal-hunter-horse/ethereal-hunter-horse-gallop.sprite"
+                Animation.sprite = "../../../fvd/graphics/escape-cart/escape_cart.sprite"
 
     Turn(engine.ability.type.Turn):
         Turn.turn_speed = inf

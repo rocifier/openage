@@ -216,11 +216,17 @@ void fvd_scenario() {
 		graphics / "ethereal-hunter-horse" / "ethereal-hunter-horse-attack.sprite");
 	auto horse_death = renderer::resources::parser::parse_sprite_file(
 		graphics / "ethereal-hunter-horse" / "ethereal-hunter-horse-death.sprite");
+	auto cart_graphics = renderer::resources::parser::parse_sprite_file(
+		graphics / "escape-cart" / "escape_cart.sprite");
+	auto cart_idle_graphics = renderer::resources::parser::parse_sprite_file(
+		graphics / "escape-cart" / "escape_cart_idle.sprite");
 	TESTEQUALS(horse_idle1.get_texture_count(), size_t{2});
 	TESTEQUALS(horse_idle2.get_texture_count(), size_t{1});
 	TESTEQUALS(horse_gallop.get_texture_count(), size_t{1});
 	TESTEQUALS(horse_attack.get_texture_count(), size_t{1});
 	TESTEQUALS(horse_death.get_texture_count(), size_t{4});
+	TESTEQUALS(cart_graphics.get_texture_count(), size_t{2});
+	TESTEQUALS(cart_idle_graphics.get_texture_count(), size_t{2});
 	const auto &builder_layer = builder_graphics.get_layer(0);
 	const auto &builder_walk_layer = builder_walk.get_layer(0);
 	const auto &horse_idle1_layer = horse_idle1.get_layer(0);
@@ -228,6 +234,8 @@ void fvd_scenario() {
 	const auto &horse_gallop_layer = horse_gallop.get_layer(0);
 	const auto &horse_attack_layer = horse_attack.get_layer(0);
 	const auto &horse_death_layer = horse_death.get_layer(0);
+	const auto &cart_layer = cart_graphics.get_layer(0);
+	const auto &cart_idle_layer = cart_idle_graphics.get_layer(0);
 	const auto &wood_tower_layer = wood_tower_graphics.get_layer(0);
 	const auto &tower_layer = tower_graphics.get_layer(0);
 	const auto &tower_demolition_layer = tower_demolition_graphics.get_layer(0);
@@ -245,6 +253,10 @@ void fvd_scenario() {
 	           renderer::resources::display_mode::LOOP);
 	TESTEQUALS(horse_death_layer.get_display_mode(),
 	           renderer::resources::display_mode::ONCE);
+	TESTEQUALS(cart_layer.get_display_mode(),
+	           renderer::resources::display_mode::LOOP);
+	TESTEQUALS(cart_idle_layer.get_display_mode(),
+	           renderer::resources::display_mode::OFF);
 	TESTEQUALS(wood_tower_layer.get_display_mode(),
 	           renderer::resources::display_mode::OFF);
 	TESTEQUALS(tower_layer.get_display_mode(),
@@ -269,6 +281,8 @@ void fvd_scenario() {
 	TESTEQUALS(horse_gallop_layer.get_angle_count(), size_t{16});
 	TESTEQUALS(horse_attack_layer.get_angle_count(), size_t{16});
 	TESTEQUALS(horse_death_layer.get_angle_count(), size_t{16});
+	TESTEQUALS(cart_layer.get_angle_count(), size_t{16});
+	TESTEQUALS(cart_idle_layer.get_angle_count(), size_t{16});
 	// A frame duration is measured in seconds, not milliseconds.
 	TESTEQUALS(horse_gallop_layer.get_time_per_frame(), 0.08f);
 	TESTEQUALS(builder_walk_layer.get_time_per_frame(), 1.0f / 60.0f);
@@ -276,6 +290,7 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle2_layer.get_time_per_frame(), 0.4f);
 	TESTEQUALS(horse_attack_layer.get_time_per_frame(), 0.0375f);
 	TESTEQUALS(horse_death_layer.get_time_per_frame(), 0.05f);
+	TESTEQUALS(cart_layer.get_time_per_frame(), 0.016f);
 	TESTEQUALS(tower_layer.get_time_per_frame(), 0.125f);
 	TESTEQUALS(horse_gallop_layer.get_frame_timing()->size(), size_t{12});
 	TESTEQUALS(builder_walk_layer.get_frame_timing()->size(), size_t{30});
@@ -283,6 +298,7 @@ void fvd_scenario() {
 	TESTEQUALS(horse_idle2_layer.get_frame_timing()->size(), size_t{12});
 	TESTEQUALS(horse_attack_layer.get_frame_timing()->size(), size_t{16});
 	TESTEQUALS(horse_death_layer.get_frame_timing()->size(), size_t{60});
+	TESTEQUALS(cart_layer.get_frame_timing()->size(), size_t{20});
 	TESTEQUALS(tower_layer.get_frame_timing()->size(), size_t{16});
 	const auto &tower_angle = tower_layer.get_direction_angle(0.0f);
 	TESTEQUALS(tower_angle->get_frame_count(), size_t{16});
@@ -315,6 +331,8 @@ void fvd_scenario() {
 		const auto &gallop_angle = horse_gallop_layer.get_direction_angle(angle);
 		const auto &attack_angle = horse_attack_layer.get_direction_angle(angle);
 		const auto &death_angle = horse_death_layer.get_direction_angle(angle);
+		const auto &cart_angle = cart_layer.get_direction_angle(angle);
+		const auto &cart_idle_angle = cart_idle_layer.get_direction_angle(angle);
 		TESTEQUALS(builder_walk_angle->get_frame_count(), size_t{30});
 		const auto builder_walk_source_row = (row + 15) % 16;
 		const auto builder_walk_texture = builder_walk_source_row / 8;
@@ -329,10 +347,23 @@ void fvd_scenario() {
 		TESTEQUALS(idle2_angle->get_frame_count(), size_t{12});
 		const auto idle1_texture = row < 8 ? size_t{0} : size_t{1};
 		const auto idle1_row = row % 8;
+		const auto cart_source_row = (row + 15) % 16;
+		const auto cart_texture = cart_source_row < 8 ? size_t{0} : size_t{1};
+		const auto cart_row = cart_source_row % 8;
 		for (size_t frame = 0; frame < 24; ++frame) {
 			TESTEQUALS(idle1_angle->get_frame(frame)->get_texture_idx(), idle1_texture);
 			TESTEQUALS(idle1_angle->get_frame(frame)->get_subtexture_idx(), idle1_row * 24 + frame);
 		}
+		TESTEQUALS(cart_angle->get_frame_count(), size_t{20});
+		for (size_t frame = 0; frame < 20; ++frame) {
+			TESTEQUALS(cart_angle->get_frame(frame)->get_texture_idx(), cart_texture);
+			TESTEQUALS(cart_angle->get_frame(frame)->get_subtexture_idx(), cart_row * 24 + 4 + frame);
+		}
+		TESTEQUALS(cart_idle_angle->get_frame_count(), size_t{1});
+		TESTEQUALS(cart_idle_angle->get_frame(0)->get_texture_idx(),
+		           ((row + 15) % 16) < 8 ? size_t{0} : size_t{1});
+		TESTEQUALS(cart_idle_angle->get_frame(0)->get_subtexture_idx(),
+		           ((row + 15) % 8) * 24 + 4);
 		for (size_t frame = 0; frame < 12; ++frame) {
 			TESTEQUALS(idle2_angle->get_frame(frame)->get_texture_idx(), size_t{0});
 			TESTEQUALS(idle2_angle->get_frame(frame)->get_subtexture_idx(), row * 12 + frame);
@@ -490,8 +521,9 @@ void fvd_scenario() {
 	// references used by Idle::idle for builders, both tower tiers and foundations.
 	// Like the game's AssetManager, resolve them against the converted asset root.
 	const auto converted = root / "assets" / "converted";
-	const std::array<std::pair<std::string, size_t>, 4> idle_resources{{
+	const std::array<std::pair<std::string, size_t>, 5> idle_resources{{
 		{"fvd.data.entities.Builder", 1},
+		{"fvd.data.entities.EscapeCart", 2},
 		{"fvd.data.entities.MedievalTowerLevel1", 1},
 		{"fvd.data.entities.MedievalTowerLevel2", 1},
 		{"fvd.data.entities.Foundation", 1},
@@ -508,6 +540,15 @@ void fvd_scenario() {
 		const auto parsed = renderer::resources::parser::parse_sprite_file(sprite);
 		TESTEQUALS(parsed.get_texture_count(), texture_count);
 	}
+	const auto cart_idle = state->get_db_view()->get_object(
+		"fvd.data.entities.EscapeCart.Idle");
+	const auto cart_idle_animated = api::APIAbility::get_property(
+		cart_idle, api::ability_property_t::ANIMATED);
+	const auto cart_idle_animations = api::APIAbilityProperty::get_animations(
+		cart_idle_animated);
+	const auto cart_idle_paths = api::APIAnimation::get_animation_paths(cart_idle_animations);
+	TESTEQUALS(cart_idle_paths.size(), size_t{1});
+	TESTEQUALS(cart_idle_paths.front().ends_with("escape_cart_idle.sprite"), true);
 	const auto builder_move = state->get_db_view()->get_object(
 		"fvd.data.entities.Builder.Move");
 	const auto builder_move_animated = api::APIAbility::get_property(
@@ -525,6 +566,20 @@ void fvd_scenario() {
 	TESTEQUALS(parsed_builder_move.get_texture_count(), size_t{2});
 	TESTEQUALS(parsed_builder_move.get_layer(0).get_angle_count(), size_t{16});
 	TESTEQUALS(parsed_builder_move.get_layer(0).get_frame_timing()->size(), size_t{30});
+	const auto cart_move = state->get_db_view()->get_object(
+		"fvd.data.entities.EscapeCart.Move");
+	const auto cart_move_animated = api::APIAbility::get_property(
+		cart_move, api::ability_property_t::ANIMATED);
+	const auto cart_move_animations = api::APIAbilityProperty::get_animations(
+		cart_move_animated);
+	const auto cart_move_paths = api::APIAnimation::get_animation_paths(cart_move_animations);
+	TESTEQUALS(cart_move_paths.size(), size_t{1});
+	TESTEQUALS(cart_move_paths.front().ends_with("escape_cart.sprite"), true);
+	const auto parsed_cart_move = renderer::resources::parser::parse_sprite_file(
+		converted / cart_move_paths.front());
+	TESTEQUALS(parsed_cart_move.get_texture_count(), size_t{2});
+	TESTEQUALS(parsed_cart_move.get_layer(0).get_angle_count(), size_t{16});
+	TESTEQUALS(parsed_cart_move.get_layer(0).get_frame_timing()->size(), size_t{20});
 	const auto horse_idle = state->get_db_view()->get_object(
 		"fvd.data.entities.Horse.Idle");
 	const auto horse_idle_animated = api::APIAbility::get_property(

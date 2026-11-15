@@ -256,6 +256,9 @@ public:
 	bool move_cart(const std::shared_ptr<GameState> &state, player_id_t owner,
 	               const std::vector<entity_id_t> &ids, const coord::phys3 &target,
 	               const time::time_t &time);
+	/** Stop the cart animation when its current route arrives. */
+	void finish_cart_move(const std::shared_ptr<GameState> &state, entity_id_t cart_id,
+	                      const coord::phys3 &target, const time::time_t &time);
 	bool eject_cart_passenger(const std::shared_ptr<GameState> &state,
 	                         entity_id_t cart_id, player_id_t owner, const time::time_t &time);
 

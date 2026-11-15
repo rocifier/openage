@@ -1,0 +1,44 @@
+# Copyright 2026 the openage authors. See copying.md for legal info.
+# FVD Escape Cart stationary frame for each direction.
+version 2
+
+texture 0 "escape_cart_page_00.texture"
+texture 1 "escape_cart_page_01.texture"
+
+scalefactor 1.0
+
+layer 0 mode=off
+
+angle 0
+angle 22
+angle 45
+angle 67
+angle 90
+angle 112
+angle 135
+angle 157
+angle 180
+angle 202
+angle 225
+angle 247
+angle 270
+angle 292
+angle 315
+angle 337
+
+frame 0 0 0 1 148
+frame 0 22 0 1 124
+frame 0 45 0 1 100
+frame 0 67 0 1 76
+frame 0 90 0 1 52
+frame 0 112 0 1 28
+frame 0 135 0 1 4
+frame 0 157 0 0 172
+frame 0 180 0 0 148
+frame 0 202 0 0 124
+frame 0 225 0 0 100
+frame 0 247 0 0 76
+frame 0 270 0 0 52
+frame 0 292 0 0 28
+frame 0 315 0 0 4
+frame 0 337 0 1 172
