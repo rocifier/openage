@@ -550,7 +550,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 			                << " is not a registered Hunter combat entity"};
 		}
 	};
-	for (const auto &name : named_objects(settings, "Scenario.hunter_waves")) {
+	for (const auto &name : named_objects(settings, "hunter_waves")) {
 		const auto object = state->get_db_view()->get_object(name);
 		const auto start = object.get_int("HunterWave.start_seconds");
 		const auto interval = object.get_float("HunterWave.interval_seconds");
@@ -577,7 +577,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		}
 	}
 	std::unordered_set<uint32_t> prompt_ids;
-	for (const auto &name : named_objects(settings, "Scenario.hunter_choices")) {
+	for (const auto &name : named_objects(settings, "hunter_choices")) {
 		const auto object = state->get_db_view()->get_object(name);
 		const auto id = object.get_int("HunterWaveChoice.id");
 		const auto open = object.get_int("HunterWaveChoice.open_seconds");
