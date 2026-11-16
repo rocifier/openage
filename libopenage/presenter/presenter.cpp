@@ -35,6 +35,7 @@
 #include "gamestate/api/property.h"
 #include "gamestate/api/types.h"
 #include "gamestate/fvd.h"
+#include "gamestate/component/internal/commands/types.h"
 #include "gamestate/game.h"
 #include "gamestate/game_entity.h"
 #include "gamestate/game_state.h"
@@ -415,6 +416,32 @@ void Presenter::send_fvd_build_cart() {
 		this->time_loop->get_clock()->get_time(), network::command_params(intent, owner));
 }
 
+void Presenter::send_fvd_hunter_choice(size_t index) {
+	if (not this->simulation or not this->game_controller or not this->fvd_hud_state
+	    or this->game_controller->get_controlled() != 1
+	    or (this->fvd_lobby_enabled
+	        and (not this->fvd_lobby_hosting or not this->fvd_gameplay_active))) {
+		return;
+	}
+	const auto prompt = this->fvd_hud_state->value("hunterPrompt").toMap();
+	const auto options = prompt.value("options").toList();
+	if (index >= static_cast<size_t>(options.size())) return;
+	const uint32_t prompt_id = prompt.value("id").toUInt();
+	const uint32_t option_id = options.at(static_cast<int>(index)).toMap().value("id").toUInt();
+	if (prompt_id == 0 or option_id == 0) return;
+	event::EventHandler::param_map::map_t params{
+		{"type", gamestate::component::command::command_t::SELECT_HUNTER_CHOICE},
+		{"owner", gamestate::player_id_t{1}},
+		{"entity_ids", std::vector<gamestate::entity_id_t>{}},
+		{"choice_prompt_id", prompt_id},
+		{"choice_option_id", option_id},
+	};
+	this->simulation->get_event_loop()->submit_event(
+		"game.send_command", this->simulation->get_commander(),
+		this->simulation->get_game()->get_state(),
+		this->time_loop->get_clock()->get_time(), std::move(params));
+}
+
 void Presenter::send_fvd_flare(const coord::phys3 &position) {
 	if (not this->game_controller or not this->simulation) {
 		return;
@@ -438,7 +465,8 @@ bool Presenter::over_fvd_hud(const QPointF &position) const {
 	if (not this->fvd_hud_state or not this->gui) {
 		return false;
 	}
-	return this->gui->contains_item("fvdBuildPanel", position)
+	return this->gui->contains_item("fvdHunterChoicePanel", position)
+	       or this->gui->contains_item("fvdBuildPanel", position)
 	       or this->gui->contains_item("fvdMinimapPanel", position)
 	       or this->gui->contains_item("fvdTopBar", position)
 	       or this->gui->contains_item("fvdOptionsButton", position)
@@ -1647,6 +1675,16 @@ void Presenter::init_input() {
 				}
 			}
 		}
+		if (this->fvd_hud_state and this->gui and hovered_action == HudAction::NONE) {
+			for (size_t i = 0; i < 8; ++i) {
+				if (this->gui->contains_item(QString{"fvdHunterChoiceOption%1"}.arg(i),
+				                            ev.position())) {
+					hovered_action = static_cast<HudAction>(
+						static_cast<int>(HudAction::HUNTER_CHOICE_0) + static_cast<int>(i));
+					break;
+				}
+			}
+		}
 		const bool over_hud = this->over_fvd_hud(ev.position()) or hovered_action != HudAction::NONE;
 		const auto hud_input = this->fvd_hud_capture.process(
 			ev.type(), ev.button(), over_hud, hovered_action);
@@ -1705,6 +1743,18 @@ void Presenter::init_input() {
 				break;
 			case HudAction::UNGARRISON:
 				this->game_controller->issue_ungarrison();
+				break;
+			case HudAction::HUNTER_CHOICE_0:
+			case HudAction::HUNTER_CHOICE_1:
+			case HudAction::HUNTER_CHOICE_2:
+			case HudAction::HUNTER_CHOICE_3:
+			case HudAction::HUNTER_CHOICE_4:
+			case HudAction::HUNTER_CHOICE_5:
+			case HudAction::HUNTER_CHOICE_6:
+			case HudAction::HUNTER_CHOICE_7:
+				this->send_fvd_hunter_choice(
+					static_cast<size_t>(hud_input.activated_action)
+					- static_cast<size_t>(HudAction::HUNTER_CHOICE_0));
 				break;
 			case HudAction::NONE:
 			case HudAction::OPTIONS:
@@ -1944,6 +1994,7 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("ungarrisonError", QString{});
 			this->fvd_hud_state->insert("ungarrisonErrorSerial", 0);
 			this->fvd_hud_state->insert("hunterCountdown", 0);
+			this->fvd_hud_state->insert("hunterPrompt", QVariantMap{});
 			this->fvd_hud_state->insert("matchTimeRemaining", -1);
 			this->fvd_hud_state->insert("matchEnded", false);
 			this->fvd_hud_state->insert("matchResultTitle", QString{});
@@ -2928,6 +2979,31 @@ void Presenter::render() {
 					: fvd->get_hunter_spawn_countdown(now);
 				this->fvd_hud_state->insert("hunterCountdown",
 					countdown.value_or(0));
+				QVariantMap hunter_prompt{};
+				if (controlled == 1
+				    and (not this->fvd_lobby_enabled or this->fvd_lobby_hosting)) {
+					if (auto prompt = fvd->get_hunter_choice_prompt(now)) {
+						QVariantList options;
+						for (const auto &option : prompt->options) {
+							options.append(QVariantMap{
+								{"id", static_cast<int>(option.id)},
+								{"title", QString::fromStdString(option.title)},
+								{"description", QString::fromStdString(option.description)},
+								{"icon", QString::fromStdString(option.icon)},
+								{"count", static_cast<int>(option.count)}});
+						}
+						hunter_prompt = QVariantMap{
+							{"id", static_cast<int>(prompt->id)},
+							{"title", QString::fromStdString(prompt->title)},
+							{"description", QString::fromStdString(prompt->description)},
+							{"secondsRemaining", std::max(0, static_cast<int>(
+								std::ceil((prompt->closes_at - now).to_double())))},
+							{"options", options}};
+					}
+				}
+				if (this->fvd_hud_state->value("hunterPrompt").toMap() != hunter_prompt) {
+					this->fvd_hud_state->insert("hunterPrompt", hunter_prompt);
+				}
 				const int countdown_seconds = static_cast<int>(countdown.value_or(0));
 				if (this->fvd_gameplay_active or not this->fvd_lobby_enabled) {
 					if (hunter_unleashed(this->fvd_previous_hunter_countdown, countdown_seconds)) {
