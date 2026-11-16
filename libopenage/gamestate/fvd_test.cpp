@@ -2441,6 +2441,16 @@ void fvd_hunter_spawning() {
 	TESTEQUALS(automatic.size(), size_t{1});
 	TESTEQUALS(automatic[0].first, uint32_t{1});
 	TESTEQUALS(automatic[0].second == uint32_t{1} or automatic[0].second == uint32_t{2}, true);
+	size_t reinforcement_events = 0;
+	for (const auto &ev : default_loop->get_queue().get_event_queue().get_sorted_events()) {
+		if (ev->get_eventhandler()->id() == "game.fvd_spawn_hunter_reinforcement") {
+			TESTEQUALS(ev->get_time(), at(480));
+			TESTEQUALS(ev->get_params().get<uint32_t>("prompt_id", 0), uint32_t{1});
+			TESTEQUALS(ev->get_params().get<uint32_t>("option_id", 0), automatic[0].second);
+			++reinforcement_events;
+		}
+	}
+	TESTEQUALS(reinforcement_events, size_t{1});
 	TESTEQUALS(default_fvd->get_hunter_choice_prompt(at(480)).has_value(), false);
 	TESTEQUALS(default_fvd->choose_default_hunter_choice(default_state, 1, at(480)), false);
 	TESTEQUALS(default_fvd->select_hunter_choice(default_state, 1, 1, 1, at(480)), false);
