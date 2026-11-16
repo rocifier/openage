@@ -52,6 +52,24 @@ std::optional<int> hunter_spawn_countdown(
 	const std::optional<time::time_t> &spawn_time,
 	const time::time_t &now);
 
+/** One nyan-defined Hunter reinforcement choice presented by the HUD. */
+struct FVDHunterOptionView {
+	uint32_t id{};
+	std::string title{};
+	std::string description{};
+	std::string icon{};
+	uint32_t count{};
+};
+
+/** Prompt timing and content are defined entirely by the loaded nyan scenario. */
+struct FVDHunterPromptView {
+	uint32_t id{};
+	std::string title{};
+	std::string description{};
+	time::time_t closes_at{};
+	std::vector<FVDHunterOptionView> options{};
+};
+
 class EntityFactory;
 class GameEntity;
 class GameState;
@@ -378,6 +396,24 @@ public:
 
 	/** Host-simulation end-time deadline, if a match has started. */
 	std::optional<time::time_t> get_match_end_deadline() const;
+
+	/** Read the current nyan-defined choice using match-relative simulation time. */
+	std::optional<FVDHunterPromptView> get_hunter_choice_prompt(
+		const time::time_t &elapsed,
+		const std::vector<network::HunterChoiceSelection> &selections) const;
+
+	/** Chosen options are permanent, host-authored match state. */
+	std::vector<network::HunterChoiceSelection> get_hunter_choice_selections() const;
+
+	/** Select once during the prompt's configured window, as the Hunter only. */
+	bool select_hunter_choice(const std::shared_ptr<GameState> &state,
+	                          player_id_t owner, uint32_t prompt_id,
+	                          uint32_t option_id, const time::time_t &time);
+
+	/** Execute one selected supplemental spawn and queue the next. */
+	void spawn_hunter_reinforcement(const std::shared_ptr<GameState> &state,
+	                                uint32_t prompt_id, uint32_t option_id,
+	                                uint32_t remaining, const time::time_t &time);
 
 	/** Queue the first Hunter spawn immediately and replace its delayed schedule. */
 	void request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state,
@@ -765,8 +801,39 @@ private:
 	size_t player_count;
 	time::time_t construction_time;
 	time::time_t tower_demolition_time;
-	time::time_t horse_spawn_delay;
-	time::time_t horse_spawn_interval;
+	/** Ordered, match-relative Hunter waves loaded from nyan. */
+	struct HunterWaveRule {
+		time::time_t start;
+		time::time_t interval;
+		std::string unit;
+		uint32_t count;
+	};
+	struct HunterOptionRule {
+		uint32_t id;
+		std::string title;
+		std::string description;
+		std::string icon;
+		std::string unit;
+		uint32_t count;
+		time::time_t start;
+		time::time_t interval;
+	};
+	struct HunterPromptRule {
+		uint32_t id;
+		std::string title;
+		std::string description;
+		time::time_t open;
+		time::time_t close;
+		std::vector<HunterOptionRule> options;
+	};
+	std::vector<HunterWaveRule> hunter_waves{};
+	std::vector<HunterPromptRule> hunter_prompts{};
+	/** This is read by the network capture and the HUD across threads. */
+	mutable std::mutex hunter_choice_mutex;
+	std::map<uint32_t, uint32_t> hunter_choice_selections{};
+	void spawn_hunter_unit(const std::shared_ptr<GameState> &state,
+	                       const std::string &definition,
+	                       const time::time_t &time);
 	double horse_collision_radius;
 	int64_t tower_damage;
 	int64_t stone_tower_damage;
