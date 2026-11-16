@@ -40,7 +40,12 @@ The QML HUD discovers the prompt and its options from nyan metadata through
 the presenter. It does not contain specific wave names, button labels,
 counts, or deadlines. The Hunter can select exactly one option during the
 configured window, and the host validates the selection on the simulation
-thread. If the Hunter makes no selection, the supplemental wave is skipped.
+thread. If the Hunter makes no selection, the host **uniformly randomly
+selects one of the prompt's options at `close_seconds`**, and spawns the
+chosen reinforcements on that option's configured schedule. The expiry uses
+simulation time and does not depend on an open HUD or client connection.
+An earlier manual selection is never overwritten or spawned twice.
+During the final five seconds the prompt panel pulses red.
 Prompts must not overlap, and the last option spawn must precede the match
 deadline. Up to sixteen options per prompt are supported by the HUD.
 
