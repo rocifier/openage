@@ -30,6 +30,8 @@ Item {
 	readonly property bool targeting: attacking || patrolling
 	readonly property string stance: hud === null ? "" : hud.stance
 	readonly property int hunterCountdown: hud === null ? 0 : hud.hunterCountdown
+	readonly property var hunterPrompt: hud === null || hud.hunterPrompt === undefined
+	                                    ? ({}) : hud.hunterPrompt
 	readonly property int matchTimeRemaining: hud === null || hud.matchTimeRemaining === undefined
 	                                          ? -1 : hud.matchTimeRemaining
 	readonly property var arrowStreaks: hud === null ? [] : hud.arrowStreaks
@@ -739,6 +741,120 @@ Item {
 				color: root.hunterCountdown <= 5 ? "#ffb877" : "#ffffff"
 				font.pixelSize: 33
 				font.bold: true
+			}
+		}
+	}
+
+	// Every label and option is read from nyan data through the Hunter HUD.
+	Rectangle {
+		id: hunterChoicePanel
+		objectName: "fvdHunterChoicePanel"
+		anchors.top: topBar.bottom
+		anchors.topMargin: 14
+		anchors.right: parent.right
+		anchors.rightMargin: 16
+		z: 12
+		width: Math.min(340, root.width * 0.33)
+		height: Math.min(root.height * 0.67, hunterChoiceColumn.implicitHeight + 24)
+		radius: 11
+		color: "#e31e2927"
+		border.width: 1
+		border.color: "#c0a46b"
+		visible: root.hunter && root.hunterPrompt.id !== undefined
+		         && root.matchTimeRemaining >= 0
+
+		Column {
+			id: hunterChoiceColumn
+			anchors.top: parent.top
+			anchors.topMargin: 12
+			anchors.horizontalCenter: parent.horizontalCenter
+			width: parent.width - 24
+			spacing: 8
+
+			Text {
+				width: parent.width
+				text: root.hunterPrompt.title || ""
+				color: "#f4d8a7"
+				font.bold: true
+				font.pixelSize: 17
+				wrapMode: Text.WordWrap
+			}
+			Text {
+				width: parent.width
+				text: root.hunterPrompt.description || ""
+				color: "#e1e9e4"
+				font.pixelSize: 12
+				wrapMode: Text.WordWrap
+			}
+			Text {
+				width: parent.width
+				text: "Choose within " + (root.hunterPrompt.secondsRemaining || 0) + "s"
+				color: "#f4c993"
+				font.bold: true
+				font.pixelSize: 12
+			}
+
+			Flickable {
+				width: parent.width
+				height: Math.min(choicesColumn.implicitHeight,
+				                 Math.max(90, root.height * 0.67 - 120))
+				contentWidth: width
+				contentHeight: choicesColumn.implicitHeight
+				clip: true
+				boundsBehavior: Flickable.StopAtBounds
+
+				Column {
+					id: choicesColumn
+					width: parent.width
+					spacing: 6
+
+					Repeater {
+						model: root.hunterPrompt.options || []
+						delegate: Rectangle {
+							required property int index
+							required property var modelData
+							objectName: "fvdHunterChoiceOption" + index
+							width: choicesColumn.width
+							height: 74
+							radius: 7
+							color: optionMouse.containsMouse ? "#875a5140" : "#6b303c36"
+							border.width: 1
+							border.color: optionMouse.containsMouse ? "#f4c993" : "#987868"
+
+							Column {
+								anchors.fill: parent
+								anchors.margins: 9
+								spacing: 4
+								Text {
+									width: parent.width
+									text: (modelData.icon ? modelData.icon + "  " : "")
+									      + modelData.title + "  (" + modelData.count + ")"
+									font.pixelSize: 14
+									font.bold: true
+									color: "#fff3dd"
+									elide: Text.ElideRight
+								}
+								Text {
+									width: parent.width
+									text: modelData.description
+									font.pixelSize: 11
+									color: "#e0ded4"
+									wrapMode: Text.WordWrap
+									maximumLineCount: 2
+									elide: Text.ElideRight
+								}
+							}
+							// Presenter hit-testing owns command dispatch so
+							// a click cannot accidentally issue a map order.
+							MouseArea {
+								id: optionMouse
+								anchors.fill: parent
+								hoverEnabled: true
+								cursorShape: Qt.PointingHandCursor
+							}
+						}
+					}
+				}
 			}
 		}
 	}
