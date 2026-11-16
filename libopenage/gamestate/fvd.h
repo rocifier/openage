@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -408,6 +409,10 @@ public:
 	bool select_hunter_choice(const std::shared_ptr<GameState> &state,
 	                          player_id_t owner, uint32_t prompt_id,
 	                          uint32_t option_id, const time::time_t &time);
+
+	/** On prompt expiry, select one uniformly random option if still unanswered. */
+	bool choose_default_hunter_choice(const std::shared_ptr<GameState> &state,
+	                                  uint32_t prompt_id, const time::time_t &time);
 
 	/** Execute one selected supplemental spawn and queue the next. */
 	void spawn_hunter_reinforcement(const std::shared_ptr<GameState> &state,
@@ -830,6 +835,13 @@ private:
 	/** This is read by the network capture and the HUD across threads. */
 	mutable std::mutex hunter_choice_mutex;
 	std::map<uint32_t, uint32_t> hunter_choice_selections{};
+	/** Private host RNG; no guest makes an independent choice. */
+	std::mt19937 hunter_choice_random{std::random_device{}()};
+	/** Common commit path used by clicks and automatic deadline choices. */
+	bool commit_hunter_choice(const std::shared_ptr<GameState> &state,
+	                          const HunterPromptRule &prompt,
+	                          const HunterOptionRule &option,
+	                          const time::time_t &time);
 	void spawn_hunter_unit(const std::shared_ptr<GameState> &state,
 	                       const std::string &definition,
 	                       const time::time_t &time);
