@@ -621,8 +621,8 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		}
 		std::sort(prompt.options.begin(), prompt.options.end(),
 		          [](const auto &a, const auto &b) { return a.id < b.id; });
-		if (prompt.options.empty() or prompt.options.size() > 8) {
-			throw Error{ERR << "FVD Hunter choice must contain 1..8 options"};
+		if (prompt.options.empty() or prompt.options.size() > 16) {
+			throw Error{ERR << "FVD Hunter choice must contain 1..16 options"};
 		}
 		this->hunter_prompts.push_back(std::move(prompt));
 	}
