@@ -377,8 +377,6 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	auto players = settings.get_int("player_count");
 	auto build_time = settings.get_float("construction_time");
 	auto demolition_time = settings.get_int("tower_demolition_time");
-	auto horse_delay = settings.get_int("horse_spawn_delay");
-	auto horse_interval = settings.get_int("horse_spawn_interval");
 	auto collision_radius = settings.get_float("horse_collision_radius");
 	auto shove_duration = settings.get_float("horse_shove_duration");
 	auto arrow_damage = settings.get_int("tower_arrow_damage");
@@ -402,8 +400,6 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	    or size % chunk != 0 or players < 2 or players > 8
 	    or build_time <= 0.0 or build_time > 300.0
 	    or demolition_time < 1 or demolition_time > 300
-	    or horse_delay < 0 or horse_delay > 600
-	    or horse_interval < 1 or horse_interval > 60
 	    or collision_radius < 0.1 or collision_radius > 0.49
 	    or shove_duration <= 0.0 or shove_duration >= 0.9
 	    or arrow_damage < 1 or arrow_damage > 100
@@ -420,8 +416,6 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	this->player_count = players;
 	this->construction_time = time::time_t::from_double(build_time);
 	this->tower_demolition_time = time::time_t::from_int(demolition_time);
-	this->horse_spawn_delay = time::time_t::from_int(horse_delay);
-	this->horse_spawn_interval = time::time_t::from_int(horse_interval);
 	this->horse_collision_radius = collision_radius;
 	this->horse_shove_duration = time::time_t::from_double(shove_duration);
 	this->tower_damage = arrow_damage;
@@ -505,7 +499,114 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	require_kind(this->tower, network::EntityKind::WOOD_TOWER);
 	require_kind(this->stone_tower, network::EntityKind::STONE_TOWER);
 	require_kind(this->hunter_tower, network::EntityKind::HUNTER_TOWER);
+
 	require_kind(this->hunter_rally_marker, network::EntityKind::HUNTER_RALLY_POINT);
+
+	// All schedules and option metadata are authored in the nyan scenario.
+	// Only Hunter-compatible entities currently participate in FVD combat.
+	const auto named_objects = [&](const nyan::Object &object, const char *member) {
+		std::vector<std::string> result;
+		for (const auto &value : object.get_set(member)) {
+			auto reference = std::dynamic_pointer_cast<nyan::ObjectValue>(value.get_ptr());
+			if (not reference) {
+				throw Error{ERR << "FVD Hunter schedule " << member << " contains a non-object"};
+			}
+			result.push_back(reference->get_name());
+		}
+		return result;
+	};
+	const auto hunter_unit = [](const std::string &definition) {
+		if (network::classify(definition) != network::EntityKind::HORSE) {
+			throw Error{ERR << "FVD Hunter wave unit " << definition
+			                << " is not a registered Hunter combat entity"};
+		}
+	};
+	for (const auto &name : named_objects(settings, "Scenario.hunter_waves")) {
+		const auto object = state->get_db_view()->get_object(name);
+		const auto start = object.get_int("HunterWave.start_seconds");
+		const auto interval = object.get_float("HunterWave.interval_seconds");
+		const auto count = object.get_int("HunterWave.count");
+		const auto unit = object.get_object("HunterWave.unit").get_name();
+		if (start < 0 or start >= FVD_MATCH_DURATION_SECONDS
+		    or not std::isfinite(interval) or interval < 0.1 or interval > 60.0
+		    or count < 1 or count > 64) {
+			throw Error{ERR << "Invalid FVD Hunter wave " << name};
+		}
+		hunter_unit(unit);
+		this->hunter_waves.push_back({
+			time::time_t::from_int(start), time::time_t::from_double(interval),
+			unit, static_cast<uint32_t>(count)});
+	}
+	std::sort(this->hunter_waves.begin(), this->hunter_waves.end(),
+	          [](const auto &a, const auto &b) { return a.start < b.start; });
+	if (this->hunter_waves.empty() or this->hunter_waves.size() > 64) {
+		throw Error{ERR << "FVD requires 1..64 configured Hunter waves"};
+	}
+	for (size_t i = 1; i < this->hunter_waves.size(); ++i) {
+		if (this->hunter_waves[i].start == this->hunter_waves[i - 1].start) {
+			throw Error{ERR << "FVD Hunter waves cannot start simultaneously"};
+		}
+	}
+	std::unordered_set<uint32_t> prompt_ids;
+	for (const auto &name : named_objects(settings, "Scenario.hunter_choices")) {
+		const auto object = state->get_db_view()->get_object(name);
+		const auto id = object.get_int("HunterWaveChoice.id");
+		const auto open = object.get_int("HunterWaveChoice.open_seconds");
+		const auto close = object.get_int("HunterWaveChoice.close_seconds");
+		const auto title = object.get_text("HunterWaveChoice.title");
+		const auto description = object.get_text("HunterWaveChoice.description");
+		if (id < 1 or id > 65535 or open < 0 or close <= open
+		    or close >= FVD_MATCH_DURATION_SECONDS
+		    or title.empty() or title.size() > 120 or description.size() > 500
+		    or not prompt_ids.insert(static_cast<uint32_t>(id)).second) {
+			throw Error{ERR << "Invalid FVD Hunter choice prompt " << name};
+		}
+		HunterPromptRule prompt{static_cast<uint32_t>(id), title, description,
+		                        time::time_t::from_int(open),
+		                        time::time_t::from_int(close), {}};
+		std::unordered_set<uint32_t> option_ids;
+		for (const auto &option_name : named_objects(object, "HunterWaveChoice.options")) {
+			const auto option = state->get_db_view()->get_object(option_name);
+			const auto option_id = option.get_int("HunterWaveOption.id");
+			const auto option_title = option.get_text("HunterWaveOption.title");
+			const auto option_description = option.get_text("HunterWaveOption.description");
+			const auto icon = option.get_text("HunterWaveOption.icon");
+			const auto count = option.get_int("HunterWaveOption.count");
+			const auto start = option.get_int("HunterWaveOption.spawn_seconds");
+			const auto interval = option.get_float("HunterWaveOption.interval_seconds");
+			const auto unit = option.get_object("HunterWaveOption.unit").get_name();
+			if (option_id < 1 or option_id > 65535
+			    or not option_ids.insert(static_cast<uint32_t>(option_id)).second
+			    or option_title.empty() or option_title.size() > 120
+			    or option_description.size() > 500 or icon.size() > 256
+			    or count < 1 or count > 256 or start < close
+			    or not std::isfinite(interval) or interval < 0.1 or interval > 60.0
+			    or start + (count - 1) * interval >= FVD_MATCH_DURATION_SECONDS) {
+				throw Error{ERR << "Invalid FVD Hunter reinforcement option " << option_name};
+			}
+			hunter_unit(unit);
+			prompt.options.push_back({
+				static_cast<uint32_t>(option_id), option_title, option_description, icon,
+				unit, static_cast<uint32_t>(count), time::time_t::from_int(start),
+				time::time_t::from_double(interval)});
+		}
+		std::sort(prompt.options.begin(), prompt.options.end(),
+		          [](const auto &a, const auto &b) { return a.id < b.id; });
+		if (prompt.options.empty() or prompt.options.size() > 16) {
+			throw Error{ERR << "FVD Hunter choice must contain 1..16 options"};
+		}
+		this->hunter_prompts.push_back(std::move(prompt));
+	}
+	std::sort(this->hunter_prompts.begin(), this->hunter_prompts.end(),
+	          [](const auto &a, const auto &b) { return a.open < b.open; });
+	if (this->hunter_prompts.size() > network::MAX_STATE_HUNTER_CHOICES) {
+		throw Error{ERR << "Too many FVD Hunter choice prompts"};
+	}
+	for (size_t i = 1; i < this->hunter_prompts.size(); ++i) {
+		if (this->hunter_prompts[i].open < this->hunter_prompts[i - 1].close) {
+			throw Error{ERR << "FVD Hunter choice prompt windows may not overlap"};
+		}
+	}
 	this->plains = settings.get_object("terrain").get_name();
 	auto horse_attack = state->get_db_view()->get_object(this->horse + ".Attack");
 	auto attack_property = api::APIAbility::get_property(
@@ -634,6 +735,7 @@ void FVD::initialise(const std::shared_ptr<GameState> &state,
 	this->entity_factory = entities;
 	this->horse_spawn_target = std::make_shared<event::Spawner>(loop);
 	loop->add_event_handler(std::make_shared<SpawnHorseHandler>());
+	loop->add_event_handler(std::make_shared<SpawnHunterReinforcementHandler>());
 	loop->add_event_handler(std::make_shared<FVDCombatHandler>());
 	loop->add_event_handler(std::make_shared<FVDArrowHitHandler>());
 	loop->add_event_handler(std::make_shared<FVDHorseHitHandler>());
@@ -2611,7 +2713,7 @@ void FVD::start_hunter_wave(const std::shared_ptr<GameState> &state,
 	if (not loop or not this->horse_spawn_target) {
 		throw Error{ERR << "Cannot start the Hunter wave before FVD initialization"};
 	}
-	auto spawn_time = match_start + this->horse_spawn_delay;
+	auto spawn_time = match_start + this->hunter_waves.front().start;
 	{
 		std::lock_guard lock{this->hunter_spawn_time_mutex};
 		this->first_hunter_spawn_time = spawn_time;
