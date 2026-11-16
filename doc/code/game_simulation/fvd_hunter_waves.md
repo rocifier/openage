@@ -42,7 +42,7 @@ counts, or deadlines. The Hunter can select exactly one option during the
 configured window, and the host validates the selection on the simulation
 thread. If the Hunter makes no selection, the supplemental wave is skipped.
 Prompts must not overlap, and the last option spawn must precede the match
-deadline. Up to eight options per prompt are supported by the HUD.
+deadline. Up to sixteen options per prompt are supported by the HUD.
 
 ## Adding a wave
 
