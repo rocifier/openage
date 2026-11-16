@@ -79,6 +79,17 @@ void SendCommandHandler::invoke(openage::event::EventLoop & /* loop */,
 			throw Error{ERR << "FVD commands require an authenticated owner"};
 		}
 		auto owner = params.get<player_id_t>("owner");
+		if (command_type == component::command::command_t::SELECT_HUNTER_CHOICE) {
+			const bool accepted = ids.empty()
+			                  and params.check_type<uint32_t>("choice_prompt_id")
+			                  and params.check_type<uint32_t>("choice_option_id")
+			                  and fvd->select_hunter_choice(
+			                      gstate, owner,
+			                      params.get<uint32_t>("choice_prompt_id", 0),
+			                      params.get<uint32_t>("choice_option_id", 0), time);
+			if (result_cb) result_cb(accepted);
+			return;
+		}
 		if (command_type == component::command::command_t::BUILD_CART) {
 			const bool accepted = fvd->start_cart_build(gstate, owner, ids, time);
 			if (result_cb) result_cb(accepted);
