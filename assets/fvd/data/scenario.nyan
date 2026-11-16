@@ -7,6 +7,78 @@ import engine.util.terrain
 import fvd.data.entities
 import fvd.data.terrain
 
+# Main waves replace their predecessors at their configured start time.
+# Each event produces count units, then repeats at interval_seconds.
+HunterWave(engine.root.Object):
+    start_seconds : int
+    interval_seconds : float
+    count : int
+    unit : engine.util.game_entity.GameEntity
+
+OpeningRaid(HunterWave):
+    HunterWave.start_seconds = 20
+    HunterWave.interval_seconds = 1.0
+    HunterWave.count = 1
+    HunterWave.unit = fvd.data.entities.Horse
+
+RisingPressure(HunterWave):
+    HunterWave.start_seconds = 900
+    HunterWave.interval_seconds = 0.8
+    HunterWave.count = 1
+    HunterWave.unit = fvd.data.entities.Horse
+
+FinalAssault(HunterWave):
+    HunterWave.start_seconds = 2100
+    HunterWave.interval_seconds = 0.6
+    HunterWave.count = 1
+    HunterWave.unit = fvd.data.entities.Horse
+
+# Choices are data, not UI implementations. All times are match-relative.
+# Options arrive at spawn_seconds, in count separate spawns spaced by interval_seconds.
+HunterWaveOption(engine.root.Object):
+    id : int
+    title : text
+    description : text
+    icon : text = ""
+    unit : engine.util.game_entity.GameEntity
+    count : int
+    spawn_seconds : int
+    interval_seconds : float
+
+FastRaid(HunterWaveOption):
+    HunterWaveOption.id = 1
+    HunterWaveOption.title = "Fast raid"
+    HunterWaveOption.description = "Six reinforcements arrive in quick succession."
+    HunterWaveOption.unit = fvd.data.entities.Horse
+    HunterWaveOption.count = 6
+    HunterWaveOption.spawn_seconds = 480
+    HunterWaveOption.interval_seconds = 0.5
+
+SustainedRaid(HunterWaveOption):
+    HunterWaveOption.id = 2
+    HunterWaveOption.title = "Sustained raid"
+    HunterWaveOption.description = "Ten reinforcements arrive over a longer period."
+    HunterWaveOption.unit = fvd.data.entities.Horse
+    HunterWaveOption.count = 10
+    HunterWaveOption.spawn_seconds = 480
+    HunterWaveOption.interval_seconds = 2.0
+
+HunterWaveChoice(engine.root.Object):
+    id : int
+    title : text
+    description : text
+    open_seconds : int
+    close_seconds : int
+    options : set(HunterWaveOption)
+
+FirstReinforcements(HunterWaveChoice):
+    HunterWaveChoice.id = 1
+    HunterWaveChoice.title = "Choose reinforcements"
+    HunterWaveChoice.description = "Select a tactical group before the next assault."
+    HunterWaveChoice.open_seconds = 420
+    HunterWaveChoice.close_seconds = 480
+    HunterWaveChoice.options = {FastRaid, SustainedRaid}
+
 Civilisation(engine.root.Object):
     name : text
     buildables : set(engine.util.game_entity.GameEntity)
@@ -26,8 +98,8 @@ Scenario(engine.root.Object):
     construction_time : float = 0.1
     cart_construction_time : float = 5.5
     tower_demolition_time : int = 30
-    horse_spawn_delay : int = 20
-    horse_spawn_interval : int = 1
+    hunter_waves : set(HunterWave) = {OpeningRaid, RisingPressure, FinalAssault}
+    hunter_choices : set(HunterWaveChoice) = {FirstReinforcements}
     horse_collision_radius : float = 0.38
     horse_shove_duration : float = 0.3
     tower_arrow_damage : int = 6
