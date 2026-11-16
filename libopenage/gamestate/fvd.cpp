@@ -241,6 +241,35 @@ public:
 	}
 };
 
+/** Deliver a Hunter-selected reinforcement group in match time. */
+class SpawnHunterReinforcementHandler : public openage::event::OnceEventHandler {
+public:
+	SpawnHunterReinforcementHandler() :
+		OnceEventHandler{"game.fvd_spawn_hunter_reinforcement"} {}
+
+	void setup_event(const std::shared_ptr<openage::event::Event> &,
+	                 const std::shared_ptr<openage::event::State> &) override {}
+
+	void invoke(openage::event::EventLoop &,
+	            const std::shared_ptr<openage::event::EventEntity> &,
+	            const std::shared_ptr<openage::event::State> &state,
+	            const time::time_t &time,
+	            const param_map &params) override {
+		auto game_state = std::dynamic_pointer_cast<GameState>(state);
+		game_state->get_fvd()->spawn_hunter_reinforcement(
+			game_state, params.get<uint32_t>("prompt_id", 0),
+			params.get<uint32_t>("option_id", 0),
+			params.get<uint32_t>("remaining", 0), time);
+	}
+
+	time::time_t predict_invoke_time(
+		const std::shared_ptr<openage::event::EventEntity> &,
+		const std::shared_ptr<openage::event::State> &,
+		const time::time_t &at) override {
+		return at;
+	}
+};
+
 /** Fixed-time authoritative combat tick. */
 class FVDCombatHandler : public openage::event::RepeatEventHandler {
 public:
@@ -2853,26 +2882,143 @@ void FVD::request_immediate_hunter_spawn(const std::shared_ptr<GameState> &state
 		{{"skip_initial_delay", true}});
 }
 
-void FVD::spawn_hunter_horse(const std::shared_ptr<GameState> &state,
-	                            const time::time_t &time,
-	                            bool skip_initial_delay) {
-	if (this->match_outcome) return;
-	if (not this->hunter_wave_started) {
-		return;
+std::optional<FVDHunterPromptView> FVD::get_hunter_choice_prompt(
+	const time::time_t &now) const {
+	if (not this->match_started_at or this->match_outcome
+	    or now < *this->match_started_at) {
+		return std::nullopt;
 	}
+	const auto elapsed = now - *this->match_started_at;
+	std::lock_guard lock{this->hunter_choice_mutex};
+	for (const auto &prompt : this->hunter_prompts) {
+		if (elapsed < prompt.open or elapsed >= prompt.close
+		    or this->hunter_choice_selections.contains(prompt.id)) {
+			continue;
+		}
+		FVDHunterPromptView result{prompt.id, prompt.title, prompt.description,
+		                            *this->match_started_at + prompt.close, {}};
+		for (const auto &option : prompt.options) {
+			result.options.push_back({
+				option.id, option.title, option.description, option.icon, option.count});
+		}
+		return result;
+	}
+	return std::nullopt;
+}
+
+std::vector<std::pair<uint32_t, uint32_t>> FVD::get_hunter_choice_selections() const {
+	std::lock_guard lock{this->hunter_choice_mutex};
+	return {this->hunter_choice_selections.begin(), this->hunter_choice_selections.end()};
+}
+
+bool FVD::select_hunter_choice(const std::shared_ptr<GameState> &state,
+                               player_id_t owner, uint32_t prompt_id,
+                               uint32_t option_id, const time::time_t &time) {
+	if (owner != 1 or not this->match_started_at or this->match_outcome
+	    or time < *this->match_started_at) {
+		return false;
+	}
+	auto loop = this->event_loop.lock();
+	if (not loop or not this->horse_spawn_target) {
+		throw Error{ERR << "Cannot select a Hunter wave without FVD events"};
+	}
+	const auto elapsed = time - *this->match_started_at;
+	for (const auto &prompt : this->hunter_prompts) {
+		if (prompt.id != prompt_id or elapsed < prompt.open or elapsed >= prompt.close) {
+			continue;
+		}
+		for (const auto &option : prompt.options) {
+			if (option.id != option_id) {
+				continue;
+			}
+			{
+				std::lock_guard lock{this->hunter_choice_mutex};
+				if (not this->hunter_choice_selections.emplace(prompt_id, option_id).second) {
+					return false;
+				}
+			}
+			loop->create_event(
+				"game.fvd_spawn_hunter_reinforcement", this->horse_spawn_target,
+				state, *this->match_started_at + option.start,
+				{{"prompt_id", prompt_id}, {"option_id", option_id},
+				 {"remaining", option.count}});
+			return true;
+		}
+	}
+	return false;
+}
+
+void FVD::spawn_hunter_unit(const std::shared_ptr<GameState> &state,
+                            const std::string &definition,
+                            const time::time_t &time) {
+	auto loop = this->event_loop.lock();
+	auto factory = this->entity_factory.lock();
+	if (not loop or not factory) {
+		throw Error{ERR << "Cannot spawn a Hunter unit without FVD services"};
+	}
+	auto spawned = factory->spawn_game_entity(
+		loop, state, 1, definition, this->horse_spawn_point, time);
+	this->relax_horse_crowd(state, spawned->get_id(), time);
+	if (this->hunter_rally_point) {
+		const auto from = std::dynamic_pointer_cast<component::Position>(
+			spawned->get_component(component::component_t::POSITION))
+				->get_positions().get(time).to_tile();
+		if (auto destination = this->closest_reachable(
+		        state, from, *this->hunter_rally_point, time)) {
+			system::Move::move_default(spawned, state, *destination, time);
+		}
+	}
+}
+
+void FVD::spawn_hunter_reinforcement(const std::shared_ptr<GameState> &state,
+                                     uint32_t prompt_id, uint32_t option_id,
+                                     uint32_t remaining, const time::time_t &time) {
+	if (this->match_outcome) return;
+	bool chosen = false;
+	{
+		std::lock_guard lock{this->hunter_choice_mutex};
+		auto it = this->hunter_choice_selections.find(prompt_id);
+		chosen = it != this->hunter_choice_selections.end() and it->second == option_id;
+	}
+	if (not chosen) {
+		throw Error{ERR << "Unselected FVD Hunter reinforcement was scheduled"};
+	}
+	for (const auto &prompt : this->hunter_prompts) {
+		if (prompt.id != prompt_id) continue;
+		for (const auto &option : prompt.options) {
+			if (option.id != option_id) continue;
+			if (remaining == 0 or remaining > option.count) {
+				throw Error{ERR << "Invalid FVD Hunter reinforcement count"};
+			}
+			this->spawn_hunter_unit(state, option.unit, time);
+			if (remaining > 1) {
+				auto loop = this->event_loop.lock();
+				loop->create_event(
+					"game.fvd_spawn_hunter_reinforcement", this->horse_spawn_target,
+					state, time + option.interval,
+					{{"prompt_id", prompt_id}, {"option_id", option_id},
+					 {"remaining", remaining - 1}});
+			}
+			return;
+		}
+	}
+	throw Error{ERR << "Unknown FVD Hunter reinforcement option"};
+}
+
+void FVD::spawn_hunter_horse(const std::shared_ptr<GameState> &state,
+                            const time::time_t &time,
+                            bool skip_initial_delay) {
+	if (this->match_outcome or not this->hunter_wave_started
+	    or not this->match_started_at) return;
 	if (skip_initial_delay) {
 		bool first_spawn_pending = false;
 		{
 			std::lock_guard lock{this->hunter_spawn_time_mutex};
 			first_spawn_pending = this->first_hunter_spawn_time
 			                      and time < *this->first_hunter_spawn_time;
-			if (first_spawn_pending) {
-				this->first_hunter_spawn_time.reset();
-			}
+			if (first_spawn_pending) this->first_hunter_spawn_time.reset();
 		}
-		if (not first_spawn_pending) {
-			return;
-		}
+		if (not first_spawn_pending) return;
 		if (this->next_hunter_spawn_event) {
 			this->next_hunter_spawn_event->cancel(time);
 		}
@@ -2881,25 +3027,28 @@ void FVD::spawn_hunter_horse(const std::shared_ptr<GameState> &state,
 		std::lock_guard lock{this->hunter_spawn_time_mutex};
 		this->first_hunter_spawn_time.reset();
 	}
+
 	auto loop = this->event_loop.lock();
-	auto factory = this->entity_factory.lock();
-	if (not loop or not factory or not this->horse_spawn_target) {
+	if (not loop or not this->horse_spawn_target) {
 		throw Error{ERR << "Cannot spawn a Hunter horse without FVD services"};
 	}
-	auto spawned = factory->spawn_game_entity(loop, state, 1, this->horse, this->horse_spawn_point, time);
-	this->relax_horse_crowd(state, spawned->get_id(), time);
-	// New horses ride to the rally point like a Move order: a travelling
-	// horse does not stop to fight, then its stance applies on arrival.
-	if (this->hunter_rally_point) {
-		const auto from = std::dynamic_pointer_cast<component::Position>(
-			spawned->get_component(component::component_t::POSITION))->get_positions().get(time).to_tile();
-		if (auto destination = this->closest_reachable(state, from, *this->hunter_rally_point, time)) {
-			system::Move::move_default(spawned, state, *destination, time);
-		}
+	const auto elapsed = time - *this->match_started_at;
+	size_t index = 0;
+	for (size_t i = 1; i < this->hunter_waves.size(); ++i) {
+		if (elapsed < this->hunter_waves[i].start) break;
+		index = i;
+	}
+	const auto &wave = this->hunter_waves[index];
+	for (uint32_t i = 0; i < wave.count; ++i) {
+		this->spawn_hunter_unit(state, wave.unit, time);
+	}
+	auto next = time + wave.interval;
+	if (index + 1 < this->hunter_waves.size()) {
+		next = std::min(next, *this->match_started_at
+		                      + this->hunter_waves[index + 1].start);
 	}
 	this->next_hunter_spawn_event = loop->create_event(
-		"game.fvd_spawn_horse", this->horse_spawn_target, state,
-		time + this->horse_spawn_interval);
+		"game.fvd_spawn_horse", this->horse_spawn_target, state, next);
 }
 
 std::optional<std::vector<entity_id_t>> FVD::resolve_command_units(
