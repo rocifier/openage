@@ -504,7 +504,7 @@ WorldState apply_world_delta(const WorldState &previous, const WorldDelta &delta
 			throw Error{MSG(err) << "FVD delta disclosed an opponent's tower kills"};
 		}
 		if (entity.hunter_stance and (entity.owner_id != next.local_player_id
-		    or entity.kind() != EntityKind::HORSE)) {
+		    or not is_hunter_unit(entity.kind()))) {
 			throw Error{MSG(err) << "FVD delta disclosed an opponent's Hunter stance"};
 		}
 	}

@@ -64,6 +64,7 @@ constexpr float ZOOM = 1.0f;
 
 constexpr std::string_view BUILDER = "fvd.data.entities.Builder";
 constexpr std::string_view HORSE = "fvd.data.entities.Horse";
+constexpr std::string_view ORC = "fvd.data.entities.Orc";
 constexpr std::string_view FOUNDATION = "fvd.data.entities.Foundation";
 constexpr std::string_view WOOD_TOWER = "fvd.data.entities.MedievalTowerLevel1";
 constexpr std::string_view STONE_TOWER = "fvd.data.entities.MedievalTowerLevel2";
@@ -671,19 +672,19 @@ void game_bindings_hunter() {
 	TESTEQUALS(h.idle(), true);
 	TESTEQUALS(h.acknowledged, size_t{0});
 
-	// F9 spawns the first horse at once, but only on the authoritative simulation.
+	// F9 spawns the first Orc at once, but only on the authoritative simulation.
 	h.fvd->start_hunter_wave(h.state, time::TIME_ZERO);
-	TESTEQUALS(h.count(HORSE), size_t{0});
+	TESTEQUALS(h.count(ORC), size_t{0});
 	h.spawn_allowed = false;
 	TESTEQUALS(h.key(Qt::Key_F9), true);
 	h.settle();
-	TESTEQUALS(h.count(HORSE), size_t{0});
+	TESTEQUALS(h.count(ORC), size_t{0});
 	h.spawn_allowed = true;
 	TESTEQUALS(h.key(Qt::Key_F9), true);
 	h.settle();
-	TESTEQUALS(h.count(HORSE), size_t{1});
+	TESTEQUALS(h.count(ORC), size_t{1});
 	TESTEQUALS(h.fvd->get_first_hunter_spawn_time().has_value(), false);
-	const auto horse = h.entity(HORSE, 1);
+	const auto horse = h.entity(ORC, 1);
 	const std::vector<entity_id_t> horses{horse};
 
 	// Clicking a horse resolves its selection on the simulation thread.
@@ -693,6 +694,22 @@ void game_bindings_hunter() {
 	h.left_click(ground);
 	h.settle();
 	TESTEQUALS(h.selection(), (Selection{horses, SelectionKind::HORSE}));
+
+	// Double-click gathers matching Hunter units visible on screen.
+	h.fvd->spawn_hunter_horse(h.state, time::TIME_ZERO);
+	h.settle();
+	std::vector<entity_id_t> orcs;
+	for (const auto &entity : h.capture().entities) {
+		if (entity.definition == ORC and entity.owner_id == 1) {
+			orcs.push_back(entity.entity_id);
+		}
+	}
+	std::sort(orcs.begin(), orcs.end());
+	TESTEQUALS(orcs.size(), size_t{2});
+	h.under_cursor = {horse};
+	h.double_click(ground);
+	TESTEQUALS(h.selection(), (Selection{orcs, SelectionKind::GROUP_HORSES}));
+	h.controller->set_selected(horses, SelectionKind::HORSE);
 
 	// Dragging prefers units over the Hunter's buildings.
 	h.under_cursor.clear();

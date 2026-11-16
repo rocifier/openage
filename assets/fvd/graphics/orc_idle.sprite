@@ -19,7 +19,7 @@ texture 13 "orc/x256p_Spritesheets/Idle_Unarmed/Idle_Unarmed_Body_112.texture"
 texture 14 "orc/x256p_Spritesheets/Idle_Unarmed/Idle_Unarmed_Body_135.texture"
 texture 15 "orc/x256p_Spritesheets/Idle_Unarmed/Idle_Unarmed_Body_157.texture"
 
-scalefactor 1.4
+scalefactor 0.55
 layer 0 mode=loop time_per_frame=0.125
 
 angle 0

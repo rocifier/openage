@@ -1399,7 +1399,7 @@ void Presenter::refresh_fvd_guest_visuals() {
 		if (walking and not movable) {
 			throw Error{MSG(err) << "FVD replica has an invalid moving entity"};
 		}
-		if (attacking and kind != network::EntityKind::HORSE) {
+		if (attacking and not network::is_hunter_unit(kind)) {
 			throw Error{MSG(err) << "FVD replica has an invalid attacking entity"};
 		}
 		const std::string cache_key = entity.definition

@@ -11,7 +11,7 @@ namespace openage::presenter {
 
 std::optional<audio::Cue> combat_cue(const network::ConfirmedCombatEffect &effect) {
 	const auto kind = network::classify(effect.definition);
-	const bool horse = kind == network::EntityKind::HORSE;
+	const bool horse = network::is_hunter_unit(kind);
 	const bool builder = kind == network::EntityKind::BUILDER;
 	const bool tower = network::is_tower(kind);
 	if (not effect.death) {

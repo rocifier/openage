@@ -631,6 +631,41 @@ void fvd_scenario() {
 	TESTEQUALS(horse_attack_paths.front().ends_with(
 		           "ethereal-hunter-horse-attack.sprite"),
 	           true);
+	const auto orc_idle = state->get_db_view()->get_object(
+		"fvd.data.entities.Orc.Idle");
+	const auto orc_idle_paths = api::APIAnimation::get_animation_paths(
+		api::APIAbilityProperty::get_animations(api::APIAbility::get_property(
+			orc_idle, api::ability_property_t::ANIMATED)));
+	TESTEQUALS(orc_idle_paths.size(), size_t{1});
+	TESTEQUALS(orc_idle_paths.front().ends_with("orc_idle.sprite"), true);
+	const auto orc_move = state->get_db_view()->get_object(
+		"fvd.data.entities.Orc.Move");
+	const auto orc_move_paths = api::APIAnimation::get_animation_paths(
+		api::APIAbilityProperty::get_animations(api::APIAbility::get_property(
+			orc_move, api::ability_property_t::ANIMATED)));
+	TESTEQUALS(orc_move_paths.size(), size_t{1});
+	const auto parsed_orc_move = renderer::resources::parser::parse_sprite_file(
+		converted / orc_move_paths.front());
+	TESTEQUALS(parsed_orc_move.get_texture_count(), size_t{16});
+	TESTEQUALS(parsed_orc_move.get_layer(0).get_angle_count(), size_t{16});
+	TESTEQUALS(parsed_orc_move.get_layer(0).get_frame_timing()->size(), size_t{24});
+	const auto orc_attack = state->get_db_view()->get_object(
+		"fvd.data.entities.Orc.Attack");
+	const auto orc_attack_paths = api::APIAnimation::get_animation_paths(
+		api::APIAbilityProperty::get_animations(api::APIAbility::get_property(
+			orc_attack, api::ability_property_t::ANIMATED)));
+	TESTEQUALS(orc_attack_paths.size(), size_t{1});
+	const auto parsed_orc_attack = renderer::resources::parser::parse_sprite_file(
+		converted / orc_attack_paths.front());
+	TESTEQUALS(parsed_orc_attack.get_texture_count(), size_t{16});
+	TESTEQUALS(parsed_orc_attack.get_layer(0).get_angle_count(), size_t{16});
+	TESTEQUALS(parsed_orc_attack.get_layer(0).get_frame_timing()->size(), size_t{24});
+	const auto orc_health = state->get_db_view()->get_object(
+		"fvd.data.entities.Orc.Live.HealthSetting");
+	TESTEQUALS(orc_health.get_int("AttributeSetting.max_value"), int64_t{90});
+	const auto scenario = state->get_db_view()->get_object("fvd.data.scenario.Scenario");
+	TESTEQUALS(scenario.get_int("orc_melee_damage"), int64_t{8});
+	TESTEQUALS(scenario.get_float("orc_attack_cooldown"), 2.0);
 	const auto horse_death_ability = state->get_db_view()->get_object(
 		"fvd.data.entities.Horse.Death");
 	const auto horse_death_animated = api::APIAbility::get_property(
@@ -2363,21 +2398,21 @@ void fvd_hunter_spawning() {
 	auto at = [](double seconds) {
 		return time::time_t::from_double(seconds);
 	};
-	auto count_horses = [&]() {
-		size_t horses = 0;
+	auto count_opening_orcs = [&]() {
+		size_t orcs = 0;
 		for (const auto &[id, entity] : state->get_game_entities()) {
-			if (entity->get_definition() == "fvd.data.entities.Horse") {
-				++horses;
+			if (entity->get_definition() == "fvd.data.entities.Orc") {
+				++orcs;
 			}
 		}
-		return horses;
+		return orcs;
 	};
 
 	// The HUD countdown uses the match's actual first-spawn deadline.
 	TESTEQUALS(fvd->get_hunter_spawn_countdown(at(0)).has_value(), false);
 	// Preparing the map does not start the Hunter wave.
 	loop->reach_time(at(0), state);
-	TESTEQUALS(count_horses(), size_t{0});
+	TESTEQUALS(count_opening_orcs(), size_t{0});
 	fvd->start_hunter_wave(state, at(0));
 	fvd->start_hunter_wave(state, at(0));
 	TESTEQUALS(fvd->get_first_hunter_spawn_time().value(), at(20));
@@ -2457,25 +2492,25 @@ void fvd_hunter_spawning() {
 	TESTEQUALS(default_fvd->get_hunter_choice_selections(), automatic);
 
 	loop->reach_time(at(19.999), state);
-	TESTEQUALS(count_horses(), size_t{0});
+	TESTEQUALS(count_opening_orcs(), size_t{0});
 	loop->reach_time(at(20), state);
-	TESTEQUALS(count_horses(), size_t{1});
+	TESTEQUALS(count_opening_orcs(), size_t{1});
 	TESTEQUALS(fvd->get_first_hunter_spawn_time().has_value(), false);
 	loop->reach_time(at(20.999), state);
-	TESTEQUALS(count_horses(), size_t{1});
+	TESTEQUALS(count_opening_orcs(), size_t{1});
 	loop->reach_time(at(21), state);
-	TESTEQUALS(count_horses(), size_t{2});
+	TESTEQUALS(count_opening_orcs(), size_t{2});
 	loop->reach_time(at(22), state);
-	TESTEQUALS(count_horses(), size_t{3});
+	TESTEQUALS(count_opening_orcs(), size_t{3});
 
-	// Horses never receive an automatic Move order. The only displacement
+	// Opening-wave Orcs never receive an automatic Move order. The only displacement
 	// comes from nearby bodies making room for subsequent spawns.
 	loop->reach_time(at(23), state);
-	TESTEQUALS(count_horses(), size_t{4});
+	TESTEQUALS(count_opening_orcs(), size_t{4});
 	loop->reach_time(at(23.4), state);
 	std::vector<coord::phys3> horse_positions;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() != "fvd.data.entities.Horse") {
+		if (entity->get_definition() != "fvd.data.entities.Orc") {
 			continue;
 		}
 		auto ownership = std::dynamic_pointer_cast<component::Ownership>(
@@ -2501,12 +2536,12 @@ void fvd_hunter_spawning() {
 		}
 	}
 
-	// A single command must wake every recently spawned horse, including
-	// horses whose spawn-separation movement has only just completed.
+	// A single command must wake every recently spawned Orc, including
+	// Orcs whose spawn-separation movement has only just completed.
 	loop->reach_time(at(39), state);
 	std::vector<entity_id_t> wave;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Horse") {
+		if (entity->get_definition() == "fvd.data.entities.Orc") {
 			wave.push_back(id);
 		}
 	}
@@ -2545,26 +2580,26 @@ void fvd_hunter_spawning() {
 	Game immediate_game{immediate_loop, mods, immediate_entities, immediate_terrain};
 	auto immediate_state = immediate_game.get_state();
 	auto immediate_fvd = immediate_state->get_fvd();
-	auto count_immediate_horses = [&]() {
+	auto count_immediate_orcs = [&]() {
 		return static_cast<size_t>(std::count_if(
 			immediate_state->get_game_entities().begin(),
 			immediate_state->get_game_entities().end(),
 			[](const auto &entry) {
-				return entry.second->get_definition() == "fvd.data.entities.Horse";
+				return entry.second->get_definition() == "fvd.data.entities.Orc";
 			}));
 	};
 	immediate_fvd->start_hunter_wave(immediate_state, at(0));
 	immediate_fvd->request_immediate_hunter_spawn(immediate_state, at(5));
 	immediate_fvd->request_immediate_hunter_spawn(immediate_state, at(5));
 	immediate_loop->reach_time(at(5), immediate_state);
-	TESTEQUALS(count_immediate_horses(), size_t{1});
+	TESTEQUALS(count_immediate_orcs(), size_t{1});
 	TESTEQUALS(immediate_fvd->get_hunter_spawn_countdown(at(5)).has_value(), false);
 	immediate_loop->reach_time(at(5.999), immediate_state);
-	TESTEQUALS(count_immediate_horses(), size_t{1});
+	TESTEQUALS(count_immediate_orcs(), size_t{1});
 	immediate_loop->reach_time(at(6), immediate_state);
-	TESTEQUALS(count_immediate_horses(), size_t{2});
+	TESTEQUALS(count_immediate_orcs(), size_t{2});
 	immediate_loop->reach_time(at(20), immediate_state);
-	TESTEQUALS(count_immediate_horses(), size_t{16});
+	TESTEQUALS(count_immediate_orcs(), size_t{16});
 }
 
 void fvd_horse_spawn_blocked() {
@@ -2602,18 +2637,18 @@ void fvd_horse_spawn_blocked() {
 
 	fvd->start_hunter_wave(state, t(0));
 	loop->reach_time(t(20), state);
-	std::shared_ptr<GameEntity> horse;
+	std::shared_ptr<GameEntity> orc;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Horse") {
-			horse = entity;
+		if (entity->get_definition() == "fvd.data.entities.Orc") {
+			orc = entity;
 		}
 	}
-	TESTEQUALS(horse != nullptr, true);
+	TESTEQUALS(orc != nullptr, true);
 	loop->reach_time(t(20.4), state);
 	auto position = std::dynamic_pointer_cast<component::Position>(
-		horse->get_component(component::component_t::POSITION));
+		orc->get_component(component::component_t::POSITION));
 	// A blocked centre never vetoes the scheduled spawn: contact shoves
-	// the new horse into nearby accessible terrain instead.
+	// the new Orc into nearby accessible terrain instead.
 	TESTEQUALS(position->get_positions().get(t(20.4)) != fvd->get_centre(), true);
 }
 
@@ -4714,7 +4749,7 @@ void fvd_hunter_tower() {
 	TESTEQUALS(alive(central), true);
 
 
-	// The first horse, and the tower's first shot, are due 20 seconds in.
+	// The first Orc, and the tower's first shot, are due 20 seconds in.
 	fvd->start_hunter_wave(state, time::TIME_ZERO);
 	const auto centre = position_of_entity(central, 0);
 
@@ -4813,10 +4848,10 @@ void fvd_hunter_tower() {
 	};
 	TESTEQUALS(cost_at({64, 64}), path::COST_IMPASSABLE);
 	TESTEQUALS(cost_at(spawn_point.to_tile()) < path::COST_IMPASSABLE, true);
-	// The first horse appeared on that tile at 20 seconds.
+	// The first Orc appeared on that tile at 20 seconds.
 	bool spawned_beside = false;
 	for (const auto &[id, entity] : state->get_game_entities()) {
-		if (entity->get_definition() == "fvd.data.entities.Horse") {
+		if (entity->get_definition() == "fvd.data.entities.Orc") {
 			auto position = std::dynamic_pointer_cast<component::Position>(
 				entity->get_component(component::component_t::POSITION))->get_positions().get(at(20));
 			spawned_beside = spawned_beside or position.to_tile() == spawn_point.to_tile();

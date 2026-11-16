@@ -20,6 +20,7 @@ enum class EntityKind {
 	UNKNOWN,
 	BUILDER,
 	HORSE,
+	ORC,
 	ESCAPE_CART,
 	FOUNDATION,
 	WOOD_TOWER,
@@ -63,5 +64,8 @@ bool is_tower_definition(std::string_view definition);
  * Check whether a kind is a movable unit, i.e. a Builder or a Horse.
  */
 bool is_unit(EntityKind kind);
+
+/** Check whether a kind is a Hunter-controlled combat unit. */
+bool is_hunter_unit(EntityKind kind);
 
 } // namespace openage::network

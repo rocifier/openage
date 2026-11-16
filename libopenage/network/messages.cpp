@@ -711,7 +711,7 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 		}
 		if (entity.hunter_stance
 		    and (entity.owner_id != state.local_player_id
-		         or entity.kind() != EntityKind::HORSE
+			 or not is_hunter_unit(entity.kind())
 		         or not is_known_hunter_stance(static_cast<uint16_t>(*entity.hunter_stance)))) {
 			throw Error{MSG(err) << "FVD Hunter stances may only be sent to their owner"};
 		}
@@ -1044,7 +1044,7 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		    and entity.garrison_player.value_or(entity.owner_id) != state.local_player_id)
 			throw Error{MSG(err) << "Foreign sheltered Builder identity"};
 		if ((flags & ENTITY_HAS_HUNTER_STANCE) != 0) {
-			if (owner_id != state.local_player_id or entity.kind() != EntityKind::HORSE
+			if (owner_id != state.local_player_id or not is_hunter_unit(entity.kind())
 			    or not is_known_hunter_stance(hunter_stance)) {
 				throw Error{MSG(err) << "FVD Hunter stances belong only to the recipient"};
 			}

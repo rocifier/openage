@@ -304,7 +304,7 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 	auto entity = found->second;
 	const auto &definition = entity->get_definition();
 	if (tower_shot) {
-		if (owner < 2 or owner > this->player_count or definition != this->horse) {
+		if (owner < 2 or owner > this->player_count or not this->is_hunter_unit(definition)) {
 			return false;
 		}
 	}
@@ -323,7 +323,7 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 	if (auto render = entity->get_render_entity()) {
 		const int64_t max_health = definition == this->stone_tower ? this->stone_tower_max_health
 		                           : this->is_tower(definition) ? this->tower_max_health
-		                           : definition == this->horse ? 100
+		                           : this->is_hunter_unit(definition) ? this->hunter_unit_stats(definition).maximum_health
 		                           : definition == this->escape_cart ? 250 : 25;
 		render->update_health(*live->get_attribute(time, HEALTH), max_health, time);
 	}
@@ -337,7 +337,7 @@ bool FVD::apply_damage(const std::shared_ptr<GameState> &state,
 	}
 	else {
 		this->attack_orders.erase(target);
-		if (definition == this->horse) {
+		if (this->is_hunter_unit(definition)) {
 			this->hunter_stances.erase(target);
 			this->dead_horses.insert(target);
 		}
@@ -626,7 +626,10 @@ bool FVD::begin_stance_engagement(const std::shared_ptr<GameState> &state,
 void FVD::combat_tick(const std::shared_ptr<GameState> &state,
                       const time::time_t &time) {
 	if (this->match_outcome) return;
-	const auto horses = entities_by_definition(state, this->horse);
+	auto horses = entities_by_definition(state, this->horse);
+	auto orcs = entities_by_definition(state, this->orc);
+	horses.insert(horses.end(), orcs.begin(), orcs.end());
+	std::sort(horses.begin(), horses.end());
 	auto builders = entities_by_definition(state, this->builder);
 	const auto carts = entities_by_definition(state, this->escape_cart);
 	builders.insert(builders.end(), carts.begin(), carts.end());
@@ -803,13 +806,14 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
 					enemy->second->get_component(component::component_t::POSITION));
 				auto direction = enemy_position->get_positions().get(time) - current;
 				position->set_angle(time, direction.to_angle());
+				const auto &stats = this->hunter_unit_stats(horse->get_definition());
 				horse->render_update(
-					time, this->horse_attack_animation, AnimationAction::ATTACK);
+					time, stats.attack_animation, AnimationAction::ATTACK);
 				auto loop = this->event_loop.lock();
 				if (not loop) [[unlikely]] {
 					throw Error{ERR << "Cannot schedule an FVD Hunter hit without an event loop"};
 				}
-				const auto hit_time = time + this->horse_hit_delay;
+				const auto hit_time = time + stats.hit_delay;
 				order.pending_hit = hit_time;
 				// The Hunter begins the attack animation now and schedules
 				// its impact at 75% of the 0.6-second attack cycle. Publish
@@ -839,8 +843,8 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
 				}
 				loop->create_event(
 					"game.fvd_horse_hit", this->horse_spawn_target, state, hit_time,
-					{{"horse", id}, {"target", target}, {"damage", this->horse_damage}});
-				order.next_attack = time + this->horse_cooldown;
+					{{"horse", id}, {"target", target}, {"damage", stats.damage}});
+				order.next_attack = time + stats.cooldown;
 			}
 			continue;
 		}

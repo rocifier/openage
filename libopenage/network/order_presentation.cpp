@@ -47,7 +47,7 @@ std::vector<AttackOrderPresentation> make_attack_order_presentation(
 		if (not horses.insert(order.horse_id).second
 		    or horse == entities.end()
 		    or horse->second->owner_id != 1
-		    or horse->second->kind() != EntityKind::HORSE
+		    or not is_hunter_unit(horse->second->kind())
 		    or (order.focus_target and not order.target_id)) {
 			throw Error{MSG(err) << "FVD order presentation has an invalid Hunter order"};
 		}

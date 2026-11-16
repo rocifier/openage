@@ -770,6 +770,20 @@ private:
 	                             const std::vector<entity_id_t> &builders,
 	                             const time::time_t &time);
 
+	struct HunterUnitStats {
+		int64_t damage;
+		time::time_t cooldown;
+		time::time_t hit_delay;
+		int64_t maximum_health;
+		std::string attack_animation;
+	};
+
+	/** Whether a definition is a combat unit controlled by the Hunter. */
+	bool is_hunter_unit(const std::string &definition) const;
+
+	/** Combat and presentation data for a validated Hunter unit definition. */
+	const HunterUnitStats &hunter_unit_stats(const std::string &definition) const;
+
 	/** Apply damage once and remove dead units. */
 	bool apply_damage(const std::shared_ptr<GameState> &state, entity_id_t target,
 	                  int64_t damage, player_id_t owner, bool tower_shot,
@@ -848,19 +862,17 @@ private:
 	int64_t tower_damage;
 	int64_t stone_tower_damage;
 	int64_t tower_armor;
-	int64_t horse_damage;
 	time::time_t arrow_travel;
 	time::time_t tower_cooldown;
-	time::time_t horse_cooldown;
-	time::time_t horse_hit_delay;
 	time::time_t horse_shove_duration;
 	std::string hunter;
 	std::string builders;
 	std::string builder;
 	std::string horse;
+	std::string orc;
 	std::string escape_cart;
 	time::time_t cart_construction_time;
-	std::string horse_attack_animation;
+	std::unordered_map<std::string, HunterUnitStats> hunter_units;
 	std::string foundation;
 	std::string tower_demolition;
 	std::string tower;

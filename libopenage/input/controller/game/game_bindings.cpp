@@ -101,6 +101,7 @@ SelectionKind selection_kind_of(network::EntityKind kind) {
 	case network::EntityKind::BUILDER:
 		return SelectionKind::BUILDER;
 	case network::EntityKind::HORSE:
+	case network::EntityKind::ORC:
 		return SelectionKind::HORSE;
 	case network::EntityKind::ESCAPE_CART:
 		return SelectionKind::CART;
@@ -128,7 +129,7 @@ void apply_selection(const std::shared_ptr<Controller> &controller,
 	auto is_horse = [&](gamestate::entity_id_t id) {
 		auto found = state->get_game_entities().find(id);
 		return found != state->get_game_entities().end()
-		    and network::classify(found->second->get_definition()) == network::EntityKind::HORSE;
+		    and network::is_hunter_unit(network::classify(found->second->get_definition()));
 	};
 	auto is_unit = [&](gamestate::entity_id_t id) {
 		auto found = state->get_game_entities().find(id);
@@ -195,6 +196,28 @@ bool apply_structure_click(
 	if (not result) return false;
 	controller->set_selected_if_current(generation, result->ids, result->kind);
 	return true;
+}
+
+/** Select the clicked Hunter unit's owned, visible on-screen peers. */
+std::optional<std::vector<gamestate::entity_id_t>> select_hunter_unit_group(
+	const network::WorldState &world, gamestate::player_id_t viewer,
+	gamestate::entity_id_t clicked,
+	const std::function<bool(const network::EntityState &)> &on_screen) {
+	const auto source = std::find_if(world.entities.begin(), world.entities.end(),
+		[clicked](const network::EntityState &entity) { return entity.entity_id == clicked; });
+	if (source == world.entities.end() or source->remembered
+	    or source->owner_id != viewer or not network::is_hunter_unit(source->kind())) {
+		return std::nullopt;
+	}
+	std::vector<gamestate::entity_id_t> selected{};
+	for (const auto &entity : world.entities) {
+		if (entity.owner_id == viewer and not entity.remembered
+		    and entity.kind() == source->kind() and on_screen(entity)) {
+			selected.push_back(entity.entity_id);
+		}
+	}
+	std::sort(selected.begin(), selected.end());
+	return selected;
 }
 
 /** Resolve guest selections exclusively from the host's replicated world. */
@@ -383,7 +406,7 @@ void GameBindings::bind(const std::shared_ptr<BindingContext> &ctx,
 	// the group here and suppress that release so it cannot undo the group.
 	ctx->bind(Event{event_class::MOUSE_BUTTON_DBL, Qt::MouseButton::LeftButton,
 	                Qt::KeyboardModifier::NoModifier, QEvent::MouseButtonDblClick},
-	          binding_action{forward_action_t::CLEAR, handle(&GameBindings::select_structure_group)});
+	          binding_action{forward_action_t::CLEAR, handle(&GameBindings::select_double_click_group)});
 }
 
 void GameBindings::pick(const coord::input &position, const entity_pick_callback_t &callback) const {
@@ -1055,8 +1078,8 @@ void GameBindings::select_local(const Release &release,
 		params);
 }
 
-void GameBindings::select_structure_group(const event_arguments &args,
-                                          const controller_t &controller) const {
+void GameBindings::select_double_click_group(const event_arguments &args,
+                                             const controller_t &controller) const {
 	controller->mark_structure_double_click();
 	controller->reset_drag_select();
 	if (controller->is_garrison_mode_active()
@@ -1069,6 +1092,25 @@ void GameBindings::select_structure_group(const event_arguments &args,
 	const auto generation = controller->begin_selection_update();
 	this->pick(args.mouse, [camera = this->camera, controller, commands = this->commands, previous, generation](
 							   std::optional<gamestate::entity_id_t> id) {
+		const auto snapshot = commands->snapshot();
+		const auto on_screen = [camera](const network::EntityState &entity) {
+			const Eigen::Matrix4f matrix = camera->get_projection_matrix() * camera->get_view_matrix();
+			const auto pos = entity.position.to_scene3().to_world_space();
+			const Eigen::Vector4f clip = matrix * Eigen::Vector4f{pos.x(), pos.y(), pos.z(), 1.0f};
+			return std::isfinite(clip.w()) and clip.w() > 0.0f
+			    and std::isfinite(clip.x()) and std::isfinite(clip.y())
+			    and std::abs(clip.x() / clip.w()) <= 1.0f
+			    and std::abs(clip.y() / clip.w()) <= 1.0f;
+		};
+		if (id and snapshot.world) {
+			if (auto units = select_hunter_unit_group(
+			        *snapshot.world, player_of(*controller), *id, on_screen)) {
+				controller->set_selected_if_current(
+					generation, *units,
+					units->size() > 1 ? SelectionKind::GROUP_HORSES : SelectionKind::HORSE);
+				return;
+			}
+		}
 		if (id and apply_structure_click(controller, *commands, camera, *id, generation, previous, false, true)) {
 			return;
 		}

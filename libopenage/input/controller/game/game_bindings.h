@@ -160,7 +160,7 @@ private:
 	                  const controller_t &controller,
 	                  const SelectionDetails &selection,
 	                  uint64_t generation) const;
-	void select_structure_group(const event_arguments &args, const controller_t &controller) const;
+	void select_double_click_group(const event_arguments &args, const controller_t &controller) const;
 
 	std::shared_ptr<time::TimeLoop> time_loop;
 	std::shared_ptr<gamestate::GameSimulation> simulation;

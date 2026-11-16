@@ -243,9 +243,9 @@ Select the Hunter tower and right-click to set a rally point: new horses ride th
 Builders: select one of your towers or foundations and press Delete to remove it. A tower collapses; a foundation leaves its Builder's queue, and if the Builder was walking to it he moves on to the next queued site.
 The crimson tower graphic is a placeholder recoloured from the Builder tower.
 Run `bin/run test openage::gamestate::tests::fvd_hunter_tower` for its rules.
-A top-centre countdown shows the seconds remaining until the first Hunter horse, starting at 00:20 when the match begins and disappearing at the first spawn.
+A top-centre countdown shows the seconds remaining until the first Hunter unit, starting at 00:20 when the match begins and disappearing at the first spawn.
 It uses the same simulation-time deadline as spawning, so changing the clock speed or pausing the match does not desynchronize the display.
-At 20 seconds of match time the first Hunter horse spawns beside the Hunter tower. The main Hunter spawn rate is now defined by `Scenario.hunter_waves`: by default it is one horse per second until 15 minutes, one per 0.8 seconds until 35 minutes, then one per 0.6 seconds through the end of the match.
+At 20 seconds of match time the first Hunter Orc spawns beside the Hunter tower. The opening wave produces one Orc per second until 15 minutes; each Orc has 90 HP, deals 8 melee damage, and attacks every two seconds. The later main waves produce one horse per 0.8 seconds until 35 minutes, then one per 0.6 seconds through the end of the match.
 The Hunter can also receive timed supplemental-choice prompts, configured by `Scenario.hunter_choices`; the HUD builds the buttons from each option's nyan title, description, count and icon.
 See [Hunter wave authoring](../../doc/code/game_simulation/fvd_hunter_waves.md) for all timing and validation parameters.
 Horses belong to Hunter player 1 and receive no automatic movement commands.
@@ -253,7 +253,7 @@ As each new horse spawns, nearby idle horses ease outwards using deterministic t
 The crowd push respects blocked tower footprints and reserved construction sites, and can gently move a newly spawned horse away from an obstructed spawn point.
 Horses with an active movement order are not redirected by the spawn shove.
 Wave start times, intervals and unit counts, along with horse collision radius and shove duration, can be changed in the scenario settings.
-Horses are controlled by the human Hunter. Select one or drag to select a group, press A or the HUD's Attack-move button, then left-click a destination.
+Hunter units are controlled by the human Hunter. Double-click a unit to select all owned, visible on-screen units of that type, or drag to select a group; press A or the HUD's Attack-move button, then left-click a destination.
 Attack-moving horses detect Builders and completed enemy towers within three tiles and approach to melee range before striking.
 Towers always take automatic targeting priority over Builders when both are nearby, even if a Builder is closer.
 To override automatic tower priority in local gameplay, select Hunter horses and right-click an enemy Builder or completed tower: the horses focus that exact target until it dies or you give another order.

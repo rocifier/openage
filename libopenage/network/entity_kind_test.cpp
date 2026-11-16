@@ -14,6 +14,7 @@ void entity_kind() {
 	const EntityKind known[] = {
 		EntityKind::BUILDER,
 		EntityKind::HORSE,
+		EntityKind::ORC,
 		EntityKind::ESCAPE_CART,
 		EntityKind::FOUNDATION,
 		EntityKind::WOOD_TOWER,
@@ -46,13 +47,16 @@ void entity_kind() {
 
 	for (const auto kind : known) {
 		const bool tower = kind == EntityKind::WOOD_TOWER or kind == EntityKind::STONE_TOWER;
-		const bool unit = kind == EntityKind::BUILDER or kind == EntityKind::HORSE or kind == EntityKind::ESCAPE_CART;
+		const bool hunter = kind == EntityKind::HORSE or kind == EntityKind::ORC;
+		const bool unit = kind == EntityKind::BUILDER or hunter or kind == EntityKind::ESCAPE_CART;
 		TESTEQUALS(is_tower(kind), tower);
 		TESTEQUALS(is_tower_definition(definition_of(kind)), tower);
 		TESTEQUALS(is_unit(kind), unit);
+		TESTEQUALS(is_hunter_unit(kind), hunter);
 	}
 	TESTEQUALS(is_tower(EntityKind::UNKNOWN), false);
 	TESTEQUALS(is_unit(EntityKind::UNKNOWN), false);
+	TESTEQUALS(is_hunter_unit(EntityKind::UNKNOWN), false);
 }
 
 } // namespace openage::network::tests

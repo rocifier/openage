@@ -439,6 +439,8 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	auto stone_arrow_damage = settings.get_int("stone_tower_arrow_damage");
 	auto armor = settings.get_int("tower_armor");
 	auto melee_damage = settings.get_int("horse_melee_damage");
+	auto orc_melee_damage = settings.get_int("orc_melee_damage");
+	auto orc_attack_cooldown = settings.get_float("orc_attack_cooldown");
 	auto arrow_duration = settings.get_float("arrow_travel_time");
 	auto central_damage = settings.get_int("hunter_tower_damage");
 	auto central_range = settings.get_float("hunter_tower_range");
@@ -462,6 +464,8 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	    or stone_arrow_damage < 1 or stone_arrow_damage > 100
 	    or armor < 0 or armor > 50
 	    or melee_damage < 1 or melee_damage > 100
+	    or orc_melee_damage < 1 or orc_melee_damage > 100
+	    or not std::isfinite(orc_attack_cooldown) or orc_attack_cooldown < 0.1 or orc_attack_cooldown > 60.0
 	    or arrow_duration < 0.01 or arrow_duration > 3.0
 	    or upgrade_kills < 1 or upgrade_kills > 1000000) {
 		throw Error{ERR << "Invalid FVD settings: map 16..512, chunk 4.."
@@ -477,7 +481,6 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	this->tower_damage = arrow_damage;
 	this->stone_tower_damage = stone_arrow_damage;
 	this->tower_armor = armor;
-	this->horse_damage = melee_damage;
 	this->arrow_travel = time::time_t::from_double(arrow_duration);
 	this->hunter_tower_damage = central_damage;
 	this->hunter_tower_range = central_range;
@@ -489,9 +492,6 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		team.visible.assign(vision_words, 0);
 	}
 	this->tower_cooldown = time::time_t::from_double(0.8);
-	this->horse_cooldown = time::time_t::from_double(0.6);
-	this->horse_hit_delay = time::time_t::from_double(
-		this->horse_cooldown.to_double() * 0.75);
 	for (auto &kills : this->player_kills) {
 		kills.store(0);
 	}
@@ -510,6 +510,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	}
 	this->builder_selection_radius = selection_width * 0.5;
 	this->horse = settings.get_object("horse").get_name();
+	this->orc = settings.get_object("orc").get_name();
 	this->escape_cart = settings.get_object("escape_cart").get_name();
 	const double cart_build_seconds = settings.get_float("cart_construction_time");
 	if (not std::isfinite(cart_build_seconds) or cart_build_seconds < 1.0 or cart_build_seconds > 300.0) {
@@ -549,6 +550,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	};
 	require_kind(this->builder, network::EntityKind::BUILDER);
 	require_kind(this->horse, network::EntityKind::HORSE);
+	require_kind(this->orc, network::EntityKind::ORC);
 	require_kind(this->escape_cart, network::EntityKind::ESCAPE_CART);
 	require_kind(this->foundation, network::EntityKind::FOUNDATION);
 	require_kind(this->tower_demolition, network::EntityKind::TOWER_DEMOLITION);
@@ -572,7 +574,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		return result;
 	};
 	const auto hunter_unit = [](const std::string &definition) {
-		if (network::classify(definition) != network::EntityKind::HORSE) {
+		if (not network::is_hunter_unit(network::classify(definition))) {
 			throw Error{ERR << "FVD Hunter wave unit " << definition
 			                << " is not a registered Hunter combat entity"};
 		}
@@ -664,15 +666,36 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		}
 	}
 	this->plains = settings.get_object("terrain").get_name();
-	auto horse_attack = state->get_db_view()->get_object(this->horse + ".Attack");
-	auto attack_property = api::APIAbility::get_property(
-		horse_attack, api::ability_property_t::ANIMATED);
-	auto attack_animations = api::APIAbilityProperty::get_animations(attack_property);
-	auto attack_paths = api::APIAnimation::get_animation_paths(attack_animations);
-	if (attack_paths.size() != 1) [[unlikely]] {
-		throw Error{ERR << "FVD Hunter horse requires exactly one attack animation"};
-	}
-	this->horse_attack_animation = attack_paths.front();
+	const auto hunter_stats = [&](const std::string &definition, int64_t damage,
+	                              const time::time_t &cooldown) {
+		auto attack = state->get_db_view()->get_object(definition + ".Attack");
+		auto attack_property = api::APIAbility::get_property(
+			attack, api::ability_property_t::ANIMATED);
+		auto attack_animations = api::APIAbilityProperty::get_animations(attack_property);
+		auto attack_paths = api::APIAnimation::get_animation_paths(attack_animations);
+		if (attack_paths.size() != 1) [[unlikely]] {
+			throw Error{ERR << "FVD Hunter unit requires exactly one attack animation"};
+		}
+		int64_t maximum_health = 0;
+		auto live = state->get_db_view()->get_object(definition + ".Live");
+		for (const auto &setting : live.get_set("Live.attributes")) {
+			auto value = std::dynamic_pointer_cast<nyan::ObjectValue>(setting.get_ptr());
+			auto object = state->get_db_view()->get_object(value->get_name());
+			if (object.get_object("AttributeSetting.attribute").get_name() == "fvd.data.entities.Health") {
+				maximum_health = object.get_int("AttributeSetting.max_value");
+				break;
+			}
+		}
+		if (maximum_health <= 0) [[unlikely]] {
+			throw Error{ERR << "FVD Hunter unit requires positive maximum health"};
+		}
+		this->hunter_units.emplace(definition, HunterUnitStats{
+			damage, cooldown, time::time_t::from_double(cooldown.to_double() * 0.75),
+			maximum_health, attack_paths.front()});
+	};
+	hunter_stats(this->horse, melee_damage, time::time_t::from_double(0.6));
+	hunter_stats(this->orc, orc_melee_damage,
+	             time::time_t::from_double(orc_attack_cooldown));
 
 	auto tower_object = state->get_db_view()->get_object(this->tower);
 	bool found_pathable = false;
@@ -781,6 +804,18 @@ void FVD::upgrade_player_towers(const std::shared_ptr<GameState> &state,
 	}
 	std::sort(owned_towers.begin(), owned_towers.end());
 	for (auto id : owned_towers) this->upgrade_tower(state, id, time);
+}
+
+bool FVD::is_hunter_unit(const std::string &definition) const {
+	return this->hunter_units.contains(definition);
+}
+
+const FVD::HunterUnitStats &FVD::hunter_unit_stats(const std::string &definition) const {
+	auto found = this->hunter_units.find(definition);
+	if (found == this->hunter_units.end()) {
+		throw Error{ERR << "Unknown FVD Hunter combat unit " << definition};
+	}
+	return found->second;
 }
 
 void FVD::initialise(const std::shared_ptr<GameState> &state,
@@ -996,7 +1031,7 @@ bool FVD::can_place_tower(const std::shared_ptr<GameState> &state,
 		for (const auto &[id, occupant] : state->get_game_entities()) {
 			if (id == existing_foundation or this->is_garrisoned(id)
 			    or occupant->get_definition() == this->builder
-			    or occupant->get_definition() == this->horse
+			    or this->is_hunter_unit(occupant->get_definition())
 			    or occupant->get_definition() == this->foundation
 			    or occupant->get_definition() == this->tower_demolition
 			    or occupant->get_definition() == this->hunter_rally_marker) continue;
@@ -1422,7 +1457,7 @@ std::vector<entity_id_t> FVD::build_site_blockers(
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		if (this->is_garrisoned(id)
 		    or (entity->get_definition() != this->builder
-		        and entity->get_definition() != this->horse)) continue;
+		        and not this->is_hunter_unit(entity->get_definition()))) continue;
 		auto position = std::dynamic_pointer_cast<component::Position>(
 			entity->get_component(component::component_t::POSITION));
 		if (not position) continue;
@@ -2572,7 +2607,7 @@ void FVD::relax_horse_crowd(const std::shared_ptr<GameState> &state,
 	bodies.reserve(state->get_game_entities().size());
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		const auto &definition = entity->get_definition();
-		if (definition != this->horse and definition != this->builder) {
+		if (not this->is_hunter_unit(definition) and definition != this->builder) {
 			continue;
 		}
 		if (not builder_alive(entity, time) or this->is_garrisoned(id)) {
@@ -2582,7 +2617,7 @@ void FVD::relax_horse_crowd(const std::shared_ptr<GameState> &state,
 			entity->get_component(component::component_t::POSITION));
 		auto current = position->get_positions().get(time);
 		double mobility = 0.0;
-		if (definition == this->horse) {
+		if (this->is_hunter_unit(definition)) {
 			auto move = std::dynamic_pointer_cast<component::Move>(
 				entity->get_component(component::component_t::MOVE));
 			if (not move->get_active_target().has_value()
@@ -2594,7 +2629,7 @@ void FVD::relax_horse_crowd(const std::shared_ptr<GameState> &state,
 		}
 		bodies.push_back(Body{id, entity, current,
 		                     current.ne.to_double(), current.se.to_double(),
-		                     definition == this->horse ? this->horse_collision_radius : 0.28,
+		                     this->is_hunter_unit(definition) ? this->horse_collision_radius : 0.28,
 		                     mobility});
 	}
 	if (bodies.empty()) {
@@ -3144,7 +3179,8 @@ std::optional<std::vector<entity_id_t>> FVD::resolve_command_units(
 			return std::nullopt;
 		}
 		auto entity = found->second;
-		if (entity->get_definition() != (owner == 1 ? this->horse : this->builder)
+		if ((owner == 1 ? not this->is_hunter_unit(entity->get_definition())
+		                : entity->get_definition() != this->builder)
 		    or not entity->has_component(component::component_t::MOVE)
 		    or not entity->has_component(component::component_t::OWNERSHIP)) {
 			return std::nullopt;

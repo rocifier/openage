@@ -19,12 +19,12 @@ OpeningRaid(HunterWave):
     HunterWave.start_seconds = 20
     HunterWave.interval_seconds = 1.0
     HunterWave.count = 1
-    HunterWave.unit = fvd.data.entities.Horse
+    HunterWave.unit = fvd.data.entities.Orc
 
-RisingPressure(HunterWave):
-    HunterWave.start_seconds = 900
-    HunterWave.interval_seconds = 0.8
-    HunterWave.count = 1
+RangedPressure(HunterWave):
+    HunterWave.start_seconds = 180
+    HunterWave.interval_seconds = 1.8
+    HunterWave.count = 2
     HunterWave.unit = fvd.data.entities.Horse
 
 FinalAssault(HunterWave):
@@ -102,7 +102,7 @@ Scenario(engine.root.Object):
     construction_time : float = 0.1
     cart_construction_time : float = 5.5
     tower_demolition_time : int = 30
-    hunter_waves : set(HunterWave) = {OpeningRaid, RisingPressure, FinalAssault}
+    hunter_waves : set(HunterWave) = {OpeningRaid, RangedPressure, FinalAssault}
     hunter_choices : set(HunterWaveChoice) = {FirstReinforcements}
     horse_collision_radius : float = 0.38
     horse_shove_duration : float = 0.3
@@ -111,6 +111,8 @@ Scenario(engine.root.Object):
     tower_upgrade_kills : int = 100
     tower_armor : int = 1
     horse_melee_damage : int = 40
+    orc_melee_damage : int = 8
+    orc_attack_cooldown : float = 2.0
     arrow_travel_time : float = 0.2
     hunter_tower_damage : int = 100
     hunter_tower_range : float = 10.0
@@ -120,6 +122,7 @@ Scenario(engine.root.Object):
     builders : Civilisation = Builders
     builder : engine.util.game_entity.GameEntity = fvd.data.entities.Builder
     horse : engine.util.game_entity.GameEntity = fvd.data.entities.Horse
+    orc : engine.util.game_entity.GameEntity = fvd.data.entities.Orc
     escape_cart : engine.util.game_entity.GameEntity = fvd.data.entities.EscapeCart
     foundation : engine.util.game_entity.GameEntity = fvd.data.entities.Foundation
     tower_demolition : engine.util.game_entity.GameEntity = fvd.data.entities.TowerDemolition

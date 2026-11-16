@@ -1,0 +1,427 @@
+# Copyright 2026 the openage authors. See copying.md for legal info.
+# FVD Orc 24-frame, 16-direction run cycle.
+version 2
+
+texture 0 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_180.texture"
+texture 1 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_202.texture"
+texture 2 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_225.texture"
+texture 3 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_247.texture"
+texture 4 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_270.texture"
+texture 5 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_292.texture"
+texture 6 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_315.texture"
+texture 7 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_337.texture"
+texture 8 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_000.texture"
+texture 9 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_022.texture"
+texture 10 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_045.texture"
+texture 11 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_067.texture"
+texture 12 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_090.texture"
+texture 13 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_112.texture"
+texture 14 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_135.texture"
+texture 15 "orc/x256p_Spritesheets/Run_Armed/Run_Armed_Body_157.texture"
+
+scalefactor 0.55
+
+layer 0 mode=loop time_per_frame=0.05
+
+angle 0
+angle 22
+angle 45
+angle 67
+angle 90
+angle 112
+angle 135
+angle 157
+angle 180
+angle 202
+angle 225
+angle 247
+angle 270
+angle 292
+angle 315
+angle 337
+
+frame 0 0 0 0 0
+frame 1 0 0 0 1
+frame 2 0 0 0 2
+frame 3 0 0 0 3
+frame 4 0 0 0 4
+frame 5 0 0 0 5
+frame 6 0 0 0 6
+frame 7 0 0 0 7
+frame 8 0 0 0 8
+frame 9 0 0 0 9
+frame 10 0 0 0 10
+frame 11 0 0 0 11
+frame 12 0 0 0 12
+frame 13 0 0 0 13
+frame 14 0 0 0 14
+frame 15 0 0 0 15
+frame 16 0 0 0 16
+frame 17 0 0 0 17
+frame 18 0 0 0 18
+frame 19 0 0 0 19
+frame 20 0 0 0 20
+frame 21 0 0 0 21
+frame 22 0 0 0 22
+frame 23 0 0 0 23
+frame 0 22 0 1 0
+frame 1 22 0 1 1
+frame 2 22 0 1 2
+frame 3 22 0 1 3
+frame 4 22 0 1 4
+frame 5 22 0 1 5
+frame 6 22 0 1 6
+frame 7 22 0 1 7
+frame 8 22 0 1 8
+frame 9 22 0 1 9
+frame 10 22 0 1 10
+frame 11 22 0 1 11
+frame 12 22 0 1 12
+frame 13 22 0 1 13
+frame 14 22 0 1 14
+frame 15 22 0 1 15
+frame 16 22 0 1 16
+frame 17 22 0 1 17
+frame 18 22 0 1 18
+frame 19 22 0 1 19
+frame 20 22 0 1 20
+frame 21 22 0 1 21
+frame 22 22 0 1 22
+frame 23 22 0 1 23
+frame 0 45 0 2 0
+frame 1 45 0 2 1
+frame 2 45 0 2 2
+frame 3 45 0 2 3
+frame 4 45 0 2 4
+frame 5 45 0 2 5
+frame 6 45 0 2 6
+frame 7 45 0 2 7
+frame 8 45 0 2 8
+frame 9 45 0 2 9
+frame 10 45 0 2 10
+frame 11 45 0 2 11
+frame 12 45 0 2 12
+frame 13 45 0 2 13
+frame 14 45 0 2 14
+frame 15 45 0 2 15
+frame 16 45 0 2 16
+frame 17 45 0 2 17
+frame 18 45 0 2 18
+frame 19 45 0 2 19
+frame 20 45 0 2 20
+frame 21 45 0 2 21
+frame 22 45 0 2 22
+frame 23 45 0 2 23
+frame 0 67 0 3 0
+frame 1 67 0 3 1
+frame 2 67 0 3 2
+frame 3 67 0 3 3
+frame 4 67 0 3 4
+frame 5 67 0 3 5
+frame 6 67 0 3 6
+frame 7 67 0 3 7
+frame 8 67 0 3 8
+frame 9 67 0 3 9
+frame 10 67 0 3 10
+frame 11 67 0 3 11
+frame 12 67 0 3 12
+frame 13 67 0 3 13
+frame 14 67 0 3 14
+frame 15 67 0 3 15
+frame 16 67 0 3 16
+frame 17 67 0 3 17
+frame 18 67 0 3 18
+frame 19 67 0 3 19
+frame 20 67 0 3 20
+frame 21 67 0 3 21
+frame 22 67 0 3 22
+frame 23 67 0 3 23
+frame 0 90 0 4 0
+frame 1 90 0 4 1
+frame 2 90 0 4 2
+frame 3 90 0 4 3
+frame 4 90 0 4 4
+frame 5 90 0 4 5
+frame 6 90 0 4 6
+frame 7 90 0 4 7
+frame 8 90 0 4 8
+frame 9 90 0 4 9
+frame 10 90 0 4 10
+frame 11 90 0 4 11
+frame 12 90 0 4 12
+frame 13 90 0 4 13
+frame 14 90 0 4 14
+frame 15 90 0 4 15
+frame 16 90 0 4 16
+frame 17 90 0 4 17
+frame 18 90 0 4 18
+frame 19 90 0 4 19
+frame 20 90 0 4 20
+frame 21 90 0 4 21
+frame 22 90 0 4 22
+frame 23 90 0 4 23
+frame 0 112 0 5 0
+frame 1 112 0 5 1
+frame 2 112 0 5 2
+frame 3 112 0 5 3
+frame 4 112 0 5 4
+frame 5 112 0 5 5
+frame 6 112 0 5 6
+frame 7 112 0 5 7
+frame 8 112 0 5 8
+frame 9 112 0 5 9
+frame 10 112 0 5 10
+frame 11 112 0 5 11
+frame 12 112 0 5 12
+frame 13 112 0 5 13
+frame 14 112 0 5 14
+frame 15 112 0 5 15
+frame 16 112 0 5 16
+frame 17 112 0 5 17
+frame 18 112 0 5 18
+frame 19 112 0 5 19
+frame 20 112 0 5 20
+frame 21 112 0 5 21
+frame 22 112 0 5 22
+frame 23 112 0 5 23
+frame 0 135 0 6 0
+frame 1 135 0 6 1
+frame 2 135 0 6 2
+frame 3 135 0 6 3
+frame 4 135 0 6 4
+frame 5 135 0 6 5
+frame 6 135 0 6 6
+frame 7 135 0 6 7
+frame 8 135 0 6 8
+frame 9 135 0 6 9
+frame 10 135 0 6 10
+frame 11 135 0 6 11
+frame 12 135 0 6 12
+frame 13 135 0 6 13
+frame 14 135 0 6 14
+frame 15 135 0 6 15
+frame 16 135 0 6 16
+frame 17 135 0 6 17
+frame 18 135 0 6 18
+frame 19 135 0 6 19
+frame 20 135 0 6 20
+frame 21 135 0 6 21
+frame 22 135 0 6 22
+frame 23 135 0 6 23
+frame 0 157 0 7 0
+frame 1 157 0 7 1
+frame 2 157 0 7 2
+frame 3 157 0 7 3
+frame 4 157 0 7 4
+frame 5 157 0 7 5
+frame 6 157 0 7 6
+frame 7 157 0 7 7
+frame 8 157 0 7 8
+frame 9 157 0 7 9
+frame 10 157 0 7 10
+frame 11 157 0 7 11
+frame 12 157 0 7 12
+frame 13 157 0 7 13
+frame 14 157 0 7 14
+frame 15 157 0 7 15
+frame 16 157 0 7 16
+frame 17 157 0 7 17
+frame 18 157 0 7 18
+frame 19 157 0 7 19
+frame 20 157 0 7 20
+frame 21 157 0 7 21
+frame 22 157 0 7 22
+frame 23 157 0 7 23
+frame 0 180 0 8 0
+frame 1 180 0 8 1
+frame 2 180 0 8 2
+frame 3 180 0 8 3
+frame 4 180 0 8 4
+frame 5 180 0 8 5
+frame 6 180 0 8 6
+frame 7 180 0 8 7
+frame 8 180 0 8 8
+frame 9 180 0 8 9
+frame 10 180 0 8 10
+frame 11 180 0 8 11
+frame 12 180 0 8 12
+frame 13 180 0 8 13
+frame 14 180 0 8 14
+frame 15 180 0 8 15
+frame 16 180 0 8 16
+frame 17 180 0 8 17
+frame 18 180 0 8 18
+frame 19 180 0 8 19
+frame 20 180 0 8 20
+frame 21 180 0 8 21
+frame 22 180 0 8 22
+frame 23 180 0 8 23
+frame 0 202 0 9 0
+frame 1 202 0 9 1
+frame 2 202 0 9 2
+frame 3 202 0 9 3
+frame 4 202 0 9 4
+frame 5 202 0 9 5
+frame 6 202 0 9 6
+frame 7 202 0 9 7
+frame 8 202 0 9 8
+frame 9 202 0 9 9
+frame 10 202 0 9 10
+frame 11 202 0 9 11
+frame 12 202 0 9 12
+frame 13 202 0 9 13
+frame 14 202 0 9 14
+frame 15 202 0 9 15
+frame 16 202 0 9 16
+frame 17 202 0 9 17
+frame 18 202 0 9 18
+frame 19 202 0 9 19
+frame 20 202 0 9 20
+frame 21 202 0 9 21
+frame 22 202 0 9 22
+frame 23 202 0 9 23
+frame 0 225 0 10 0
+frame 1 225 0 10 1
+frame 2 225 0 10 2
+frame 3 225 0 10 3
+frame 4 225 0 10 4
+frame 5 225 0 10 5
+frame 6 225 0 10 6
+frame 7 225 0 10 7
+frame 8 225 0 10 8
+frame 9 225 0 10 9
+frame 10 225 0 10 10
+frame 11 225 0 10 11
+frame 12 225 0 10 12
+frame 13 225 0 10 13
+frame 14 225 0 10 14
+frame 15 225 0 10 15
+frame 16 225 0 10 16
+frame 17 225 0 10 17
+frame 18 225 0 10 18
+frame 19 225 0 10 19
+frame 20 225 0 10 20
+frame 21 225 0 10 21
+frame 22 225 0 10 22
+frame 23 225 0 10 23
+frame 0 247 0 11 0
+frame 1 247 0 11 1
+frame 2 247 0 11 2
+frame 3 247 0 11 3
+frame 4 247 0 11 4
+frame 5 247 0 11 5
+frame 6 247 0 11 6
+frame 7 247 0 11 7
+frame 8 247 0 11 8
+frame 9 247 0 11 9
+frame 10 247 0 11 10
+frame 11 247 0 11 11
+frame 12 247 0 11 12
+frame 13 247 0 11 13
+frame 14 247 0 11 14
+frame 15 247 0 11 15
+frame 16 247 0 11 16
+frame 17 247 0 11 17
+frame 18 247 0 11 18
+frame 19 247 0 11 19
+frame 20 247 0 11 20
+frame 21 247 0 11 21
+frame 22 247 0 11 22
+frame 23 247 0 11 23
+frame 0 270 0 12 0
+frame 1 270 0 12 1
+frame 2 270 0 12 2
+frame 3 270 0 12 3
+frame 4 270 0 12 4
+frame 5 270 0 12 5
+frame 6 270 0 12 6
+frame 7 270 0 12 7
+frame 8 270 0 12 8
+frame 9 270 0 12 9
+frame 10 270 0 12 10
+frame 11 270 0 12 11
+frame 12 270 0 12 12
+frame 13 270 0 12 13
+frame 14 270 0 12 14
+frame 15 270 0 12 15
+frame 16 270 0 12 16
+frame 17 270 0 12 17
+frame 18 270 0 12 18
+frame 19 270 0 12 19
+frame 20 270 0 12 20
+frame 21 270 0 12 21
+frame 22 270 0 12 22
+frame 23 270 0 12 23
+frame 0 292 0 13 0
+frame 1 292 0 13 1
+frame 2 292 0 13 2
+frame 3 292 0 13 3
+frame 4 292 0 13 4
+frame 5 292 0 13 5
+frame 6 292 0 13 6
+frame 7 292 0 13 7
+frame 8 292 0 13 8
+frame 9 292 0 13 9
+frame 10 292 0 13 10
+frame 11 292 0 13 11
+frame 12 292 0 13 12
+frame 13 292 0 13 13
+frame 14 292 0 13 14
+frame 15 292 0 13 15
+frame 16 292 0 13 16
+frame 17 292 0 13 17
+frame 18 292 0 13 18
+frame 19 292 0 13 19
+frame 20 292 0 13 20
+frame 21 292 0 13 21
+frame 22 292 0 13 22
+frame 23 292 0 13 23
+frame 0 315 0 14 0
+frame 1 315 0 14 1
+frame 2 315 0 14 2
+frame 3 315 0 14 3
+frame 4 315 0 14 4
+frame 5 315 0 14 5
+frame 6 315 0 14 6
+frame 7 315 0 14 7
+frame 8 315 0 14 8
+frame 9 315 0 14 9
+frame 10 315 0 14 10
+frame 11 315 0 14 11
+frame 12 315 0 14 12
+frame 13 315 0 14 13
+frame 14 315 0 14 14
+frame 15 315 0 14 15
+frame 16 315 0 14 16
+frame 17 315 0 14 17
+frame 18 315 0 14 18
+frame 19 315 0 14 19
+frame 20 315 0 14 20
+frame 21 315 0 14 21
+frame 22 315 0 14 22
+frame 23 315 0 14 23
+frame 0 337 0 15 0
+frame 1 337 0 15 1
+frame 2 337 0 15 2
+frame 3 337 0 15 3
+frame 4 337 0 15 4
+frame 5 337 0 15 5
+frame 6 337 0 15 6
+frame 7 337 0 15 7
+frame 8 337 0 15 8
+frame 9 337 0 15 9
+frame 10 337 0 15 10
+frame 11 337 0 15 11
+frame 12 337 0 15 12
+frame 13 337 0 15 13
+frame 14 337 0 15 14
+frame 15 337 0 15 15
+frame 16 337 0 15 16
+frame 17 337 0 15 17
+frame 18 337 0 15 18
+frame 19 337 0 15 19
+frame 20 337 0 15 20
+frame 21 337 0 15 21
+frame 22 337 0 15 22
+frame 23 337 0 15 23
+

@@ -95,10 +95,8 @@ demonstrate fast and sustained reinforcement schedules.
 
 ## Current unit support
 
-The scheduler accepts nyan `GameEntity` references but only FVD's
-registered `Horse` Hunter combat entity is currently valid. Its existing
-combat, control, networking, and rendering code is still Horse-specific.
-Additional Hunter unit types require those systems to recognize the new
-entity; the schedule and choice UI will not need separate hard-coded cases.
-Invalid or unsupported unit references fail at scenario initialization
-instead of silently spawning broken entities.
+The scheduler accepts FVD's registered `Horse` and `Orc` Hunter combat
+entities. Both use the same combat controls, networking, and rendering path;
+their health, animation, damage and cooldown remain defined by their entity
+and scenario settings. Invalid or unsupported unit references fail at
+scenario initialization instead of silently spawning broken entities.

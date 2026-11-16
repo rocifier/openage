@@ -225,7 +225,7 @@ WorldState capture_fvd_presentation_state(
 		}
 		if (entity->get_definition() == fvd->get_hunter_rally_marker_definition())
 			entity_state.ungarrison_source_tower = fvd->get_ungarrison_marker_source(entity_id);
-		if (classify(entity->get_definition()) == EntityKind::HORSE) {
+		if (is_hunter_unit(classify(entity->get_definition()))) {
 			entity_state.hunter_stance = fvd->get_hunter_stance(entity_id);
 		}
 	}

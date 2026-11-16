@@ -17,10 +17,11 @@ struct KindDefinition {
 	std::string definition;
 };
 
-const std::array<KindDefinition, 9> &kind_definitions() {
-	static const std::array<KindDefinition, 9> definitions{{
+const std::array<KindDefinition, 10> &kind_definitions() {
+	static const std::array<KindDefinition, 10> definitions{{
 		{EntityKind::BUILDER, "fvd.data.entities.Builder"},
 		{EntityKind::HORSE, "fvd.data.entities.Horse"},
+		{EntityKind::ORC, "fvd.data.entities.Orc"},
 		{EntityKind::ESCAPE_CART, "fvd.data.entities.EscapeCart"},
 		{EntityKind::FOUNDATION, "fvd.data.entities.Foundation"},
 		{EntityKind::WOOD_TOWER, "fvd.data.entities.MedievalTowerLevel1"},
@@ -64,7 +65,11 @@ bool is_tower_definition(std::string_view definition) {
 }
 
 bool is_unit(EntityKind kind) {
-	return kind == EntityKind::BUILDER or kind == EntityKind::HORSE or kind == EntityKind::ESCAPE_CART;
+	return kind == EntityKind::BUILDER or is_hunter_unit(kind) or kind == EntityKind::ESCAPE_CART;
+}
+
+bool is_hunter_unit(EntityKind kind) {
+	return kind == EntityKind::HORSE or kind == EntityKind::ORC;
 }
 
 } // namespace openage::network
