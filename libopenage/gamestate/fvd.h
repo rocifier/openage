@@ -840,8 +840,7 @@ private:
 	/** Common commit path used by clicks and automatic deadline choices. */
 	bool commit_hunter_choice(const std::shared_ptr<GameState> &state,
 	                          const HunterPromptRule &prompt,
-	                          const HunterOptionRule &option,
-	                          const time::time_t &time);
+	                          const HunterOptionRule &option);
 	void spawn_hunter_unit(const std::shared_ptr<GameState> &state,
 	                       const std::string &definition,
 	                       const time::time_t &time);
