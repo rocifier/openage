@@ -1676,11 +1676,13 @@ void Presenter::init_input() {
 			}
 		}
 		if (this->fvd_hud_state and this->gui and hovered_action == HudAction::NONE) {
-			for (size_t i = 0; i < 8; ++i) {
+			const auto options = this->fvd_hud_state->value("hunterPrompt")
+			                         .toMap().value("options").toList();
+			for (int i = 0; i < options.size(); ++i) {
 				if (this->gui->contains_item(QString{"fvdHunterChoiceOption%1"}.arg(i),
 				                            ev.position())) {
 					hovered_action = static_cast<HudAction>(
-						static_cast<int>(HudAction::HUNTER_CHOICE_0) + static_cast<int>(i));
+						static_cast<int>(HudAction::HUNTER_CHOICE_FIRST) + i);
 					break;
 				}
 			}
@@ -1744,17 +1746,12 @@ void Presenter::init_input() {
 			case HudAction::UNGARRISON:
 				this->game_controller->issue_ungarrison();
 				break;
-			case HudAction::HUNTER_CHOICE_0:
-			case HudAction::HUNTER_CHOICE_1:
-			case HudAction::HUNTER_CHOICE_2:
-			case HudAction::HUNTER_CHOICE_3:
-			case HudAction::HUNTER_CHOICE_4:
-			case HudAction::HUNTER_CHOICE_5:
-			case HudAction::HUNTER_CHOICE_6:
-			case HudAction::HUNTER_CHOICE_7:
-				this->send_fvd_hunter_choice(
-					static_cast<size_t>(hud_input.activated_action)
-					- static_cast<size_t>(HudAction::HUNTER_CHOICE_0));
+			default:
+				if (hud_input.activated_action >= HudAction::HUNTER_CHOICE_FIRST) {
+					this->send_fvd_hunter_choice(
+						static_cast<size_t>(hud_input.activated_action)
+						- static_cast<size_t>(HudAction::HUNTER_CHOICE_FIRST));
+				}
 				break;
 			case HudAction::NONE:
 			case HudAction::OPTIONS:
