@@ -399,11 +399,10 @@ public:
 
 	/** Read the current nyan-defined choice using match-relative simulation time. */
 	std::optional<FVDHunterPromptView> get_hunter_choice_prompt(
-		const time::time_t &elapsed,
-		const std::vector<network::HunterChoiceSelection> &selections) const;
+		const time::time_t &now) const;
 
 	/** Chosen options are permanent, host-authored match state. */
-	std::vector<network::HunterChoiceSelection> get_hunter_choice_selections() const;
+	std::vector<std::pair<uint32_t, uint32_t>> get_hunter_choice_selections() const;
 
 	/** Select once during the prompt's configured window, as the Hunter only. */
 	bool select_hunter_choice(const std::shared_ptr<GameState> &state,
