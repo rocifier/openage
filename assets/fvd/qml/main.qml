@@ -821,27 +821,55 @@ Item {
 							border.width: 1
 							border.color: optionMouse.containsMouse ? "#f4c993" : "#987868"
 
-							Column {
+							Row {
 								anchors.fill: parent
 								anchors.margins: 9
-								spacing: 4
-								Text {
-									width: parent.width
-									text: (modelData.icon ? modelData.icon + "  " : "")
-									      + modelData.title + "  (" + modelData.count + ")"
-									font.pixelSize: 14
-									font.bold: true
-									color: "#fff3dd"
-									elide: Text.ElideRight
+								spacing: 9
+
+								Rectangle {
+									id: choiceIconFrame
+									visible: Boolean(modelData.icon)
+									width: visible ? 52 : 0
+									height: 52
+									radius: 5
+									color: "#53312a25"
+									border.width: 1
+									border.color: "#987868"
+
+									Image {
+										anchors.fill: parent
+										anchors.margins: 3
+										// Image paths are relative to assets/fvd/qml/main.qml.
+										// Empty paths hide the frame; missing files stay blank.
+										source: modelData.icon || ""
+										fillMode: Image.PreserveAspectFit
+										asynchronous: true
+										mipmap: true
+									}
 								}
-								Text {
-									width: parent.width
-									text: modelData.description
-									font.pixelSize: 11
-									color: "#e0ded4"
-									wrapMode: Text.WordWrap
-									maximumLineCount: 2
-									elide: Text.ElideRight
+
+								Column {
+									width: parent.width - (choiceIconFrame.visible
+									                         ? choiceIconFrame.width + parent.spacing : 0)
+									anchors.verticalCenter: parent.verticalCenter
+									spacing: 4
+									Text {
+										width: parent.width
+										text: modelData.title + "  (" + modelData.count + ")"
+										font.pixelSize: 14
+										font.bold: true
+										color: "#fff3dd"
+										elide: Text.ElideRight
+									}
+									Text {
+										width: parent.width
+										text: modelData.description
+										font.pixelSize: 11
+										color: "#e0ded4"
+										wrapMode: Text.WordWrap
+										maximumLineCount: 3
+										elide: Text.ElideRight
+									}
 								}
 							}
 							// Presenter hit-testing owns command dispatch so
