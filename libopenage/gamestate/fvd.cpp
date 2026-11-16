@@ -2946,8 +2946,7 @@ std::vector<std::pair<uint32_t, uint32_t>> FVD::get_hunter_choice_selections() c
 
 bool FVD::commit_hunter_choice(const std::shared_ptr<GameState> &state,
                                const HunterPromptRule &prompt,
-                               const HunterOptionRule &option,
-                               const time::time_t &time) {
+                               const HunterOptionRule &option) {
 	auto loop = this->event_loop.lock();
 	if (not loop or not this->horse_spawn_target) {
 		throw Error{ERR << "Cannot select a Hunter wave without FVD events"};
@@ -2981,7 +2980,7 @@ bool FVD::select_hunter_choice(const std::shared_ptr<GameState> &state,
 		}
 		for (const auto &option : prompt.options) {
 			if (option.id == option_id) {
-				return this->commit_hunter_choice(state, prompt, option, time);
+				return this->commit_hunter_choice(state, prompt, option);
 			}
 		}
 	}
@@ -3009,7 +3008,7 @@ bool FVD::choose_default_hunter_choice(const std::shared_ptr<GameState> &state,
 		std::uniform_int_distribution<size_t> distribution{
 			0, prompt.options.size() - 1};
 		const auto &option = prompt.options[distribution(this->hunter_choice_random)];
-		return this->commit_hunter_choice(state, prompt, option, time);
+		return this->commit_hunter_choice(state, prompt, option);
 	}
 	return false;
 }
