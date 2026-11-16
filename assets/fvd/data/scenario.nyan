@@ -39,6 +39,8 @@ HunterWaveOption(engine.root.Object):
     id : int
     title : text
     description : text
+    # Image source relative to assets/fvd/qml/main.qml (e.g. icons/ram.png).
+    # Empty string hides the icon.
     icon : text = ""
     unit : engine.util.game_entity.GameEntity
     count : int
@@ -48,6 +50,7 @@ HunterWaveOption(engine.root.Object):
 FastRaid(HunterWaveOption):
     HunterWaveOption.id = 1
     HunterWaveOption.title = "Fast raid"
+    HunterWaveOption.icon = "horse_portrait.png"
     HunterWaveOption.description = "Six reinforcements arrive in quick succession."
     HunterWaveOption.unit = fvd.data.entities.Horse
     HunterWaveOption.count = 6
@@ -57,6 +60,7 @@ FastRaid(HunterWaveOption):
 SustainedRaid(HunterWaveOption):
     HunterWaveOption.id = 2
     HunterWaveOption.title = "Sustained raid"
+    HunterWaveOption.icon = "horse_portrait.png"
     HunterWaveOption.description = "Ten reinforcements arrive over a longer period."
     HunterWaveOption.unit = fvd.data.entities.Horse
     HunterWaveOption.count = 10
