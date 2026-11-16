@@ -245,12 +245,14 @@ The crimson tower graphic is a placeholder recoloured from the Builder tower.
 Run `bin/run test openage::gamestate::tests::fvd_hunter_tower` for its rules.
 A top-centre countdown shows the seconds remaining until the first Hunter horse, starting at 00:20 when the match begins and disappearing at the first spawn.
 It uses the same simulation-time deadline as spawning, so changing the clock speed or pausing the match does not desynchronize the display.
-After 20 seconds of match time, the first Hunter horse spawns at the centre of the map; one more spawns every second thereafter.
+At 20 seconds of match time the first Hunter horse spawns beside the Hunter tower. The main Hunter spawn rate is now defined by `Scenario.hunter_waves`: by default it is one horse per second until 15 minutes, one per 0.8 seconds until 35 minutes, then one per 0.6 seconds through the end of the match.
+The Hunter can also receive timed supplemental-choice prompts, configured by `Scenario.hunter_choices`; the HUD builds the buttons from each option's nyan title, description, count and icon.
+See [Hunter wave authoring](../../doc/code/game_simulation/fvd_hunter_waves.md) for all timing and validation parameters.
 Horses belong to Hunter player 1 and receive no automatic movement commands.
 As each new horse spawns, nearby idle horses ease outwards using deterministic two-dimensional contact separation rather than piling up inside each other.
 The crowd push respects blocked tower footprints and reserved construction sites, and can gently move a newly spawned horse away from an obstructed spawn point.
 Horses with an active movement order are not redirected by the spawn shove.
-The 20-second delay, one-second interval, horse collision radius and shove duration can be changed in the scenario settings.
+Wave start times, intervals and unit counts, along with horse collision radius and shove duration, can be changed in the scenario settings.
 Horses are controlled by the human Hunter. Select one or drag to select a group, press A or the HUD's Attack-move button, then left-click a destination.
 Attack-moving horses detect Builders and completed enemy towers within three tiles and approach to melee range before striking.
 Towers always take automatic targeting priority over Builders when both are nearby, even if a Builder is closer.
