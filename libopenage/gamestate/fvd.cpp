@@ -270,6 +270,33 @@ public:
 	}
 };
 
+/** Resolve unanswered Hunter reinforcement prompts at their nyan-defined deadline. */
+class FVDHunterChoiceTimeoutHandler : public openage::event::OnceEventHandler {
+public:
+	FVDHunterChoiceTimeoutHandler() :
+		OnceEventHandler{"game.fvd_hunter_choice_timeout"} {}
+
+	void setup_event(const std::shared_ptr<openage::event::Event> &,
+	                 const std::shared_ptr<openage::event::State> &) override {}
+
+	void invoke(openage::event::EventLoop &,
+	            const std::shared_ptr<openage::event::EventEntity> &,
+	            const std::shared_ptr<openage::event::State> &state,
+	            const time::time_t &time,
+	            const param_map &params) override {
+		auto game_state = std::dynamic_pointer_cast<GameState>(state);
+		game_state->get_fvd()->choose_default_hunter_choice(
+			game_state, params.get<uint32_t>("prompt_id", 0), time);
+	}
+
+	time::time_t predict_invoke_time(
+		const std::shared_ptr<openage::event::EventEntity> &,
+		const std::shared_ptr<openage::event::State> &,
+		const time::time_t &at) override {
+		return at;
+	}
+};
+
 /** Fixed-time authoritative combat tick. */
 class FVDCombatHandler : public openage::event::RepeatEventHandler {
 public:
@@ -765,6 +792,7 @@ void FVD::initialise(const std::shared_ptr<GameState> &state,
 	this->horse_spawn_target = std::make_shared<event::Spawner>(loop);
 	loop->add_event_handler(std::make_shared<SpawnHorseHandler>());
 	loop->add_event_handler(std::make_shared<SpawnHunterReinforcementHandler>());
+	loop->add_event_handler(std::make_shared<FVDHunterChoiceTimeoutHandler>());
 	loop->add_event_handler(std::make_shared<FVDCombatHandler>());
 	loop->add_event_handler(std::make_shared<FVDArrowHitHandler>());
 	loop->add_event_handler(std::make_shared<FVDHorseHitHandler>());
@@ -2752,6 +2780,11 @@ void FVD::start_hunter_wave(const std::shared_ptr<GameState> &state,
 	this->match_started_at = match_start;
 	this->next_hunter_spawn_event = loop->create_event(
 		"game.fvd_spawn_horse", this->horse_spawn_target, state, spawn_time);
+	for (const auto &prompt : this->hunter_prompts) {
+		loop->create_event(
+			"game.fvd_hunter_choice_timeout", this->horse_spawn_target,
+			state, match_start + prompt.close, {{"prompt_id", prompt.id}});
+	}
 	loop->create_event("game.fvd_combat_tick", this->horse_spawn_target, state, match_start);
 }
 
@@ -2911,6 +2944,29 @@ std::vector<std::pair<uint32_t, uint32_t>> FVD::get_hunter_choice_selections() c
 	return {this->hunter_choice_selections.begin(), this->hunter_choice_selections.end()};
 }
 
+bool FVD::commit_hunter_choice(const std::shared_ptr<GameState> &state,
+                               const HunterPromptRule &prompt,
+                               const HunterOptionRule &option,
+                               const time::time_t &time) {
+	auto loop = this->event_loop.lock();
+	if (not loop or not this->horse_spawn_target) {
+		throw Error{ERR << "Cannot select a Hunter wave without FVD events"};
+	}
+	{
+		std::lock_guard lock{this->hunter_choice_mutex};
+		if (not this->hunter_choice_selections.emplace(prompt.id, option.id).second) {
+			return false;
+		}
+	}
+	// Both a manual click and an expired prompt use the same spawn schedule.
+	loop->create_event(
+		"game.fvd_spawn_hunter_reinforcement", this->horse_spawn_target,
+		state, *this->match_started_at + option.start,
+		{{"prompt_id", prompt.id}, {"option_id", option.id},
+		 {"remaining", option.count}});
+	return true;
+}
+
 bool FVD::select_hunter_choice(const std::shared_ptr<GameState> &state,
                                player_id_t owner, uint32_t prompt_id,
                                uint32_t option_id, const time::time_t &time) {
@@ -2918,32 +2974,42 @@ bool FVD::select_hunter_choice(const std::shared_ptr<GameState> &state,
 	    or time < *this->match_started_at) {
 		return false;
 	}
-	auto loop = this->event_loop.lock();
-	if (not loop or not this->horse_spawn_target) {
-		throw Error{ERR << "Cannot select a Hunter wave without FVD events"};
-	}
 	const auto elapsed = time - *this->match_started_at;
 	for (const auto &prompt : this->hunter_prompts) {
 		if (prompt.id != prompt_id or elapsed < prompt.open or elapsed >= prompt.close) {
 			continue;
 		}
 		for (const auto &option : prompt.options) {
-			if (option.id != option_id) {
-				continue;
+			if (option.id == option_id) {
+				return this->commit_hunter_choice(state, prompt, option, time);
 			}
-			{
-				std::lock_guard lock{this->hunter_choice_mutex};
-				if (not this->hunter_choice_selections.emplace(prompt_id, option_id).second) {
-					return false;
-				}
-			}
-			loop->create_event(
-				"game.fvd_spawn_hunter_reinforcement", this->horse_spawn_target,
-				state, *this->match_started_at + option.start,
-				{{"prompt_id", prompt_id}, {"option_id", option_id},
-				 {"remaining", option.count}});
-			return true;
 		}
+	}
+	return false;
+}
+
+bool FVD::choose_default_hunter_choice(const std::shared_ptr<GameState> &state,
+                                       uint32_t prompt_id, const time::time_t &time) {
+	if (not this->match_started_at or this->match_outcome) {
+		return false;
+	}
+	for (const auto &prompt : this->hunter_prompts) {
+		if (prompt.id != prompt_id
+		    or time != *this->match_started_at + prompt.close) {
+			continue;
+		}
+		{
+			std::lock_guard lock{this->hunter_choice_mutex};
+			if (this->hunter_choice_selections.contains(prompt.id)) {
+				return false; // The Hunter already selected an option.
+			}
+		}
+		// Options are sorted by ID during nyan loading, so every choice
+		// receives equal probability irrespective of nyan set iteration.
+		std::uniform_int_distribution<size_t> distribution{
+			0, prompt.options.size() - 1};
+		const auto &option = prompt.options[distribution(this->hunter_choice_random)];
+		return this->commit_hunter_choice(state, prompt, option, time);
 	}
 	return false;
 }
