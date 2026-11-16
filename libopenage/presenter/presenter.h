@@ -217,6 +217,9 @@ protected:
 	/** Push the options panel state (open, music/effects on) to the HUD. */
 	void publish_fvd_options();
 
+	/** Send a nyan-defined Hunter reinforcement selection to the host simulation. */
+	void send_fvd_hunter_choice(size_t index);
+
 	/** Whether a window position is over any FVD HUD surface. */
 	bool over_fvd_hud(const QPointF &position) const;
 
