@@ -763,6 +763,35 @@ Item {
 		visible: root.hunter && root.hunterPrompt.id !== undefined
 		         && root.matchTimeRemaining >= 0
 
+		// Warn the Hunter when there are five seconds or less to decide.
+		// Only the panel background pulses; the option labels stay readable.
+		Rectangle {
+			id: hunterChoiceDeadlineFlash
+			anchors.fill: parent
+			radius: parent.radius
+			color: "#e02c24"
+			visible: root.hunterPrompt.secondsRemaining > 0
+			         && root.hunterPrompt.secondsRemaining <= 5
+			opacity: 0
+
+			SequentialAnimation on opacity {
+				running: hunterChoiceDeadlineFlash.visible
+				loops: Animation.Infinite
+				NumberAnimation {
+					from: 0.20
+					to: 0.73
+					duration: 350
+					easing.type: Easing.InOutQuad
+				}
+				NumberAnimation {
+					from: 0.73
+					to: 0.20
+					duration: 350
+					easing.type: Easing.InOutQuad
+				}
+			}
+		}
+
 		Column {
 			id: hunterChoiceColumn
 			anchors.top: parent.top
