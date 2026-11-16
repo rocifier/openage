@@ -31,7 +31,7 @@ wall-clock timers.
 - `options`: a set of `HunterWaveOption` objects.
 
 Each option has its own `id` (unique within the prompt), `title`,
-`description`, optional `icon` string, `unit`, `count`,
+`description`, optional `icon` filename, `unit`, `count`,
 `spawn_seconds`, and `interval_seconds`. A selected option produces
 `count` units in total, starting at `spawn_seconds` and spacing subsequent
 units by `interval_seconds`. Spawning happens separately from the main wave.
@@ -43,6 +43,32 @@ configured window, and the host validates the selection on the simulation
 thread. If the Hunter makes no selection, the supplemental wave is skipped.
 Prompts must not overlap, and the last option spawn must precede the match
 deadline. Up to sixteen options per prompt are supported by the HUD.
+
+## Choice icons
+
+Set `HunterWaveOption.icon` to the path of an image relative to
+`assets/fvd/qml/main.qml`. Files are loaded using QML's ordinary `Image`
+source resolution. For example, with
+`assets/fvd/qml/icons/catapult.png` in the modpack:
+
+```nyan
+CatapultReinforcements(HunterWaveOption):
+    HunterWaveOption.id = 3
+    HunterWaveOption.title = "Catapults"
+    HunterWaveOption.description = "Siege support for breaking tower lines."
+    HunterWaveOption.icon = "icons/catapult.png"
+    HunterWaveOption.unit = fvd.data.entities.Horse
+    HunterWaveOption.count = 5
+    HunterWaveOption.spawn_seconds = 480
+    HunterWaveOption.interval_seconds = 2.0
+```
+
+The example refers to `Horse` because other Hunter combat units are not yet
+supported; replace that definition after implementing the new unit. PNG is a
+good default format; transparent backgrounds look best in the HUD. The
+`icon` field is optional and defaults to `""` (no icon).
+Both sample raid options currently use the existing `horse_portrait.png`.
+There are no hard-coded image choices in QML.
 
 ## Adding a wave
 
