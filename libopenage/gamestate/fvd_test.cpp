@@ -12,6 +12,7 @@
 #include "assets/mod_manager.h"
 #include "config.h"
 #include "cvar/cvar.h"
+#include "event/event.h"
 #include "event/event_loop.h"
 #include "gamestate/api/ability.h"
 #include "gamestate/api/animation.h"
@@ -2408,6 +2409,42 @@ void fvd_hunter_spawning() {
 	TESTEQUALS(fvd->get_hunter_choice_selections().size(), size_t{1});
 	TESTEQUALS(fvd->get_hunter_choice_selections()[0].first, uint32_t{1});
 	TESTEQUALS(fvd->get_hunter_choice_selections()[0].second, uint32_t{1});
+	TESTEQUALS(fvd->choose_default_hunter_choice(state, 1, at(479)), false);
+	TESTEQUALS(fvd->choose_default_hunter_choice(state, 1, at(480)), false);
+	TESTEQUALS(fvd->get_hunter_choice_selections()[0].second, uint32_t{1});
+
+	// A separate unanswered game gets exactly one random, legal option
+	// when the configured deadline occurs. No selection is possible early,
+	// and a second expiry cannot schedule a duplicate reinforcement.
+	auto default_loop = std::make_shared<openage::event::EventLoop>();
+	default_loop->add_event_handler(std::make_shared<event::ProcessCommandHandler>());
+	default_loop->add_event_handler(std::make_shared<event::WaitHandler>());
+	auto default_entities = std::make_shared<EntityFactory>();
+	auto default_terrain = std::make_shared<TerrainFactory>();
+	Game default_game{default_loop, mods, default_entities, default_terrain};
+	auto default_state = default_game.get_state();
+	auto default_fvd = default_state->get_fvd();
+	default_fvd->start_hunter_wave(default_state, at(0));
+	// Verify the expiry is queued by match start itself, not by the HUD.
+	bool timeout_queued = false;
+	for (const auto &ev : default_loop->get_queue().get_event_queue().get_sorted_events()) {
+		if (ev->get_eventhandler()->id() == "game.fvd_hunter_choice_timeout"
+		    and ev->get_time() == at(480)) {
+			timeout_queued = true;
+		}
+	}
+	TESTEQUALS(timeout_queued, true);
+	TESTEQUALS(default_fvd->choose_default_hunter_choice(default_state, 1, at(479)), false);
+	TESTEQUALS(default_fvd->get_hunter_choice_selections().empty(), true);
+	TESTEQUALS(default_fvd->choose_default_hunter_choice(default_state, 1, at(480)), true);
+	const auto automatic = default_fvd->get_hunter_choice_selections();
+	TESTEQUALS(automatic.size(), size_t{1});
+	TESTEQUALS(automatic[0].first, uint32_t{1});
+	TESTEQUALS(automatic[0].second == uint32_t{1} or automatic[0].second == uint32_t{2}, true);
+	TESTEQUALS(default_fvd->get_hunter_choice_prompt(at(480)).has_value(), false);
+	TESTEQUALS(default_fvd->choose_default_hunter_choice(default_state, 1, at(480)), false);
+	TESTEQUALS(default_fvd->select_hunter_choice(default_state, 1, 1, 1, at(480)), false);
+	TESTEQUALS(default_fvd->get_hunter_choice_selections(), automatic);
 
 	loop->reach_time(at(19.999), state);
 	TESTEQUALS(count_horses(), size_t{0});
