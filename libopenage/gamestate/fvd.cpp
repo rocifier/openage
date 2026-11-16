@@ -621,14 +621,14 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		}
 		std::sort(prompt.options.begin(), prompt.options.end(),
 		          [](const auto &a, const auto &b) { return a.id < b.id; });
-		if (prompt.options.empty() or prompt.options.size() > 16) {
-			throw Error{ERR << "FVD Hunter choice must contain 1..16 options"};
+		if (prompt.options.empty() or prompt.options.size() > 8) {
+			throw Error{ERR << "FVD Hunter choice must contain 1..8 options"};
 		}
 		this->hunter_prompts.push_back(std::move(prompt));
 	}
 	std::sort(this->hunter_prompts.begin(), this->hunter_prompts.end(),
 	          [](const auto &a, const auto &b) { return a.open < b.open; });
-	if (this->hunter_prompts.size() > network::MAX_STATE_HUNTER_CHOICES) {
+	if (this->hunter_prompts.size() > 32) {
 		throw Error{ERR << "Too many FVD Hunter choice prompts"};
 	}
 	for (size_t i = 1; i < this->hunter_prompts.size(); ++i) {
