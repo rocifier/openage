@@ -2388,6 +2388,27 @@ void fvd_hunter_spawning() {
 	TESTEQUALS(fvd->get_hunter_spawn_countdown(at(20)).has_value(), false);
 	TESTEQUALS(fvd->get_hunter_spawn_countdown(at(21)).has_value(), false);
 
+	// Nyan prompt timing, deterministic option ordering and host-only
+	// selection must not require a particular GUI or network transport.
+	TESTEQUALS(fvd->get_hunter_choice_prompt(at(419)).has_value(), false);
+	auto prompt = fvd->get_hunter_choice_prompt(at(420));
+	TESTEQUALS(prompt.has_value(), true);
+	TESTEQUALS(prompt->id, uint32_t{1});
+	TESTEQUALS(prompt->title, std::string{"Choose reinforcements"});
+	TESTEQUALS(prompt->options.size(), size_t{2});
+	TESTEQUALS(prompt->options[0].title, std::string{"Fast raid"});
+	TESTEQUALS(prompt->closes_at, at(480));
+	TESTEQUALS(fvd->select_hunter_choice(state, 2, 1, 1, at(430)), false);
+	TESTEQUALS(fvd->select_hunter_choice(state, 1, 1, 99, at(430)), false);
+	TESTEQUALS(fvd->select_hunter_choice(state, 1, 1, 1, at(419)), false);
+	TESTEQUALS(fvd->select_hunter_choice(state, 1, 1, 1, at(480)), false);
+	TESTEQUALS(fvd->select_hunter_choice(state, 1, 1, 1, at(430)), true);
+	TESTEQUALS(fvd->select_hunter_choice(state, 1, 1, 2, at(431)), false);
+	TESTEQUALS(fvd->get_hunter_choice_prompt(at(431)).has_value(), false);
+	TESTEQUALS(fvd->get_hunter_choice_selections().size(), size_t{1});
+	TESTEQUALS(fvd->get_hunter_choice_selections()[0].first, uint32_t{1});
+	TESTEQUALS(fvd->get_hunter_choice_selections()[0].second, uint32_t{1});
+
 	loop->reach_time(at(19.999), state);
 	TESTEQUALS(count_horses(), size_t{0});
 	loop->reach_time(at(20), state);
