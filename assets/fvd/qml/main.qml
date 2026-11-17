@@ -103,6 +103,7 @@ Item {
 	}
 	readonly property bool musicOn: hud === null || hud.musicOn !== false
 	readonly property bool effectsOn: hud === null || hud.effectsOn !== false
+	readonly property bool mutedAll: hud !== null && hud.mutedAll === true
 	readonly property bool rainOn: hud === null || hud.rainOn !== false
 	readonly property string audioNote: hud === null || hud.audioNote === undefined ? "" : hud.audioNote
 
@@ -370,9 +371,11 @@ Item {
 			Text {
 				width: 200
 				wrapMode: Text.WordWrap
-				color: "#b5d9c4"
+				color: root.mutedAll ? "#ffc78a" : "#b5d9c4"
 				font.pixelSize: 11
-				text: "M mutes everything during a match."
+				text: root.mutedAll
+				      ? "All audio muted — press M to unmute."
+				      : "Press M to mute all audio during a match."
 			}
 			Rectangle {
 				objectName: "fvdLeaveButton"
