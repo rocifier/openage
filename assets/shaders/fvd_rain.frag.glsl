@@ -53,10 +53,13 @@ void main() {
 	float nearby = rain_sheet(pixel, 49.0, 310.0, 1400.0, 152.0, 0.12,
 	                          0.93, 0.58, 0.32);
 
-	// A barely perceptible cold haze helps unify the sheets over bright ground.
-	// It remains transparent and leaves the HUD (which renders later) untouched.
-	float haze = 0.013 + 0.009 * (1.0 - tex_pos.y);
-	float alpha = clamp(haze + distant + middle + nearby, 0.0, 0.58);
-	vec3 rain_color = vec3(0.67, 0.79, 0.86);
-	out_col = vec4(rain_color, alpha);
+	// Keep the battlefield readable while taking the warmth out of the
+	// afternoon palette. The veil is dark; the streaks catch cold light.
+	float drops = distant + middle + nearby;
+	float haze = 0.046 + 0.013 * (1.0 - tex_pos.y);
+	float alpha = clamp(haze + drops, 0.0, 0.58);
+	vec3 wet_air = vec3(0.065, 0.115, 0.145);
+	vec3 reflected_light = vec3(0.68, 0.80, 0.88);
+	vec3 color = mix(wet_air, reflected_light, min(drops / alpha, 1.0));
+	out_col = vec4(color, alpha);
 }
