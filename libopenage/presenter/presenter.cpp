@@ -258,6 +258,7 @@ void Presenter::init_audio() {
 		                QStringLiteral("openage"), QStringLiteral("fvd")};
 		this->audio_settings->music_enabled = saved.value(QStringLiteral("audio/music"), true).toBool();
 		this->audio_settings->effects_enabled = saved.value(QStringLiteral("audio/effects"), true).toBool();
+		this->fvd_rain_enabled = saved.value(QStringLiteral("graphics/rain"), true).toBool();
 	}
 	this->publish_fvd_options();
 	if (not this->audio_enabled) {
@@ -292,6 +293,7 @@ void Presenter::publish_fvd_options() {
 	this->fvd_hud_state->insert("optionsOpen", this->fvd_options_open);
 	this->fvd_hud_state->insert("musicOn", this->audio_settings->music_enabled.load());
 	this->fvd_hud_state->insert("effectsOn", this->audio_settings->effects_enabled.load());
+	this->fvd_hud_state->insert("rainOn", this->fvd_rain_enabled);
 	QString note{};
 	if (not this->audio_enabled) {
 		note = QStringLiteral("Sound is off (--no-audio)");
@@ -1664,6 +1666,7 @@ void Presenter::init_input() {
 			         std::pair{"fvdLeaveButton", HudAction::LEAVE_MATCH},
 			         std::pair{"fvdMusicToggle", HudAction::TOGGLE_MUSIC},
 			         std::pair{"fvdEffectsToggle", HudAction::TOGGLE_EFFECTS},
+			         std::pair{"fvdRainToggle", HudAction::TOGGLE_RAIN},
 			         std::pair{"fvdFlareButton", HudAction::FLARE},
 			         std::pair{"fvdDeleteFoundationsButton", HudAction::DELETE_FOUNDATIONS},
 			         std::pair{"fvdCartButton", HudAction::BUILD_CART},
@@ -1758,6 +1761,7 @@ void Presenter::init_input() {
 			case HudAction::LEAVE_MATCH:
 			case HudAction::TOGGLE_MUSIC:
 			case HudAction::TOGGLE_EFFECTS:
+			case HudAction::TOGGLE_RAIN:
 				break;
 			}
 		}
@@ -1790,6 +1794,11 @@ void Presenter::init_input() {
 				this->publish_fvd_options();
 				break;
 			}
+			case HudAction::TOGGLE_RAIN:
+				this->fvd_rain_enabled = not this->fvd_rain_enabled;
+				save("graphics/rain", this->fvd_rain_enabled);
+				this->publish_fvd_options();
+				break;
 			default:
 				break;
 			}
@@ -3115,7 +3124,8 @@ void Presenter::render() {
 	const bool fvd_scene = this->simulation and this->simulation->get_game()
 	                       and this->simulation->get_game()->get_state()->get_fvd();
 	this->screen_renderer->set_rain_enabled(
-		fvd_scene and (not this->fvd_lobby_enabled or this->fvd_gameplay_active));
+		this->fvd_rain_enabled and fvd_scene
+		and (not this->fvd_lobby_enabled or this->fvd_gameplay_active));
 	this->screen_renderer->update_rain();
 
 	{
