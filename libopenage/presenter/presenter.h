@@ -267,6 +267,8 @@ protected:
 
 	/** Options panel shown under the top-right Options button. */
 	bool fvd_options_open{false};
+	/** Local graphics preference; persisted in QSettings, enabled by default. */
+	bool fvd_rain_enabled{true};
 
 	/**
 	 * Render all configured render passes in sequence.
