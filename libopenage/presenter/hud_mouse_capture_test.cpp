@@ -37,6 +37,15 @@ void hud_mouse_capture() {
 		TESTEQUALS(click(QEvent::MouseButtonRelease, Qt::LeftButton, true, action).activated_action == action, true);
 	}
 
+	// Options actions, including the rain preference, require a complete
+	// click on the same control and must not reach the game world.
+	click(QEvent::MouseButtonPress, Qt::LeftButton, true, Action::TOGGLE_RAIN);
+	TESTEQUALS(click(QEvent::MouseButtonRelease, Qt::LeftButton, true, Action::TOGGLE_RAIN)
+	               .activated_action, Action::TOGGLE_RAIN);
+	click(QEvent::MouseButtonPress, Qt::LeftButton, true, Action::TOGGLE_RAIN);
+	TESTEQUALS(click(QEvent::MouseButtonRelease, Qt::LeftButton, true, Action::TOGGLE_MUSIC)
+	               .activated_action, Action::NONE);
+
 	// A button outside the outer panel's reported geometry remains clickable.
 	// Regression: only the first button was reachable when the panel hit-test
 	// did not include newly shown controls below it.
