@@ -3110,6 +3110,14 @@ void Presenter::render() {
 	}
 	this->screen_renderer->set_glass_panels(glass_panels);
 
+	// Weather belongs to the local presentation. It does not affect
+	// simulation state or multiplayer replication, and never covers the GUI.
+	const bool fvd_scene = this->simulation and this->simulation->get_game()
+	                       and this->simulation->get_game()->get_state()->get_fvd();
+	this->screen_renderer->set_rain_enabled(
+		fvd_scene and (not this->fvd_lobby_enabled or this->fvd_gameplay_active));
+	this->screen_renderer->update_rain();
+
 	{
 		util::StallProfiler profile{"render.passes"};
 		for (auto &pass : this->render_passes) {
