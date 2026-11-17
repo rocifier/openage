@@ -31,8 +31,20 @@ Adjust their numbers to tune density, wind and visibility. The
 storm tint. Changes to the fragment shader require restarting the
 native renderer to load the updated source.
 
+## Player preference
+
+Rain is **ON by default** for FVD gameplay.
+Players can turn it off or back on at any time using the
+**Rain** toggle under the top-right **Options** (gear) button.
+The change is applied immediately, without restarting the match.
+The choice is stored locally under `graphics/rain` using the same
+`QSettings` file as the music and sound-effect preferences.
+It persists across game restarts and is independent for each player;
+no network command or simulation update is involved.
+Rain remains hidden in the multiplayer lobby regardless of the preference.
+
 Rain is deliberately a screen-space weather overlay for this
 experiment; it does not yet react to roofs, hit the ground with ripples,
-produce rain audio, or alter gameplay visibility. It needs a visual
-and performance check on a running native build, particularly at high
-display resolutions.
+produce rain audio, or alter gameplay visibility.
+It needs a visual and performance check on a running native build,
+particularly at high display resolutions.
