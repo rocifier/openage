@@ -103,6 +103,7 @@ Item {
 	}
 	readonly property bool musicOn: hud === null || hud.musicOn !== false
 	readonly property bool effectsOn: hud === null || hud.effectsOn !== false
+	readonly property bool rainOn: hud === null || hud.rainOn !== false
 	readonly property string audioNote: hud === null || hud.audioNote === undefined ? "" : hud.audioNote
 
 	function flagColor(player) {
@@ -265,7 +266,7 @@ Item {
 		}
 	}
 
-	// Options (sound on/off). Clicks are routed by the presenter.
+	// Sound and weather preferences. Clicks are routed by the presenter.
 	Rectangle {
 		id: optionsButton
 		objectName: "fvdOptionsButton"
@@ -324,7 +325,8 @@ Item {
 			Repeater {
 				model: [
 					{ name: "fvdMusicToggle", label: "Music", on: root.musicOn },
-					{ name: "fvdEffectsToggle", label: "Sound effects", on: root.effectsOn }
+					{ name: "fvdEffectsToggle", label: "Sound effects", on: root.effectsOn },
+					{ name: "fvdRainToggle", label: "Rain", on: root.rainOn }
 				]
 
 				delegate: Rectangle {
