@@ -102,6 +102,20 @@ void ScreenRenderStage::initialize_render_pass(const util::Path &shaderdir) {
 	glass_frag_file.close();
 	this->glass_shader = renderer->add_shader({glass_vert_src, glass_frag_src});
 
+	// FVD-only weather is a full-screen post-process, not a world entity.
+	// Using the existing final quad vertex shader keeps screen coordinates
+	// identical to the scene output, with no extra simulation or GPU buffers.
+	auto rain_file = (shaderdir / "fvd_rain.frag.glsl").open();
+	auto rain_src = renderer::resources::ShaderSource(
+		resources::shader_lang_t::glsl,
+		resources::shader_stage_t::fragment,
+		rain_file.read());
+	rain_file.close();
+	this->rain_shader = renderer->add_shader({vert_shader_src, rain_src});
+	this->rain_uniforms = this->rain_shader->new_uniform_input(
+		"time_seconds", 0.0f,
+		"viewport_size", Eigen::Vector2f{1.0f, 1.0f});
+
 	// nothing is drawn until render targets are added
 	this->render_pass = renderer->add_render_pass({}, renderer->get_display_target());
 }
@@ -120,6 +134,23 @@ void ScreenRenderStage::set_glass_panels(const std::array<GlassPanel, 4> &panels
 		this->blur_active = active;
 		this->update_blur_renderables();
 	}
+}
+
+void ScreenRenderStage::set_rain_enabled(bool enabled) {
+	if (this->rain_enabled == enabled) {
+		return;
+	}
+	this->rain_enabled = enabled;
+	this->update_render_pass();
+}
+
+void ScreenRenderStage::update_rain() {
+	if (not this->rain_enabled or not this->rain_uniforms) {
+		return;
+	}
+	const auto elapsed = std::chrono::duration<float>(
+		std::chrono::steady_clock::now() - this->rain_started_at).count();
+	this->rain_uniforms->update("time_seconds", elapsed);
 }
 
 void ScreenRenderStage::update_blur_renderables() {
@@ -143,7 +174,7 @@ void ScreenRenderStage::update_render_pass() {
 	auto quad = renderer->add_mesh_geometry(renderer::resources::MeshData::make_quad());
 
 	std::vector<renderer::Renderable> output_layers{};
-	output_layers.reserve(this->render_targets.size() + this->glass_inputs.size());
+	output_layers.reserve(this->render_targets.size() + this->glass_inputs.size() + 1);
 	std::array<std::shared_ptr<renderer::Texture2d>, 4> glass_sources{};
 	Eigen::Vector2f viewport_size{};
 	if (this->render_targets.size() >= 5) {
@@ -163,6 +194,7 @@ void ScreenRenderStage::update_render_pass() {
 			static_cast<float>(source_size.first),
 			static_cast<float>(source_size.second),
 		};
+		this->rain_uniforms->update("viewport_size", viewport_size);
 		const auto half_width = std::max(1, source_size.first / 2);
 		const auto half_height = std::max(1, source_size.second / 2);
 		const auto quarter_width = std::max(1, half_width / 2);
@@ -213,6 +245,14 @@ void ScreenRenderStage::update_render_pass() {
 			false,
 		};
 		output_layers.push_back(display_obj);
+		// FVD pass order: skybox, terrain, world, HUD, Qt Quick.
+		// Compositing here makes rain fall over sprites and ground but not
+		// over controls, health bars or dialogue text.
+		if (target_index == 2 and this->rain_enabled
+		    and this->render_targets.size() >= 5) {
+			output_layers.push_back(renderer::Renderable{
+				this->rain_uniforms, this->blur_quad, true, false});
+		}
 		if (target_index == 3 and this->render_targets.size() >= 5) {
 			for (size_t panel_index = 0; panel_index < this->glass_inputs.size(); ++panel_index) {
 				const auto &panel = this->glass_panels[panel_index];
