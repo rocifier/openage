@@ -3,6 +3,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <eigen3/Eigen/Dense>
 #include <memory>
 #include <vector>
@@ -73,6 +74,12 @@ public:
 	/** Set the four FVD panel bounds used for the scene backdrop blur. */
 	void set_glass_panels(const std::array<GlassPanel, 4> &panels);
 
+	/** Draw procedural rainfall over the game scene, beneath HUD and Qt overlays. */
+	void set_rain_enabled(bool enabled);
+
+	/** Animate rain with steady presentation time, independent of simulation pauses. */
+	void update_rain();
+
 private:
 	/**
 	 * Create the render pass for the screen output.
@@ -107,6 +114,11 @@ private:
 	std::shared_ptr<renderer::Geometry> blur_quad;
 	std::array<std::shared_ptr<renderer::UniformInput>, 3> blur_inputs{};
 	bool blur_active{false};
+	/** Created once and reused across resize/rebuilds. */
+	std::shared_ptr<renderer::ShaderProgram> rain_shader;
+	std::shared_ptr<renderer::UniformInput> rain_uniforms;
+	std::chrono::steady_clock::time_point rain_started_at{std::chrono::steady_clock::now()};
+	bool rain_enabled{false};
 
 	/**
 	 * Output texture.
