@@ -293,6 +293,7 @@ void Presenter::publish_fvd_options() {
 	this->fvd_hud_state->insert("optionsOpen", this->fvd_options_open);
 	this->fvd_hud_state->insert("musicOn", this->audio_settings->music_enabled.load());
 	this->fvd_hud_state->insert("effectsOn", this->audio_settings->effects_enabled.load());
+	this->fvd_hud_state->insert("mutedAll", this->audio_settings->muted.load());
 	this->fvd_hud_state->insert("rainOn", this->fvd_rain_enabled);
 	QString note{};
 	if (not this->audio_enabled) {
@@ -1495,6 +1496,7 @@ void Presenter::init_input() {
 		if (ev.type() == QEvent::KeyRelease and ev.key() == Qt::Key_M
 		    and ev.modifiers() == Qt::NoModifier and this->fvd_audio) {
 			this->fvd_audio->toggle_mute();
+			this->publish_fvd_options();
 			return;
 		}
 		// In multiplayer, 1 selects this player's Builder or shelter tower.
