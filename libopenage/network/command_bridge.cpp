@@ -175,6 +175,17 @@ WorldState capture_fvd_presentation_state(
 	result.map_size = static_cast<uint32_t>(fvd->get_map_size());
 	result.first_hunter_spawn_time = fvd->get_first_hunter_spawn_time();
 	result.match_outcome = fvd->get_match_outcome();
+	// Permanent terrain wear is public map state. Capture it once on the
+	// simulation owner thread so host, guests and recovery snapshots agree.
+	const auto &wear = fvd->get_terrain_wear();
+	if (wear.size() != fvd->get_map_size() * fvd->get_map_size()) {
+		throw Error{MSG(err) << "FVD terrain wear does not match map size"};
+	}
+	for (size_t i = 0; i < wear.size(); ++i) {
+		if (wear[i] != 0) {
+			result.terrain_wear.push_back({static_cast<uint32_t>(i), wear[i]});
+		}
+	}
 
 	std::vector<gamestate::entity_id_t> entity_ids{};
 	entity_ids.reserve(state->get_game_entities().size());
