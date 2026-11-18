@@ -558,6 +558,9 @@ public:
 	/** Get the width and height of the square map in tiles. */
 	size_t get_map_size() const;
 
+	/** Host-authored, permanent terrain wear in (ne * map_size + se) order. */
+	const std::vector<uint8_t> &get_terrain_wear() const;
+
 	/** Capture active construction orders in stable order-ID order. */
 	std::vector<FVDConstructionState> get_construction_state() const;
 
@@ -813,6 +816,17 @@ private:
 	void clear_tower_demolition(const std::shared_ptr<GameState> &state,
 	                            const coord::tile &site,
 	                            const time::time_t &time);
+
+	/** Host-side footstep sampling; no per-unit network traffic is required. */
+	void record_terrain_tracks(const std::shared_ptr<GameState> &state,
+	                           const time::time_t &time);
+	void add_terrain_wear(const coord::tile &tile, uint8_t amount);
+	struct TerrainTrail {
+		coord::phys3 last;
+		double distance_remainder{0.0};
+	};
+	std::unordered_map<entity_id_t, TerrainTrail> terrain_trails{};
+	std::vector<uint8_t> terrain_wear{};
 
 	size_t map_size;
 	size_t chunk_size;
