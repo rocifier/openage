@@ -5,6 +5,7 @@
 #include <cmath>
 #include <functional>
 #include <optional>
+#include <numeric>
 #include <vector>
 #include <memory>
 #include <unordered_map>
@@ -2582,13 +2583,11 @@ void fvd_hunter_spawning() {
 	TESTEQUALS(moving, wave.size());
 	// Movement produces actual persistent terrain scarring; a stationary
 	// spawn alone would not cause this increase.
-	const auto wear_before = std::count_if(
-		fvd->get_terrain_wear().begin(), fvd->get_terrain_wear().end(),
-		[](uint8_t value) { return value > 0; });
+	const auto wear_before = std::accumulate(
+		fvd->get_terrain_wear().begin(), fvd->get_terrain_wear().end(), size_t{0});
 	loop->reach_time(at(40), state);
-	const auto wear_after = std::count_if(
-		fvd->get_terrain_wear().begin(), fvd->get_terrain_wear().end(),
-		[](uint8_t value) { return value > 0; });
+	const auto wear_after = std::accumulate(
+		fvd->get_terrain_wear().begin(), fvd->get_terrain_wear().end(), size_t{0});
 	TESTEQUALS(wear_after > wear_before, true);
 
 	// The debug shortcut replaces the pending first event, starts the regular
