@@ -107,6 +107,12 @@ public:
 	/** Stop drawing the dry square. */
 	void clear_dry_zone();
 
+	/** Upload the host-authored permanent wear intensity of every terrain tile.
+	 * The array uses (ne * map_size + se) order; empty disables the effect.
+	 * Called on the render thread after a changed FVD world snapshot.
+	 */
+	void set_wear(size_t map_size, const std::vector<uint8_t> &levels);
+
 	/**
 	 * Add a new render entity to the terrain renderer.
 	 *
@@ -200,6 +206,11 @@ private:
 	float dry_zone_centre_se = 0.0f;
 	float dry_zone_half_size = 0.0f;
 	float dry_zone_feather = 1.0f;
+
+	/** A small GPU texture, updated only when the captured wear map changes. */
+	std::shared_ptr<renderer::Texture2d> wear_texture;
+	bool wear_enabled = false;
+	size_t wear_map_size = 1;
 
 	/** Apply the fog uniforms to one terrain mesh's uniform input. */
 	void apply_fog(const std::shared_ptr<renderer::UniformInput> &uniforms) const;
