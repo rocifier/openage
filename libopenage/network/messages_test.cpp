@@ -371,6 +371,20 @@ void messages() {
 	outside_wear.terrain_wear.back().tile_index = 128 * 128;
 	TESTTHROWS(encode_world_state(outside_wear));
 
+	// Large maps remain within the 1 MiB network frame limit even if
+	// every tile has become muddy by the end of the match.
+	auto ruined_map = state;
+	ruined_map.map_size = 512;
+	ruined_map.terrain_wear.clear();
+	ruined_map.terrain_wear.reserve(512 * 512);
+	for (uint32_t tile = 0; tile < 512u * 512u; ++tile) {
+		ruined_map.terrain_wear.push_back({tile, 255});
+	}
+	const auto ruined_bytes = encode_world_state(ruined_map);
+	TESTEQUALS(ruined_bytes.size() < MAX_PAYLOAD_SIZE, true);
+	TESTEQUALS(decode_world_state(ruined_bytes).terrain_wear,
+	           ruined_map.terrain_wear);
+
 	auto decoded_state = decode_world_state(encode_world_state(state));
 	TESTEQUALS(decoded_state.base_revision, state.base_revision);
 	TESTEQUALS(decoded_state.world_revision, state.world_revision);
