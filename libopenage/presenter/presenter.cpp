@@ -1236,6 +1236,27 @@ network::WorldState Presenter::fvd_local_view(const network::WorldState &world, 
 }
 
 void Presenter::update_fvd_fog(const network::WorldState *world) {
+	// The authoritative wear map is public map state, independent of who can
+	// currently see each unit. Rebuild the small texture only when it changes.
+	if (world) {
+		const size_t tiles = static_cast<size_t>(world->map_size) * world->map_size;
+		std::vector<uint8_t> wear(tiles, 0);
+		for (const auto &cell : world->terrain_wear) {
+			if (cell.tile_index >= tiles) {
+				throw Error{MSG(err) << "FVD terrain wear tile outside map"};
+			}
+			wear[cell.tile_index] = cell.intensity;
+		}
+		if (wear != this->fvd_wear_levels) {
+			this->terrain_renderer->set_wear(world->map_size, wear);
+			this->fvd_wear_levels = std::move(wear);
+		}
+	}
+	else if (not this->fvd_wear_levels.empty()) {
+		this->fvd_wear_levels.clear();
+		this->terrain_renderer->set_wear(1, {});
+	}
+
 	std::unordered_set<uint32_t> dimmed;
 	if (world) {
 		for (const auto &entity : world->entities) {
