@@ -49,6 +49,11 @@ public:
 		payload{payload},
 		offset{0} {}
 
+	uint8_t u8() {
+		this->require(1);
+		return this->payload[this->offset++];
+	}
+
 	uint16_t u16() {
 		this->require(sizeof(uint16_t));
 		auto value = read_u16(this->payload.data() + this->offset);
@@ -895,24 +900,40 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 			append_u64(output, word);
 		}
 	}
-	// Compact and sorted: only worn tiles are sent, with no expiry/tombstones.
-	// In deltas this vector holds just the tiles whose intensity increased.
-	if (state.terrain_wear.size() > static_cast<size_t>(state.map_size) * state.map_size) {
+	// A full snapshot uses one byte per tile (including zeroes), so even a
+	// thoroughly destroyed 512x512 map fits well inside a frame. Deltas
+	// transmit only a sparse list of newly deepened cells.
+	const size_t total_tiles = static_cast<size_t>(state.map_size) * state.map_size;
+	if (state.terrain_wear.size() > total_tiles) {
 		throw Error{MSG(err) << "FVD terrain wear exceeds map size"};
 	}
-	append_u32(output, static_cast<uint32_t>(state.terrain_wear.size()));
+	std::vector<uint8_t> dense_wear{};
+	if (not partial) {
+		dense_wear.assign(total_tiles, 0);
+	}
 	uint32_t previous_wear_index = 0;
 	bool first_wear_tile = true;
 	for (const auto &cell : state.terrain_wear) {
-		if (cell.tile_index >= static_cast<size_t>(state.map_size) * state.map_size
-		    or cell.intensity == 0
+		if (cell.tile_index >= total_tiles or cell.intensity == 0
 		    or (not first_wear_tile and cell.tile_index <= previous_wear_index)) {
 			throw Error{MSG(err) << "FVD terrain wear must be nonzero, in bounds and ordered"};
 		}
-		append_u32(output, cell.tile_index);
-		append_u16(output, cell.intensity);
+		if (not partial) {
+			dense_wear[cell.tile_index] = cell.intensity;
+		}
 		previous_wear_index = cell.tile_index;
 		first_wear_tile = false;
+	}
+	if (partial) {
+		append_u32(output, static_cast<uint32_t>(state.terrain_wear.size()));
+		for (const auto &cell : state.terrain_wear) {
+			append_u32(output, cell.tile_index);
+			append_u16(output, cell.intensity);
+		}
+	}
+	else {
+		append_u32(output, 0x80000000u | static_cast<uint32_t>(total_tiles));
+		output.insert(output.end(), dense_wear.begin(), dense_wear.end());
 	}
 	if (output.size() > MAX_PAYLOAD_SIZE) {
 		throw Error{MSG(err) << "FVD state exceeds the maximum frame payload"};
@@ -1284,22 +1305,35 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		state.fog.push_back(std::move(fog));
 	}
 	validate_fog(state, partial);
-	const auto worn_count = reader.u32();
-	if (worn_count > static_cast<size_t>(state.map_size) * state.map_size) {
-		throw Error{MSG(err) << "FVD terrain wear exceeds map size"};
+	const auto wear_header = reader.u32();
+	const size_t total_tiles = static_cast<size_t>(state.map_size) * state.map_size;
+	const bool dense_wear = (wear_header & 0x80000000u) != 0;
+	const uint32_t worn_count = wear_header & 0x7fffffffu;
+	if (worn_count > total_tiles or dense_wear == partial
+	    or (dense_wear and worn_count != total_tiles)) {
+		throw Error{MSG(err) << "Invalid FVD terrain wear encoding or dimensions"};
 	}
 	state.terrain_wear.reserve(worn_count);
-	uint32_t previous_wear_index = 0;
-	for (uint32_t i = 0; i < worn_count; ++i) {
-		const auto index = reader.u32();
-		const auto intensity = reader.u16();
-		if (index >= static_cast<size_t>(state.map_size) * state.map_size
-		    or intensity == 0 or intensity > 255
-		    or (i > 0 and index <= previous_wear_index)) {
-			throw Error{MSG(err) << "Malformed FVD terrain wear cell"};
+	if (dense_wear) {
+		for (uint32_t index = 0; index < worn_count; ++index) {
+			const auto intensity = reader.u8();
+			if (intensity != 0) {
+				state.terrain_wear.push_back({index, intensity});
+			}
 		}
-		state.terrain_wear.push_back({index, static_cast<uint8_t>(intensity)});
-		previous_wear_index = index;
+	}
+	else {
+		uint32_t previous_wear_index = 0;
+		for (uint32_t i = 0; i < worn_count; ++i) {
+			const auto index = reader.u32();
+			const auto intensity = reader.u16();
+			if (index >= total_tiles or intensity == 0 or intensity > 255
+			    or (i > 0 and index <= previous_wear_index)) {
+				throw Error{MSG(err) << "Malformed FVD terrain wear cell"};
+			}
+			state.terrain_wear.push_back({index, static_cast<uint8_t>(intensity)});
+			previous_wear_index = index;
+		}
 	}
 	reader.finish();
 	return state;
