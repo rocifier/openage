@@ -44,6 +44,7 @@ auto construction_key = [](const ConstructionState &r) { return r.order_id; };
 auto attack_key = [](const AttackOrderState &r) { return r.horse_id; };
 auto arrow_key = [](const ArrowState &r) { return r.arrow_id; };
 auto flare_key = [](const FlareState &r) { return r.flare_id; };
+auto wear_key = [](const TerrainWearCell &r) { return r.tile_index; };
 
 bool same(const PlayerState &a, const PlayerState &b) {
 	return a.player_id == b.player_id and a.role == b.role and a.connected == b.connected;
@@ -369,6 +370,31 @@ WorldDelta make_world_delta(const WorldState &previous, const WorldState &curren
 	           delta.changed.constructions, delta.removed_constructions, construction_key);
 	difference(previous.attack_orders, current.attack_orders,
 	           delta.changed.attack_orders, delta.removed_attack_orders, attack_key);
+	// Tile damage is permanent. Only changed intensities cross the wire,
+	// and a missing cell or a decreasing value is a broken host invariant.
+	size_t old_wear = 0;
+	for (const auto &cell : current.terrain_wear) {
+		while (old_wear < previous.terrain_wear.size()
+		       and previous.terrain_wear[old_wear].tile_index < cell.tile_index) {
+			throw Error{MSG(err) << "FVD terrain wear disappeared from host state"};
+		}
+		if (old_wear == previous.terrain_wear.size()
+		    or previous.terrain_wear[old_wear].tile_index != cell.tile_index) {
+			delta.changed.terrain_wear.push_back(cell);
+		}
+		else {
+			if (cell.intensity < previous.terrain_wear[old_wear].intensity) {
+				throw Error{MSG(err) << "FVD terrain wear regressed"};
+			}
+			if (cell.intensity > previous.terrain_wear[old_wear].intensity) {
+				delta.changed.terrain_wear.push_back(cell);
+			}
+			++old_wear;
+		}
+	}
+	if (old_wear != previous.terrain_wear.size()) {
+		throw Error{MSG(err) << "FVD terrain wear disappeared from host state"};
+	}
 	if (previous.fog != current.fog) {
 		delta.changed.fog = current.fog;
 	}
@@ -464,6 +490,19 @@ WorldState apply_world_delta(const WorldState &previous, const WorldDelta &delta
 	patch(next.reservations, changed.reservations, delta.removed_reservations, reservation_key);
 	patch(next.constructions, changed.constructions, delta.removed_constructions, construction_key);
 	patch(next.attack_orders, changed.attack_orders, delta.removed_attack_orders, attack_key);
+	for (const auto &cell : changed.terrain_wear) {
+		const auto prior = std::lower_bound(
+			next.terrain_wear.begin(), next.terrain_wear.end(), cell.tile_index,
+			[](const TerrainWearCell &entry, uint32_t index) {
+				return entry.tile_index < index;
+			});
+		if (prior != next.terrain_wear.end() and prior->tile_index == cell.tile_index
+		    and cell.intensity <= prior->intensity) {
+			throw Error{MSG(err) << "FVD terrain wear delta did not increase"};
+		}
+	}
+	static const std::vector<uint32_t> no_removed_wear{};
+	patch(next.terrain_wear, changed.terrain_wear, no_removed_wear, wear_key);
 	if (not changed.fog.empty()) {
 		next.fog = changed.fog;
 	}
