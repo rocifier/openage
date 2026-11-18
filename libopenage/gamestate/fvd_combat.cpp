@@ -652,10 +652,8 @@ void FVD::record_terrain_tracks(const std::shared_ptr<GameState> &state,
 			const double initial = step - trail.distance_remainder;
 			for (double walked = initial; walked <= distance; walked += step) {
 				const double ratio = walked / distance;
-				const coord::phys3 foot{
-					trail.last.ne + (position.ne - trail.last.ne) * ratio,
-					trail.last.se + (position.se - trail.last.se) * ratio,
-					position.up};
+				const coord::phys3 foot =
+					trail.last + (position - trail.last) * ratio;
 				this->add_terrain_wear(foot.to_tile(), 7);
 			}
 			trail.distance_remainder = std::fmod(
