@@ -472,6 +472,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 		                << MAX_CHUNK_WIDTH << ", players 2..8, construction >0..300 seconds"};
 	}
 	this->map_size = size;
+	this->terrain_wear_units.assign(this->map_size * this->map_size, uint8_t{0});
 	this->terrain_wear.assign(this->map_size * this->map_size, uint8_t{0});
 	this->chunk_size = chunk;
 	this->player_count = players;
@@ -1671,7 +1672,7 @@ void FVD::advance_build(const std::shared_ptr<GameState> &state,
 		// Rebuilding a fortification permanently compacts its footprint.
 		// This is separate from foot traffic, so repeated tower cycles matter.
 		for (const auto &footprint_tile : this->get_tower_footprint(tile)) {
-			this->add_terrain_wear(footprint_tile, 38);
+			this->add_terrain_wear(footprint_tile, TOWER_BUILD_WEAR);
 		}
 		{
 			std::lock_guard lock{this->tower_kills_mutex};
@@ -3508,7 +3509,7 @@ const std::vector<uint8_t> &FVD::get_terrain_wear() const {
 	return this->terrain_wear;
 }
 
-void FVD::add_terrain_wear(const coord::tile &tile, uint8_t amount) {
+void FVD::add_terrain_wear(const coord::tile &tile, uint8_t added_units) {
 	if (tile.ne < 0 or tile.se < 0
 	    or tile.ne >= static_cast<coord::tile_t>(this->map_size)
 	    or tile.se >= static_cast<coord::tile_t>(this->map_size)) {
@@ -3516,8 +3517,15 @@ void FVD::add_terrain_wear(const coord::tile &tile, uint8_t amount) {
 	}
 	const auto index = static_cast<size_t>(tile.ne) * this->map_size
 	                 + static_cast<size_t>(tile.se);
-	this->terrain_wear[index] = static_cast<uint8_t>(std::min<unsigned int>(
-		255, static_cast<unsigned int>(this->terrain_wear[index]) + amount));
+	const unsigned int units = std::min<unsigned int>(
+		MAX_TERRAIN_WEAR_UNITS,
+		static_cast<unsigned int>(this->terrain_wear_units[index]) + added_units);
+	this->terrain_wear_units[index] = static_cast<uint8_t>(units);
+	// Round only when publishing to the 8-bit network/terrain texture.
+	// Integer units ensure the 33rd Builder or 66th Hunter traversal,
+	// not the 32nd/65th, is the first one that reaches full saturation.
+	this->terrain_wear[index] = static_cast<uint8_t>(
+		units * 255u / MAX_TERRAIN_WEAR_UNITS);
 }
 
 std::vector<FVDConstructionState> FVD::get_construction_state() const {
