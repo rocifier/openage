@@ -65,7 +65,7 @@ vec3 trampled_ground(vec3 grass, vec2 tile_pos, float wear_amount) {
                * sin(tile_pos.y * 11.0 - tile_pos.x * 5.0);
     float grit = mix(coarse, fine, 0.45);
     // At high wear, irregular depressions hold dark standing water.
-    float wetness = smoothstep(0.43, 0.90, wear_amount)
+    float wetness = smoothstep(0.55, 1.0, wear_amount)
                   * smoothstep(0.16, 0.88, 0.54 * grit + 0.46 * ruts);
     vec3 soil = mix(vec3(0.175, 0.139, 0.102),
                     vec3(0.105, 0.092, 0.075), grit * 0.7);
@@ -76,7 +76,8 @@ vec3 trampled_ground(vec3 grass, vec2 tile_pos, float wear_amount) {
         tile_pos.x * 23.0 + tile_pos.y * 14.0 + wear_time * 1.6);
     pool += vec3(0.062, 0.074, 0.080) * shimmer * smoothstep(0.65, 0.92, grit);
     vec3 mud = mix(soil, pool, wetness * 0.90);
-    float coverage = smoothstep(0.055, 0.82, wear_amount);
+    // Full mud coverage is reached only at 100% accumulated traffic wear.
+    float coverage = smoothstep(0.0, 1.0, wear_amount);
     return mix(grass, mud, coverage * 0.98);
 }
 
