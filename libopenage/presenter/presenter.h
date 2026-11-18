@@ -351,6 +351,8 @@ protected:
 	void update_fvd_fog(const network::WorldState *world);
 	/** Fog levels last sent to the terrain renderer. */
 	std::vector<uint8_t> fvd_fog_levels{};
+	/** Last uploaded public terrain-wear map, including zero-valued tiles. */
+	std::vector<uint8_t> fvd_wear_levels{};
 	std::optional<network::WorldState> fvd_previous_combat_world{};
 	struct CombatVisual {
 		coord::phys3 position;
