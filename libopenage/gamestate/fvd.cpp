@@ -3524,8 +3524,7 @@ void FVD::add_terrain_wear(const coord::tile &tile, uint8_t added_units) {
 	// Round only when publishing to the 8-bit network/terrain texture.
 	// Integer units ensure the 33rd Builder or 66th Hunter traversal,
 	// not the 32nd/65th, is the first one that reaches full saturation.
-	this->terrain_wear[index] = static_cast<uint8_t>(
-		units * 255u / MAX_TERRAIN_WEAR_UNITS);
+	this->terrain_wear[index] = fvd_mud_intensity(units);
 }
 
 std::vector<FVDConstructionState> FVD::get_construction_state() const {
