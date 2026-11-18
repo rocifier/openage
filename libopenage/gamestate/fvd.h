@@ -38,6 +38,16 @@ namespace openage::gamestate {
 /** Match time available to Builders before their time-limit victory. */
 constexpr int FVD_MATCH_DURATION_SECONDS = 45 * 60;
 
+/** 66 Hunter-equivalent crossings are required for full muddy saturation. */
+constexpr unsigned int FVD_MUD_UNITS_PER_TILE = 66;
+
+/** Convert exact wear units to the 8-bit public terrain intensity. */
+constexpr uint8_t fvd_mud_intensity(unsigned int wear_units) {
+	const unsigned int capped = wear_units < FVD_MUD_UNITS_PER_TILE
+	                          ? wear_units : FVD_MUD_UNITS_PER_TILE;
+	return static_cast<uint8_t>(capped * 255u / FVD_MUD_UNITS_PER_TILE);
+}
+
 /** Pure match rule: Hunter elimination has priority over Builder thresholds. */
 std::optional<network::MatchOutcome> decide_fvd_match_outcome(
 	bool any_builder_alive, const time::time_t &now,
@@ -818,7 +828,7 @@ private:
 	                            const time::time_t &time);
 
 	/** Trampling uses 66 exact wear units per tile: 66 Hunter or 33 Builder passes. */
-	static constexpr uint8_t MAX_TERRAIN_WEAR_UNITS = 66;
+	static constexpr uint8_t MAX_TERRAIN_WEAR_UNITS = FVD_MUD_UNITS_PER_TILE;
 	static constexpr uint8_t HUNTER_PASS_WEAR = 1;
 	static constexpr uint8_t BUILDER_PASS_WEAR = 2;
 	/** A tower construction counts as one Builder pass over its footprint. */
