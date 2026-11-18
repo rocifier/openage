@@ -2580,6 +2580,16 @@ void fvd_hunter_spawning() {
 		}
 	}
 	TESTEQUALS(moving, wave.size());
+	// Movement produces actual persistent terrain scarring; a stationary
+	// spawn alone would not cause this increase.
+	const auto wear_before = std::count_if(
+		fvd->get_terrain_wear().begin(), fvd->get_terrain_wear().end(),
+		[](uint8_t value) { return value > 0; });
+	loop->reach_time(at(40), state);
+	const auto wear_after = std::count_if(
+		fvd->get_terrain_wear().begin(), fvd->get_terrain_wear().end(),
+		[](uint8_t value) { return value > 0; });
+	TESTEQUALS(wear_after > wear_before, true);
 
 	// The debug shortcut replaces the pending first event, starts the regular
 	// interval from now, and cannot be used again after the wave has begun.
