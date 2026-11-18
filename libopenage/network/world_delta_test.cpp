@@ -85,6 +85,39 @@ void world_delta() {
 		{13, 2, "fvd.data.entities.Builder", {66, 66, 0}, 25, 25},
 	};
 	initial.entities[1].garrisoned_builder = gamestate::entity_id_t{13};
+
+	// Only intensified cells are sent. Late joiners get the whole worn map;
+	// ordinary deltas add new tracks and deepen existing muddy tiles.
+	auto baseline_wear = initial;
+	baseline_wear.terrain_wear = {{5, 20}, {129, 40}};
+	auto churned = baseline_wear;
+	churned.world_revision = 11;
+	churned.simulation_time = time::time_t::from_int(21);
+	churned.terrain_wear = {{5, 28}, {129, 40}, {131, 60}};
+	auto mud_delta = make_world_delta(baseline_wear, churned);
+	TESTEQUALS(mud_delta.changed.terrain_wear,
+	           (std::vector<TerrainWearCell>{{5, 28}, {131, 60}}));
+	const auto mud_wire = decode_world_delta(encode_world_delta(mud_delta));
+	const auto rebuilt_mud = apply_world_delta(baseline_wear, mud_wire);
+	TESTEQUALS(rebuilt_mud.terrain_wear, churned.terrain_wear);
+	TESTEQUALS(decode_world_state(encode_world_state(churned)).terrain_wear,
+	           churned.terrain_wear);
+	auto quieter = churned;
+	quieter.world_revision = 12;
+	quieter.simulation_time = time::time_t::from_int(22);
+	auto unchanged_mud = make_world_delta(churned, quieter);
+	TESTEQUALS(unchanged_mud.changed.terrain_wear.empty(), true);
+	auto erased_mud = quieter;
+	erased_mud.world_revision = 13;
+	erased_mud.terrain_wear.pop_back();
+	TESTTHROWS(make_world_delta(quieter, erased_mud));
+	auto reduced_mud = quieter;
+	reduced_mud.world_revision = 13;
+	reduced_mud.terrain_wear.front().intensity = 3;
+	TESTTHROWS(make_world_delta(quieter, reduced_mud));
+	auto malicious_delta = mud_delta;
+	malicious_delta.changed.terrain_wear.front().intensity = 1;
+	TESTTHROWS(apply_world_delta(baseline_wear, malicious_delta));
 	// Occupancy colour is a public edge even if the hidden Builder ID
 	// is not included in the receiving player's delta.
 	auto empty_flag = initial;
