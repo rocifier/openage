@@ -895,6 +895,25 @@ std::vector<uint8_t> encode_world_state(const WorldState &state, bool partial) {
 			append_u64(output, word);
 		}
 	}
+	// Compact and sorted: only worn tiles are sent, with no expiry/tombstones.
+	// In deltas this vector holds just the tiles whose intensity increased.
+	if (state.terrain_wear.size() > static_cast<size_t>(state.map_size) * state.map_size) {
+		throw Error{MSG(err) << "FVD terrain wear exceeds map size"};
+	}
+	append_u32(output, static_cast<uint32_t>(state.terrain_wear.size()));
+	uint32_t previous_wear_index = 0;
+	bool first_wear_tile = true;
+	for (const auto &cell : state.terrain_wear) {
+		if (cell.tile_index >= static_cast<size_t>(state.map_size) * state.map_size
+		    or cell.intensity == 0
+		    or (not first_wear_tile and cell.tile_index <= previous_wear_index)) {
+			throw Error{MSG(err) << "FVD terrain wear must be nonzero, in bounds and ordered"};
+		}
+		append_u32(output, cell.tile_index);
+		append_u16(output, cell.intensity);
+		previous_wear_index = cell.tile_index;
+		first_wear_tile = false;
+	}
 	if (output.size() > MAX_PAYLOAD_SIZE) {
 		throw Error{MSG(err) << "FVD state exceeds the maximum frame payload"};
 	}
@@ -1265,6 +1284,23 @@ WorldState decode_world_state(const std::vector<uint8_t> &payload, bool partial)
 		state.fog.push_back(std::move(fog));
 	}
 	validate_fog(state, partial);
+	const auto worn_count = reader.u32();
+	if (worn_count > static_cast<size_t>(state.map_size) * state.map_size) {
+		throw Error{MSG(err) << "FVD terrain wear exceeds map size"};
+	}
+	state.terrain_wear.reserve(worn_count);
+	uint32_t previous_wear_index = 0;
+	for (uint32_t i = 0; i < worn_count; ++i) {
+		const auto index = reader.u32();
+		const auto intensity = reader.u16();
+		if (index >= static_cast<size_t>(state.map_size) * state.map_size
+		    or intensity == 0 or intensity > 255
+		    or (i > 0 and index <= previous_wear_index)) {
+			throw Error{MSG(err) << "Malformed FVD terrain wear cell"};
+		}
+		state.terrain_wear.push_back({index, static_cast<uint8_t>(intensity)});
+		previous_wear_index = index;
+	}
 	reader.finish();
 	return state;
 }
