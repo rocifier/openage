@@ -6,6 +6,7 @@
 #include <optional>
 #include <mutex>
 #include <cmath>
+#include <limits>
 #include <vector>
 #include <unordered_set>
 #include <utility>
@@ -626,43 +627,79 @@ bool FVD::begin_stance_engagement(const std::shared_ptr<GameState> &state,
 
 void FVD::record_terrain_tracks(const std::shared_ptr<GameState> &state,
                                 const time::time_t &time) {
-	// One footprint every 0.55 tiles travelled. Stationary units never
-	// paint the ground, and paths remain continuous across combat ticks.
-	constexpr double step = 0.55;
+	// A pass is one visit to a tile by a moving unit, NOT one position
+	// sample. Traversing a tile across multiple 0.2-second combat ticks
+	// must count only once. Re-entering it later counts as another pass.
 	std::unordered_set<entity_id_t> present{};
 	for (const auto &[id, entity] : state->get_game_entities()) {
 		const auto &definition = entity->get_definition();
-		if ((definition != this->builder and definition != this->escape_cart
-		     and not this->is_hunter_unit(definition))
+		const bool builder = definition == this->builder;
+		const bool cart = definition == this->escape_cart;
+		if ((not builder and not cart and not this->is_hunter_unit(definition))
 		    or this->is_garrisoned(id)
 		    or not entity->has_component(component::component_t::POSITION)) {
 			continue;
 		}
 		present.insert(id);
 		const auto position = position_at(entity, time);
-		auto [it, inserted] = this->terrain_trails.try_emplace(id, TerrainTrail{position, 0.0});
+		auto [it, inserted] = this->terrain_trails.try_emplace(id, TerrainTrail{position});
 		if (inserted) {
 			continue;
 		}
 		auto &trail = it->second;
-		const double ne = (position.ne - trail.last.ne).to_double();
-		const double se = (position.se - trail.last.se).to_double();
-		const double distance = std::hypot(ne, se);
-		if (distance > 0.0001 and distance < 8.0) {
-			const double initial = step - trail.distance_remainder;
-			for (double walked = initial; walked <= distance; walked += step) {
-				const double ratio = walked / distance;
-				const coord::phys3 foot =
-					trail.last + (position - trail.last) * ratio;
-				this->add_terrain_wear(foot.to_tile(), 7);
-			}
-			trail.distance_remainder = std::fmod(
-				trail.distance_remainder + distance, step);
+		const double from_ne = trail.last.ne.to_double();
+		const double from_se = trail.last.se.to_double();
+		const double d_ne = position.ne.to_double() - from_ne;
+		const double d_se = position.se.to_double() - from_se;
+		const double distance = std::hypot(d_ne, d_se);
+		if (distance >= 8.0) {
+			// Ignore discontinuities rather than streaking across the map.
+			trail.last_worn_tile.reset();
 		}
-		// Ignore teleports or spawn corrections instead of drawing a long
-		// accidental scar from one side of the map to the other.
-		else if (distance >= 8.0) {
-			trail.distance_remainder = 0.0;
+		else if (distance > 0.0001) {
+			const uint8_t weight = builder or cart ? BUILDER_PASS_WEAR
+			                                     : HUNTER_PASS_WEAR;
+			auto tile = trail.last.to_tile();
+			const auto destination = position.to_tile();
+			auto mark = [&](const coord::tile &where) {
+				if (trail.last_worn_tile != where) {
+					this->add_terrain_wear(where, weight);
+					trail.last_worn_tile = where;
+				}
+			};
+			mark(tile);
+			// Walk the actual segment through the tile grid, rather than
+			// sampling every 0.55 tiles (which counted some traversals twice).
+			const int step_ne = (d_ne > 0) - (d_ne < 0);
+			const int step_se = (d_se > 0) - (d_se < 0);
+			const double infinity = std::numeric_limits<double>::infinity();
+			double next_ne = step_ne ? ((step_ne > 0
+			    ? std::floor(from_ne) + 1.0 : std::floor(from_ne)) - from_ne) / d_ne
+			    : infinity;
+			double next_se = step_se ? ((step_se > 0
+			    ? std::floor(from_se) + 1.0 : std::floor(from_se)) - from_se) / d_se
+			    : infinity;
+			const double delta_ne = step_ne ? 1.0 / std::abs(d_ne) : infinity;
+			const double delta_se = step_se ? 1.0 / std::abs(d_se) : infinity;
+			// At most 16 grid boundaries can be crossed in a segment under
+			// 8 tiles long; the bound also defends against rounding errors.
+			for (int crossed = 0; tile != destination and crossed < 32; ++crossed) {
+				if (next_ne < next_se) {
+					tile.ne += step_ne;
+					next_ne += delta_ne;
+				}
+				else if (next_se < next_ne) {
+					tile.se += step_se;
+					next_se += delta_se;
+				}
+				else {
+					tile.ne += step_ne;
+					tile.se += step_se;
+					next_ne += delta_ne;
+					next_se += delta_se;
+				}
+				mark(tile);
+			}
 		}
 		trail.last = position;
 	}
@@ -670,7 +707,6 @@ void FVD::record_terrain_tracks(const std::shared_ptr<GameState> &state,
 		return not present.contains(entry.first);
 	});
 }
-
 void FVD::combat_tick(const std::shared_ptr<GameState> &state,
                       const time::time_t &time) {
 	if (this->match_outcome) return;
