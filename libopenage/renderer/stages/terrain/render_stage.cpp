@@ -46,6 +46,9 @@ TerrainRenderStage::TerrainRenderStage(const std::shared_ptr<Window> &window,
 	this->fog_texture = this->renderer->add_texture(resources::Texture2dData{
 		resources::Texture2dInfo{1, 1, resources::pixel_format::rgba8},
 		std::vector<uint8_t>{255, 255, 255, 255}});
+	this->wear_texture = this->renderer->add_texture(resources::Texture2dData{
+		resources::Texture2dInfo{1, 1, resources::pixel_format::rgba8},
+		std::vector<uint8_t>{0, 0, 0, 255}});
 
 	window->add_resize_callback([this](size_t width, size_t height, double scale) {
 		auto size = Window::get_physical_size(width, height, scale);
@@ -106,6 +109,36 @@ void TerrainRenderStage::set_fog(size_t map_size, const std::vector<uint8_t> &le
 	}
 }
 
+void TerrainRenderStage::set_wear(size_t map_size, const std::vector<uint8_t> &levels) {
+	std::unique_lock lock{this->mutex};
+	this->wear_enabled = not levels.empty();
+	if (this->wear_enabled) {
+		if (map_size == 0 or levels.size() != map_size * map_size) {
+			throw Error{MSG(err) << "Terrain wear needs one level per tile"};
+		}
+		std::vector<uint8_t> pixels(levels.size() * 4, 255);
+		for (size_t i = 0; i < levels.size(); ++i) {
+			pixels[i * 4] = levels[i];
+		}
+		resources::Texture2dInfo info{map_size, map_size, resources::pixel_format::rgba8};
+		resources::Texture2dData data{info, std::move(pixels)};
+		if (this->wear_map_size == map_size and this->wear_texture) {
+			this->wear_texture->upload(data);
+		}
+		else {
+			this->wear_texture = this->renderer->add_texture(data);
+		}
+		this->wear_map_size = map_size;
+	}
+	for (auto &chunk : this->model->get_chunks()) {
+		for (auto &mesh : chunk->get_meshes()) {
+			if (mesh->get_uniforms()) {
+				this->apply_fog(mesh->get_uniforms());
+			}
+		}
+	}
+}
+
 void TerrainRenderStage::set_fog_edge_width(float tile_width) {
 	std::unique_lock lock{this->mutex};
 	this->fog_edge_width = std::clamp(tile_width, 0.0f, 1.0f);
@@ -151,6 +184,9 @@ void TerrainRenderStage::apply_fog(const std::shared_ptr<renderer::UniformInput>
 	uniforms->update("fog_enabled", this->fog_enabled);
 	uniforms->update("fog_map_size", static_cast<float>(this->fog_map_size));
 	uniforms->update("fog_edge_width", this->fog_edge_width);
+	uniforms->update("wear", this->wear_texture);
+	uniforms->update("wear_enabled", this->wear_enabled);
+	uniforms->update("wear_map_size", static_cast<float>(this->wear_map_size));
 	// The dry zone rides along with the fog uniforms, so every terrain mesh
 	// (including chunks created later) gets it.
 	uniforms->update("dry_zone_enabled", this->dry_zone_enabled);
@@ -174,6 +210,7 @@ void TerrainRenderStage::clear_entities() {
 	this->render_entity.reset();
 	this->model = std::make_shared<TerrainRenderModel>(this->asset_manager);
 	this->model->set_camera(this->camera);
+	this->wear_enabled = false;
 	this->render_pass->clear_renderables();
 }
 
@@ -182,6 +219,9 @@ void TerrainRenderStage::update() {
 	auto current_time = this->clock->get_real_time();
 	for (auto &chunk : this->model->get_chunks()) {
 		for (auto &mesh : chunk->get_meshes()) {
+			if (this->wear_enabled and mesh->get_uniforms()) {
+				mesh->get_uniforms()->update("wear_time", static_cast<float>(current_time.to_double()));
+			}
 			if (mesh->requires_renderable()) [[unlikely]] { /*probably doesn't happen that often?*/
 				// TODO: Update uniforms and geometry individually, depending on what changed
 				// TODO: Update existing renderable instead of recreating it
@@ -189,6 +229,7 @@ void TerrainRenderStage::update() {
 				auto transform_unifs = this->display_shader->create_empty_input();
 				transform_unifs->update("show_grid", this->grid_enabled);
 				this->apply_fog(transform_unifs);
+				transform_unifs->update("wear_time", static_cast<float>(current_time.to_double()));
 
 				Renderable display_obj{
 					transform_unifs,
