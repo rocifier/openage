@@ -744,6 +744,7 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 			clock->reset_paused();
 			this->world_renderer->clear_entities();
 			this->terrain_renderer->clear_entities();
+			this->fvd_wear_levels.clear();
 			this->simulation->request_match_reset();
 			this->fvd_reset_pending = true;
 			this->fvd_lobby_local_error = "Preparing a fresh FVD match...";
