@@ -187,11 +187,6 @@ float dry_zone_weight(vec2 tile_pos) {
 void main()
 {
     vec4 tex_val = texture(tex, tex_pos);
-    if (show_grid) {
-        vec2 distance_to_line = abs(fract(grid_pos - 0.5) - 0.5) / fwidth(grid_pos);
-        float line = 1.0 - min(min(distance_to_line.x, distance_to_line.y), 1.0);
-        tex_val.rgb = mix(tex_val.rgb, vec3(0.08, 0.12, 0.06), line * 0.55);
-    }
     // World space is (se, up, -ne).
     vec2 tile_pos = vec2(world_pos.x, -world_pos.z);
     if (dry_zone_enabled) {
@@ -205,6 +200,13 @@ void main()
         if (wear_amount > 0.0) {
             tex_val.rgb = trampled_ground(tex_val.rgb, tile_pos, wear_amount);
         }
+    }
+    // Preserve FVD's tile outlines over churned earth so construction and
+    // site placement stay readable even on fully muddied terrain.
+    if (show_grid) {
+        vec2 distance_to_line = abs(fract(grid_pos - 0.5) - 0.5) / fwidth(grid_pos);
+        float line = 1.0 - min(min(distance_to_line.x, distance_to_line.y), 1.0);
+        tex_val.rgb = mix(tex_val.rgb, vec3(0.08, 0.12, 0.06), line * 0.55);
     }
     if (fog_enabled) {
         // Do not change unit visibility: this interpolation is strictly a
