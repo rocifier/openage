@@ -3679,7 +3679,19 @@ void fvd_build_queue() {
 		}
 	}
 	TESTEQUALS(towers, size_t{3});
+	// Finished towers scar their tiles permanently, independently of units
+	// walking over them; the capture uses the exact same host map.
+	const auto &worn_map = fvd->get_terrain_wear();
+	TESTEQUALS(worn_map.size(), fvd->get_map_size() * fvd->get_map_size());
+	for (const auto &site : std::vector<coord::tile>{{61, 66}, {57, 66}, {54, 66}}) {
+		for (const auto &cell : fvd->get_tower_footprint(site)) {
+			const auto index = static_cast<size_t>(cell.ne) * fvd->get_map_size()
+			                 + static_cast<size_t>(cell.se);
+			TESTEQUALS(worn_map.at(index) >= uint8_t{38}, true);
+		}
+	}
 	const auto completed_world = network::capture_fvd_presentation_state(state, at(40));
+	TESTEQUALS(completed_world.terrain_wear.empty(), false);
 	const auto completed_view = network::make_construction_presentation(completed_world);
 	TESTEQUALS(completed_view.sites.size(), size_t{3});
 	TESTEQUALS(completed_view.reservations.empty(), true);
