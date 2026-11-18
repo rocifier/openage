@@ -7,24 +7,34 @@ fog-of-war visibility do not change.
 
 ## Authoritative wear
 
-The host maintains a byte (0 to 255) for every terrain tile in
-`FVD::terrain_wear`. This array uses the same indexing as fog:
+The host maintains **66 exact wear units** per terrain tile. It
+projects these to the network/renderer byte map (0–255) in
+`FVD::terrain_wear`. Both arrays use fog's index order:
 `ne * map_size + se`.
 
-On each 0.2-second FVD combat simulation event, walking Builders, Hunter
-combat units and moving escape carts leave an additional 7 wear points
-every 0.55 world tile travelled. Stationary units do not leave footprints.
-The system samples only movement actually made; it does not generate wear
-along hypothetical orders. Unexpected jumps of 8 tiles or more are ignored
-to avoid trails across the map from teleports or corrections.
+**One Hunter pass contributes 1 unit**; **one Builder pass contributes
+2 units**. Thus precisely **66 Hunter passes** or **33 Builder passes**
+bring an untouched tile to maximum wear. A moving escape cart counts as a
+Builder pass. Different unit types can contribute to the same tile.
 
-Each successfully started tower construction adds 38 points to every
-tile of its footprint. Demolition does not restore grass. Consequently,
-repeatedly rebuilding fortifications creates deep muddy patches even if
-no units travel across them. All intensities saturate at 255.
+A *pass* means a moving unit entering/traversing a tile. The simulation
+tracks actual tile-boundary crossings rather than sampling every fraction
+of a tile: standing still, repeatedly updating a position within the
+same tile, and small frame-to-frame movements do **not** add extra passes.
+Leaving and re-entering counts as another pass. Unexpected jumps of 8
+tiles or more are ignored, to prevent teleport trails.
 
-These constants are in `FVD::record_terrain_tracks` and
-`FVD::advance_build` respectively.
+Each successfully started tower construction contributes **2 units** to
+each tile of its footprint, like one Builder traversal. Repeated builds
+and demolition eventually churn the area, but not nearly as quickly
+as before. Demolition never restores the grass.
+
+All values saturate at 66 units, and the terrain shader now reserves
+full mud coverage and puddles for the highest wear levels.
+
+The tuning constants are in `FVD`'s terrain wear definitions in
+`libopenage/gamestate/fvd.h`, with traversal accounting in
+`fvd_combat.cpp` and tower wear in `fvd.cpp`.
 
 ## Multiplayer
 
