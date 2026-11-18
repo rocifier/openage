@@ -817,15 +817,25 @@ private:
 	                            const coord::tile &site,
 	                            const time::time_t &time);
 
-	/** Host-side footstep sampling; no per-unit network traffic is required. */
+	/** Trampling uses 66 exact wear units per tile: 66 Hunter or 33 Builder passes. */
+	static constexpr uint8_t MAX_TERRAIN_WEAR_UNITS = 66;
+	static constexpr uint8_t HUNTER_PASS_WEAR = 1;
+	static constexpr uint8_t BUILDER_PASS_WEAR = 2;
+	/** A tower construction counts as one Builder pass over its footprint. */
+	static constexpr uint8_t TOWER_BUILD_WEAR = 2;
+
+	/** Record each tile traversed once, regardless of simulation tick rate. */
 	void record_terrain_tracks(const std::shared_ptr<GameState> &state,
 	                           const time::time_t &time);
-	void add_terrain_wear(const coord::tile &tile, uint8_t amount);
+	void add_terrain_wear(const coord::tile &tile, uint8_t wear_units);
 	struct TerrainTrail {
 		coord::phys3 last;
-		double distance_remainder{0.0};
+		/** Suppress duplicate marks while a unit remains inside a tile. */
+		std::optional<coord::tile> last_worn_tile{};
 	};
 	std::unordered_map<entity_id_t, TerrainTrail> terrain_trails{};
+	/** Exact accumulated pass units and their 0..255 replicated projection. */
+	std::vector<uint8_t> terrain_wear_units{};
 	std::vector<uint8_t> terrain_wear{};
 
 	size_t map_size;
