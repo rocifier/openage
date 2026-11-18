@@ -3619,6 +3619,16 @@ void fvd_foundation_push_and_timeout() {
 }
 
 void fvd_build_queue() {
+	// Exact wear thresholds: neither 65 Hunter traversals nor 32 Builder
+	// traversals may fully muddy a tile. The next pass must saturate it.
+	TESTEQUALS(fvd_mud_intensity(0), uint8_t{0});
+	TESTEQUALS(fvd_mud_intensity(1) > uint8_t{0}, true);
+	TESTEQUALS(fvd_mud_intensity(65) < uint8_t{255}, true);
+	TESTEQUALS(fvd_mud_intensity(66), uint8_t{255});
+	TESTEQUALS(fvd_mud_intensity(32 * 2) < uint8_t{255}, true);
+	TESTEQUALS(fvd_mud_intensity(33 * 2), uint8_t{255});
+	TESTEQUALS(fvd_mud_intensity(300), uint8_t{255});
+
 	auto root = util::Path{std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
 	auto mods = std::make_shared<assets::ModManager>(root / "assets");
 	mods->register_modpack(root / "assets" / "fvd" / "engine_api" / "modpack.toml");
@@ -3696,7 +3706,8 @@ void fvd_build_queue() {
 		for (const auto &cell : fvd->get_tower_footprint(site)) {
 			const auto index = static_cast<size_t>(cell.ne) * fvd->get_map_size()
 			                 + static_cast<size_t>(cell.se);
-			TESTEQUALS(worn_map.at(index) >= uint8_t{38}, true);
+			TESTEQUALS(worn_map.at(index) >= fvd_mud_intensity(2), true);
+			TESTEQUALS(worn_map.at(index) < uint8_t{255}, true);
 		}
 	}
 	const auto completed_world = network::capture_fvd_presentation_state(state, at(40));
