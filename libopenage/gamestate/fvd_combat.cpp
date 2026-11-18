@@ -7,6 +7,7 @@
 #include <mutex>
 #include <cmath>
 #include <vector>
+#include <unordered_set>
 #include <utility>
 
 #include "error/error.h"
@@ -623,9 +624,59 @@ bool FVD::begin_stance_engagement(const std::shared_ptr<GameState> &state,
 	return true;
 }
 
+void FVD::record_terrain_tracks(const std::shared_ptr<GameState> &state,
+                                const time::time_t &time) {
+	// One footprint every 0.55 tiles travelled. Stationary units never
+	// paint the ground, and paths remain continuous across combat ticks.
+	constexpr double step = 0.55;
+	std::unordered_set<entity_id_t> present{};
+	for (const auto &[id, entity] : state->get_game_entities()) {
+		const auto &definition = entity->get_definition();
+		if ((definition != this->builder and definition != this->escape_cart
+		     and not this->is_hunter_unit(definition))
+		    or this->is_garrisoned(id)
+		    or not entity->has_component(component::component_t::POSITION)) {
+			continue;
+		}
+		present.insert(id);
+		const auto position = position_at(entity, time);
+		auto [it, inserted] = this->terrain_trails.try_emplace(id, TerrainTrail{position, 0.0});
+		if (inserted) {
+			continue;
+		}
+		auto &trail = it->second;
+		const double ne = (position.ne - trail.last.ne).to_double();
+		const double se = (position.se - trail.last.se).to_double();
+		const double distance = std::hypot(ne, se);
+		if (distance > 0.0001 and distance < 8.0) {
+			const double initial = step - trail.distance_remainder;
+			for (double walked = initial; walked <= distance; walked += step) {
+				const double ratio = walked / distance;
+				const coord::phys3 foot{
+					trail.last.ne + (position.ne - trail.last.ne) * ratio,
+					trail.last.se + (position.se - trail.last.se) * ratio,
+					position.up};
+				this->add_terrain_wear(foot.to_tile(), 7);
+			}
+			trail.distance_remainder = std::fmod(
+				trail.distance_remainder + distance, step);
+		}
+		// Ignore teleports or spawn corrections instead of drawing a long
+		// accidental scar from one side of the map to the other.
+		else if (distance >= 8.0) {
+			trail.distance_remainder = 0.0;
+		}
+		trail.last = position;
+	}
+	std::erase_if(this->terrain_trails, [&](const auto &entry) {
+		return not present.contains(entry.first);
+	});
+}
+
 void FVD::combat_tick(const std::shared_ptr<GameState> &state,
                       const time::time_t &time) {
 	if (this->match_outcome) return;
+	this->record_terrain_tracks(state, time);
 	auto horses = entities_by_definition(state, this->horse);
 	auto orcs = entities_by_definition(state, this->orc);
 	horses.insert(horses.end(), orcs.begin(), orcs.end());
