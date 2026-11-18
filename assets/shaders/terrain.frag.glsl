@@ -30,6 +30,56 @@ uniform float dry_zone_half_size;
 // Width of the fade into the surrounding grass, in tiles.
 uniform float dry_zone_feather;
 
+// Permanent battlefield scar map supplied by the authoritative host.
+// 0 is fresh grass, 255 is completely churned mud.
+uniform sampler2D wear;
+uniform bool wear_enabled;
+uniform float wear_map_size;
+uniform float wear_time;
+
+float wear_at(ivec2 tile) {
+    ivec2 last = ivec2(int(wear_map_size) - 1);
+    return texelFetch(wear, clamp(tile, ivec2(0), last), 0).r;
+}
+
+float muddy_area(vec2 tile_pos) {
+    // Blend the wear texels around their tile centres. Dirt spreads naturally
+    // across adjacent paths instead of making square, chessboard-like scars.
+    vec2 p = tile_pos - vec2(0.5);
+    ivec2 base = ivec2(floor(p));
+    vec2 blend = smoothstep(vec2(0.10), vec2(0.90), fract(p));
+    float lower = mix(wear_at(base), wear_at(base + ivec2(1, 0)), blend.x);
+    float upper = mix(wear_at(base + ivec2(0, 1)),
+                      wear_at(base + ivec2(1, 1)), blend.x);
+    return mix(lower, upper, blend.y);
+}
+
+float mud_noise(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+vec3 trampled_ground(vec3 grass, vec2 tile_pos, float wear_amount) {
+    float coarse = mud_noise(floor(tile_pos * 5.0));
+    float fine = mud_noise(floor(tile_pos * 17.0));
+    float ruts = sin(tile_pos.x * 16.0 + tile_pos.y * 7.0 + coarse * 4.0)
+               * sin(tile_pos.y * 11.0 - tile_pos.x * 5.0);
+    float grit = mix(coarse, fine, 0.45);
+    // At high wear, irregular depressions hold dark standing water.
+    float wetness = smoothstep(0.43, 0.90, wear_amount)
+                  * smoothstep(0.16, 0.88, 0.54 * grit + 0.46 * ruts);
+    vec3 soil = mix(vec3(0.175, 0.139, 0.102),
+                    vec3(0.105, 0.092, 0.075), grit * 0.7);
+    vec3 pool = vec3(0.053, 0.083, 0.091);
+    // A faint moving reflection gives puddles a watery surface without
+    // introducing geometry or altering pathfinding.
+    float shimmer = 0.5 + 0.5 * sin(
+        tile_pos.x * 23.0 + tile_pos.y * 14.0 + wear_time * 1.6);
+    pool += vec3(0.062, 0.074, 0.080) * shimmer * smoothstep(0.65, 0.92, grit);
+    vec3 mud = mix(soil, pool, wetness * 0.90);
+    float coverage = smoothstep(0.055, 0.82, wear_amount);
+    return mix(grass, mud, coverage * 0.98);
+}
+
 // Read a discrete fog tile without changing the shared GPU texture's filtering.
 // Clamp to the map edges so fog never wraps around the opposite side.
 float tile_fog_brightness(ivec2 tile) {
@@ -148,6 +198,12 @@ void main()
         float weight = dry_zone_weight(tile_pos);
         if (weight > 0.0) {
             tex_val.rgb = mix(tex_val.rgb, dry_grass(tex_val.rgb), weight);
+        }
+    }
+    if (wear_enabled) {
+        float wear_amount = muddy_area(tile_pos);
+        if (wear_amount > 0.0) {
+            tex_val.rgb = trampled_ground(tex_val.rgb, tile_pos, wear_amount);
         }
     }
     if (fog_enabled) {
