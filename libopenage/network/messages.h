@@ -346,6 +346,15 @@ struct MatchOutcome {
 	bool operator==(const MatchOutcome &other) const = default;
 };
 
+/** Permanent terrain scarring in row-major (ne * map_size + se) order.
+ * Full snapshots contain every nonzero tile; deltas contain only increases. */
+struct TerrainWearCell {
+	uint32_t tile_index{0};
+	uint8_t intensity{0};
+
+	bool operator==(const TerrainWearCell &other) const = default;
+};
+
 /** Complete authoritative FVD state carried by a snapshot or delta. */
 struct WorldState {
 	uint64_t base_revision{0};
@@ -366,6 +375,7 @@ struct WorldState {
 	std::vector<ArrowState> arrows{};
 	/** Builder flares; never present in the Hunter's world. */
 	std::vector<FlareState> flares{};
+	std::vector<TerrainWearCell> terrain_wear{};
 	/**
 	 * The recipient's side's view on the wire (in a delta: only when it
 	 * changed); both sides in a local presentation snapshot.
