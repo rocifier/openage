@@ -355,6 +355,22 @@ void messages() {
 	marked_state.entities.back().ungarrison_source_tower = 0;
 	TESTTHROWS(encode_world_state(marked_state));
 
+	// Full snapshots include sparse permanent mud; malformed or unsorted
+	// wear records cannot be accepted into a recovered match.
+	state.terrain_wear = {{0, 1}, {128 * 8 + 6, 116}, {128 * 128 - 1, 255}};
+	auto wear_roundtrip = decode_world_state(encode_world_state(state));
+	TESTEQUALS(wear_roundtrip.terrain_wear, state.terrain_wear);
+	auto zero_wear = state;
+	zero_wear.terrain_wear.front().intensity = 0;
+	TESTTHROWS(encode_world_state(zero_wear));
+	auto duplicate_wear = state;
+	duplicate_wear.terrain_wear.insert(
+		duplicate_wear.terrain_wear.begin() + 1, duplicate_wear.terrain_wear.front());
+	TESTTHROWS(encode_world_state(duplicate_wear));
+	auto outside_wear = state;
+	outside_wear.terrain_wear.back().tile_index = 128 * 128;
+	TESTTHROWS(encode_world_state(outside_wear));
+
 	auto decoded_state = decode_world_state(encode_world_state(state));
 	TESTEQUALS(decoded_state.base_revision, state.base_revision);
 	TESTEQUALS(decoded_state.world_revision, state.world_revision);
