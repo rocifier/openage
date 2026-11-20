@@ -1,0 +1,6 @@
+{
+  "listen": "0.0.0.0",
+  "max_rooms": 64,
+  "max_connections": 128,
+  "player_tokens": []
+}
