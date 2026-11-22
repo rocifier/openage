@@ -27,6 +27,7 @@ namespace openage::network {
 namespace {
 
 constexpr size_t MAX_INFLIGHT_COMMANDS = 256;
+constexpr size_t MAX_CHAT_QUEUE = 64;
 // Heartbeats are sent over the accepted, sequenced ConnectionSession.
 // Short stalls are tolerated; a silent relay/peer eventually ends the match.
 constexpr auto LIVE_HEARTBEAT_INTERVAL = std::chrono::seconds{1};
@@ -171,6 +172,9 @@ void RelayLobbyClient::connect(RelayLobbyConfig settings) {
 		this->pending_multi_results.clear();
 		this->active_multi_identities.clear();
 		this->pending_guest_commands.clear();
+		this->outgoing_guest_chat.clear();
+		this->received_chat.clear();
+		this->pending_chat_delivery.clear();
 		this->incoming_host_commands.clear();
 		this->pending_command_results.clear();
 		this->guest_command_results.clear();
@@ -323,6 +327,74 @@ bool RelayLobbyClient::send_guest_command(CommandIntent intent) {
 	this->current.order_feedback = std::string{order_name(intent.kind)} + " sent...";
 	this->pending_guest_commands.push_back(std::move(intent));
 	return true;
+}
+
+bool RelayLobbyClient::send_chat(ChatMessage message) {
+	if (auto next = this->replacement()) return next->send_chat(std::move(message));
+	std::lock_guard lock{this->mutex};
+	if (this->stopping or not this->current.connected
+	    or this->current.local_player_id == 0
+	    or not this->reveal_finished_locked()
+	    or (this->current.phase != "bootstrap" and this->current.phase != "streaming"
+	        and this->current.phase != "playing")) return false;
+	if (message.sender != 0
+	    or (this->current.local_player_id == 1 and message.channel != ChatChannel::ALL)) return false;
+	try {
+		(void) encode_chat_message(message);
+	}
+	catch (const std::exception &) {
+		return false;
+	}
+	if (this->hosting) {
+		message.sender = this->current.local_player_id;
+		this->distribute_chat_locked(message);
+	}
+	else {
+		if (this->outgoing_guest_chat.size() >= MAX_CHAT_QUEUE) return false;
+		this->outgoing_guest_chat.push_back(std::move(message));
+	}
+	return true;
+}
+
+std::vector<ChatMessage> RelayLobbyClient::take_chat_messages() {
+	if (auto next = this->replacement()) return next->take_chat_messages();
+	std::lock_guard lock{this->mutex};
+	std::vector<ChatMessage> result{};
+	result.reserve(this->received_chat.size());
+	while (not this->received_chat.empty()) {
+		result.push_back(std::move(this->received_chat.front()));
+		this->received_chat.pop_front();
+	}
+	return result;
+}
+
+void RelayLobbyClient::distribute_chat_locked(const ChatMessage &message) {
+	if (chat_visible_to(message, this->current.local_player_id)) {
+		if (this->received_chat.size() >= MAX_CHAT_QUEUE) this->received_chat.pop_front();
+		this->received_chat.push_back(message);
+	}
+	const auto deliver = [&](gamestate::player_id_t recipient) {
+		if (not chat_visible_to(message, recipient)) return;
+		auto &queue = this->pending_chat_delivery[recipient];
+		if (queue.size() >= MAX_CHAT_QUEUE) queue.pop_front();
+		queue.push_back(message);
+	};
+	if (not this->active_multi_identities.empty()) {
+		for (const auto &[recipient, identity] : this->active_multi_identities) {
+			(void) identity;
+			deliver(recipient);
+		}
+	}
+	else if (this->active_remote_identity) {
+		deliver(this->active_remote_identity->player_id);
+	}
+}
+
+void RelayLobbyClient::accept_guest_chat(
+	const std::vector<uint8_t> &payload, gamestate::player_id_t authenticated_sender) {
+	auto message = authenticate_guest_chat(decode_chat_message(payload), authenticated_sender);
+	std::lock_guard lock{this->mutex};
+	this->distribute_chat_locked(message);
 }
 
 std::vector<AuthenticatedCommand> RelayLobbyClient::take_host_commands() {
@@ -494,6 +566,9 @@ void RelayLobbyClient::close() {
 		this->pending_multi_updates.clear();
 		this->pending_multi_results.clear();
 		this->pending_guest_commands.clear();
+		this->outgoing_guest_chat.clear();
+		this->received_chat.clear();
+		this->pending_chat_delivery.clear();
 		this->incoming_host_commands.clear();
 		this->pending_command_results.clear();
 		this->guest_command_results.clear();
@@ -697,6 +772,10 @@ void RelayLobbyClient::run(RelayLobbyConfig settings) {
 									MessageType::WORLD_SNAPSHOT, encode_world_state(latest)));
 								continue;
 							}
+							if (frame->message_type == MessageType::CHAT_MESSAGE) {
+								this->accept_guest_chat(frame->payload, accepted->get_identity().player_id);
+								continue;
+							}
 							if (frame->message_type != MessageType::COMMAND_INTENT) {
 								throw Error{MSG(err) << "Unexpected guest match message"};
 							}
@@ -709,7 +788,16 @@ void RelayLobbyClient::run(RelayLobbyConfig settings) {
 							this->incoming_host_commands.push_back(std::move(incoming));
 						}
 						{
+							std::deque<ChatMessage> chat_out;
 							std::deque<CommandResult> outgoing;
+							{
+								std::lock_guard lock{this->mutex};
+								chat_out.swap(this->pending_chat_delivery[guest_player]);
+							}
+							for (const auto &message : chat_out) {
+								socket->send_frame(accepted->make_frame(
+									MessageType::CHAT_MESSAGE, encode_chat_message(message)));
+							}
 							{
 								std::lock_guard lock{this->mutex};
 								outgoing.swap(this->pending_command_results);
@@ -925,6 +1013,17 @@ void RelayLobbyClient::run(RelayLobbyConfig settings) {
 							MessageType::COMMAND_INTENT, encode_command_intent(intent)));
 					}
 				}
+				{
+					std::deque<ChatMessage> chat_out;
+					{
+						std::lock_guard lock{this->mutex};
+						chat_out.swap(this->outgoing_guest_chat);
+					}
+					for (const auto &message : chat_out) {
+						socket->send_frame(session.make_frame(
+							MessageType::CHAT_MESSAGE, encode_chat_message(message)));
+					}
+				}
 				auto update_frame = socket->try_receive_frame();
 				if (not update_frame) {
 					if (not socket->is_open() or not socket->peer_connected()) {
@@ -947,6 +1046,16 @@ void RelayLobbyClient::run(RelayLobbyConfig settings) {
 						std::lock_guard lock{this->mutex};
 						++this->current.heartbeat_acknowledgements;
 					}
+					continue;
+				}
+				if (update_frame->message_type == MessageType::CHAT_MESSAGE) {
+					auto message = decode_chat_message(update_frame->payload);
+					if (not chat_visible_to(message, guest_player)) {
+						throw Error{MSG(err) << "FVD chat delivered to an unauthorized recipient"};
+					}
+					std::lock_guard lock{this->mutex};
+					if (this->received_chat.size() >= MAX_CHAT_QUEUE) this->received_chat.pop_front();
+					this->received_chat.push_back(std::move(message));
 					continue;
 				}
 				if (update_frame->message_type == MessageType::COMMAND_RESULT) {
@@ -1400,6 +1509,7 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 				std::lock_guard lock{this->mutex};
 				this->active_multi_identities.erase(player);
 				this->pending_multi_results.erase(player);
+				this->pending_chat_delivery.erase(player);
 				this->pending_multi_updates.erase(player);
 				this->pending_multi_snapshots.erase(player);
 				pending_departure_notices.erase(player);
@@ -1452,6 +1562,7 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 							while (not this->stopping and not stop_peers) {
 								std::optional<WorldState> update{};
 								std::deque<CommandResult> decisions{};
+								std::deque<ChatMessage> chat_out{};
 								std::deque<gamestate::player_id_t> notices{};
 								{
 									std::lock_guard lock{this->mutex};
@@ -1465,6 +1576,7 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 										decisions.swap(results->second);
 										this->pending_multi_results.erase(results);
 									}
+									chat_out.swap(this->pending_chat_delivery[id]);
 									auto departures = pending_departure_notices.find(id);
 									if (departures != pending_departure_notices.end()) {
 										notices.swap(departures->second);
@@ -1479,6 +1591,10 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 										MessageType::PARTICIPANT_DISCONNECTED,
 										encode_participant_disconnected({
 											departed, DisconnectReason::CONNECTION_LOST})));
+								}
+								for (const auto &message : chat_out) {
+									socket.send_frame(session.make_frame(
+										MessageType::CHAT_MESSAGE, encode_chat_message(message)));
 								}
 								for (auto &decision : decisions) {
 									socket.send_frame(session.make_frame(
@@ -1522,6 +1638,10 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 										socket.send_frame(session.make_frame(
 											MessageType::WORLD_SNAPSHOT,
 											encode_world_state(latest)));
+										continue;
+									}
+									if (frame->message_type == MessageType::CHAT_MESSAGE) {
+										this->accept_guest_chat(frame->payload, session.get_identity().player_id);
 										continue;
 									}
 									if (frame->message_type != MessageType::COMMAND_INTENT) {
@@ -1592,6 +1712,7 @@ void RelayLobbyClient::run_multi_host(RelayLobbyConfig settings) {
 			this->active_multi_identities.clear();
 			this->incoming_host_commands.clear();
 			this->pending_multi_results.clear();
+			this->pending_chat_delivery.clear();
 			this->pending_multi_updates.clear();
 		}
 		if (active) active->close(); // Unblock every guest immediately on Hunter loss.

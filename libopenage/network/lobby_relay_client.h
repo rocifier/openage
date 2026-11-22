@@ -138,6 +138,11 @@ public:
 	/** Queue one locally authored intent. Only guests send intents over TCP. */
 	bool send_guest_command(CommandIntent intent);
 
+	/** Submit a message to the authoritative match transport. */
+	bool send_chat(ChatMessage message);
+	/** Consume local chat deliveries in receive order. */
+	std::vector<ChatMessage> take_chat_messages();
+
 	/** Drain remote intents paired with the immutable accepted guest identity. */
 	std::vector<AuthenticatedCommand> take_host_commands();
 
@@ -184,6 +189,10 @@ private:
 		const RelayLobbyConfig &settings);
 	std::shared_ptr<RelayLobbyClient> replacement() const;
 	bool reveal_finished_locked() const;
+	/** Called with mutex locked, enqueues only to permitted recipient roles. */
+	void distribute_chat_locked(const ChatMessage &message);
+	void accept_guest_chat(const std::vector<uint8_t> &payload,
+	                       gamestate::player_id_t authenticated_sender);
 
 	mutable std::mutex mutex;
 	RelayLobbyStatus current{};
@@ -194,6 +203,9 @@ private:
 	std::set<gamestate::player_id_t> offered_multi_snapshots{};
 	std::map<gamestate::player_id_t, WorldState> pending_multi_updates{};
 	std::deque<CommandIntent> pending_guest_commands{};
+	std::deque<ChatMessage> outgoing_guest_chat{};
+	std::deque<ChatMessage> received_chat{};
+	std::map<gamestate::player_id_t, std::deque<ChatMessage>> pending_chat_delivery{};
 	std::deque<AuthenticatedCommand> incoming_host_commands{};
 	std::deque<CommandResult> pending_command_results{};
 	std::map<gamestate::player_id_t, std::deque<CommandResult>> pending_multi_results{};
