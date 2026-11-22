@@ -12,6 +12,39 @@
 namespace openage::network::tests {
 
 void messages() {
+	// The sender is assigned by the accepted host session; the client
+	// cannot pick another player's colour or bypass ally filtering.
+	ChatMessage guest_chat{0, ChatChannel::ALLY, "Help at the west tower!"};
+	auto request = decode_chat_message(encode_chat_message(guest_chat));
+	TESTEQUALS(request.sender, gamestate::player_id_t{0});
+	auto authenticated = authenticate_guest_chat(request, 3);
+	TESTEQUALS(authenticated.sender, gamestate::player_id_t{3});
+	TESTEQUALS(authenticated.channel, ChatChannel::ALLY);
+	TESTEQUALS(decode_chat_message(encode_chat_message(authenticated)).text,
+	           guest_chat.text);
+	TESTEQUALS(chat_visible_to(authenticated, 2), true);
+	TESTEQUALS(chat_visible_to(authenticated, 3), true);
+	TESTEQUALS(chat_visible_to(authenticated, 1), false);
+	authenticated.channel = ChatChannel::ALL;
+	TESTEQUALS(chat_visible_to(authenticated, 1), true);
+	TESTTHROWS(authenticate_guest_chat(authenticated, 2));
+	TESTTHROWS(authenticate_guest_chat(guest_chat, 1));
+	TESTTHROWS(encode_chat_message({1, ChatChannel::ALLY, "Hunter"}));
+	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, ""}));
+	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, "  "}));
+	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, "hello\\nworld"}));
+	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL,
+	                             std::string(MAX_CHAT_TEXT_SIZE + 1, 'x')}));
+	TESTTHROWS(encode_chat_message({2, static_cast<ChatChannel>(99), "x"}));
+	auto bad_chat = encode_chat_message(authenticated);
+	bad_chat[10] = 1; // reserved flags
+	TESTTHROWS(decode_chat_message(bad_chat));
+	bad_chat = encode_chat_message(authenticated);
+	bad_chat.pop_back();
+	TESTTHROWS(decode_chat_message(bad_chat));
+	bad_chat = encode_chat_message(authenticated);
+	bad_chat.push_back(0);
+	TESTTHROWS(decode_chat_message(bad_chat));
 	ClientHello hello{};
 	hello.minimum_protocol_minor = 0;
 	hello.participant_name = "Builder";

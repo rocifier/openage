@@ -215,6 +215,60 @@ void append_string(std::vector<uint8_t> &output,
 
 } // namespace
 
+bool chat_visible_to(const ChatMessage &message, gamestate::player_id_t recipient) {
+	if (message.sender < 1 or message.sender > MAX_STATE_PLAYERS
+	    or recipient < 1 or recipient > MAX_STATE_PLAYERS) return false;
+	if (message.channel == ChatChannel::ALL) return true;
+	return message.channel == ChatChannel::ALLY and message.sender >= 2 and recipient >= 2;
+}
+
+ChatMessage authenticate_guest_chat(ChatMessage message, gamestate::player_id_t authenticated_player) {
+	if (message.sender != 0 or authenticated_player < 1
+	    or authenticated_player > MAX_STATE_PLAYERS
+	    or (authenticated_player == 1 and message.channel != ChatChannel::ALL)) {
+		throw Error{MSG(err) << "Invalid authenticated FVD chat sender or channel"};
+	}
+	message.sender = authenticated_player;
+	// Reuse the strict message-text and enum validation on this host path.
+	(void) encode_chat_message(message);
+	return message;
+}
+
+std::vector<uint8_t> encode_chat_message(const ChatMessage &message) {
+	if (message.sender > MAX_STATE_PLAYERS
+	    or (message.channel != ChatChannel::ALL and message.channel != ChatChannel::ALLY)
+	    or (message.sender == 1 and message.channel != ChatChannel::ALL)
+	    or message.text.empty() or message.text.size() > MAX_CHAT_TEXT_SIZE) {
+		throw Error{MSG(err) << "Invalid FVD chat sender, channel, or text length"};
+	}
+	bool has_content = false;
+	for (unsigned char ch : message.text) {
+		if (ch < 32 or ch == 127) {
+			throw Error{MSG(err) << "FVD chat cannot contain control characters"};
+		}
+		if (ch != ' ') has_content = true;
+	}
+	if (not has_content) throw Error{MSG(err) << "FVD chat must not be blank"};
+	std::vector<uint8_t> output{};
+	append_u64(output, message.sender);
+	append_u16(output, static_cast<uint16_t>(message.channel));
+	append_u16(output, 0);
+	append_string(output, message.text, MAX_CHAT_TEXT_SIZE);
+	return output;
+}
+
+ChatMessage decode_chat_message(const std::vector<uint8_t> &payload) {
+	PayloadReader reader{payload};
+	ChatMessage message{};
+	message.sender = reader.u64();
+	message.channel = static_cast<ChatChannel>(reader.u16());
+	if (reader.u16() != 0) throw Error{MSG(err) << "Unsupported FVD chat flags"};
+	message.text = reader.string(MAX_CHAT_TEXT_SIZE);
+	reader.finish();
+	(void) encode_chat_message(message);
+	return message;
+}
+
 EntityKind EntityState::kind() const {
 	return classify(this->definition);
 }

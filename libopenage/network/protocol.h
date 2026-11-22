@@ -30,13 +30,14 @@ constexpr uint32_t FRAME_MAGIC = 0x4656444e;
 // and permits queued targeted foundation commands.
 // v24 adds Builder escape cart construction and mobile transport support.
 // v25 adds a distinct cart construction phase to replicated construction orders.
+// Minor v5 carries authenticated, recipient-filtered match chat frames.
 // Refuse older clients at the handshake rather than mid-match.
 // Minor versions continue to gate compatible relay features.
 constexpr uint16_t PROTOCOL_MAJOR = 25;
-constexpr uint16_t PROTOCOL_MINOR = 4;
+constexpr uint16_t PROTOCOL_MINOR = 5;
 
 /** Oldest protocol minor version compatible with this implementation. */
-constexpr uint16_t PROTOCOL_MINIMUM_COMPATIBLE_MINOR = 0;
+constexpr uint16_t PROTOCOL_MINIMUM_COMPATIBLE_MINOR = 5;
 
 /** Protocol version advertised during handshake or selected for a session. */
 struct ProtocolVersion {
@@ -90,6 +91,7 @@ enum class MessageType : uint16_t {
 	RELAY_ROOM_ATTACHED = 24,
 	AUTHORITY_REHOST_OFFER = 25,
 	AUTHORITY_REHOST_PROOF = 26,
+	CHAT_MESSAGE = 27,
 };
 
 /** Whether a message type is defined by this protocol version. */

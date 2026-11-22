@@ -46,6 +46,9 @@ constexpr uint32_t MAX_STATE_FLARES = 64;
 constexpr uint16_t MAX_ENTITY_MOTION_KEYS = 16;
 constexpr uint16_t MAX_ENTITY_FACING_KEYS = 16;
 
+/** One chat message, capped in UTF-8 bytes before it reaches the relay. */
+constexpr uint32_t MAX_CHAT_TEXT_SIZE = 240;
+
 /** Largest displayable command rejection reason. */
 constexpr uint32_t MAX_REJECTION_REASON_SIZE = 4096;
 /** Maximum sites in one ordered tower placement line. */
@@ -78,6 +81,26 @@ enum class CommandKind : uint16_t {
 	/** Construct a mobile four-seat escape cart at the Builder's position. */
 	BUILD_CART = 15,
 };
+
+/** Channel is selected by a Builder; the Hunter always speaks to everyone. */
+enum class ChatChannel : uint16_t {
+	ALL = 1,
+	ALLY = 2,
+};
+
+struct ChatMessage {
+	/** Zero in a guest request; the host supplies the authenticated player. */
+	gamestate::player_id_t sender{0};
+	ChatChannel channel{ChatChannel::ALL};
+	std::string text{};
+};
+
+/** Channel routing, shared by the network host and its protocol tests. */
+bool chat_visible_to(const ChatMessage &message, gamestate::player_id_t recipient);
+/** Reject a forged sender, then insert the authenticated session's player. */
+ChatMessage authenticate_guest_chat(ChatMessage message, gamestate::player_id_t authenticated_player);
+std::vector<uint8_t> encode_chat_message(const ChatMessage &message);
+ChatMessage decode_chat_message(const std::vector<uint8_t> &payload);
 
 /** Host decision for one client command. */
 enum class CommandStatus : uint16_t {

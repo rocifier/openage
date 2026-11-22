@@ -13,7 +13,7 @@ namespace {
 
 bool is_known_message_type_value(uint16_t value) {
 	return value >= static_cast<uint16_t>(MessageType::CLIENT_HELLO)
-	    && value <= static_cast<uint16_t>(MessageType::AUTHORITY_REHOST_PROOF);
+	    && value <= static_cast<uint16_t>(MessageType::CHAT_MESSAGE);
 }
 
 size_t checked_frame_size(const uint8_t *header) {
