@@ -8,6 +8,10 @@ Item {
 	property var hud: typeof fvdHud === "undefined" ? null : fvdHud
 	property var lobby: typeof fvdLobby === "undefined" ? null : fvdLobby
 	readonly property bool hunter: hud !== null && hud.controlled === 1
+	readonly property bool chatReady: hud !== null && hud.chatEnabled === true
+	                                 && lobby !== null && lobby.phase === "playing"
+	readonly property bool chatOpen: chatReady && hud.chatOpen === true
+	readonly property bool chatToAll: hud === null || hud.chatChannel !== "ally"
 	readonly property bool placing: hud !== null && hud.placing
 	readonly property bool placementValid: hud !== null && hud.placementValid
 	readonly property var placementFootprint: hud === null ? [] : hud.placementFootprint
@@ -1369,6 +1373,131 @@ Item {
 			function onUnleashedSerialChanged() {
 				if (root.unleashedSerial > 0) {
 					unleashedAnimation.restart()
+				}
+			}
+		}
+	}
+
+
+	// Match chat is drawn above world graphics, independently of the bottom HUD.
+	// The presenter expires each entry after nine seconds and supplies fade opacity.
+	Item {
+		id: chatFeed
+		anchors.left: parent.left
+		anchors.top: topBar.bottom
+		anchors.leftMargin: 18
+		anchors.topMargin: 12
+		width: Math.min(610, parent.width - 36)
+		visible: root.chatReady
+		z: 20
+		height: chatFeedLines.implicitHeight
+
+		Column {
+			id: chatFeedLines
+			width: parent.width
+			spacing: 4
+			Repeater {
+				model: root.hud !== null ? root.hud.chatMessages : []
+				delegate: Text {
+					width: chatFeedLines.width
+					text: modelData.name + (modelData.ally ? " [Ally]" : "")
+					      + ": " + modelData.text
+					textFormat: Text.PlainText
+					color: root.flagColor(modelData.player)
+					style: Text.Outline
+					styleColor: "#000000"
+					font.pixelSize: 16
+					font.bold: true
+					wrapMode: Text.Wrap
+					maximumLineCount: 2
+					elide: Text.ElideRight
+					opacity: modelData.opacity
+				}
+			}
+		}
+	}
+
+	Rectangle {
+		id: chatInputPanel
+		objectName: "fvdChatInputPanel"
+		width: Math.min(500, parent.width - 40)
+		height: 53
+		anchors.horizontalCenter: parent.horizontalCenter
+		anchors.top: topBar.bottom
+		anchors.topMargin: 12
+		z: 45
+		visible: root.chatOpen
+		radius: 8
+		color: "#c21a2725"
+		border.width: 1
+		border.color: "#9dc0bbae"
+		onVisibleChanged: {
+			if (visible) Qt.callLater(function() { chatText.forceActiveFocus() })
+		}
+		Row {
+			anchors.fill: parent
+			anchors.margins: 9
+			spacing: 8
+			Rectangle {
+				width: 66
+				height: parent.height
+				radius: 5
+				color: "#46554d"
+				border.color: "#8fa79a"
+				Text {
+					anchors.centerIn: parent
+					text: root.hunter || root.chatToAll ? "All" : "Ally"
+					color: "#ffffff"
+					font.pixelSize: 13
+					font.bold: true
+				}
+				MouseArea {
+					anchors.fill: parent
+					enabled: !root.hunter
+					cursorShape: Qt.PointingHandCursor
+					onClicked: {
+						root.hud.chatChannel = root.chatToAll ? "ally" : "all"
+						chatText.forceActiveFocus()
+					}
+				}
+			}
+			TextInput {
+				id: chatText
+				width: parent.width - 74
+				height: parent.height
+				verticalAlignment: TextInput.AlignVCenter
+				font.pixelSize: 15
+				color: "#f5f5ef"
+				selectionColor: "#638e79"
+				selectedTextColor: "#ffffff"
+				clip: true
+				maximumLength: 240
+				onAccepted: {
+					// QtQuick receives the Return press before Presenter sees
+					// the release. Mark it so the release does not reopen chat.
+					root.hud.chatEnterHandled = true
+					var content = text.trim()
+					if (content.length > 0) {
+						root.hud.chatRequest = ({
+							text: content,
+							channel: root.hunter || root.chatToAll ? "all" : "ally"
+						})
+					}
+					text = ""
+					root.hud.chatOpen = false
+				}
+				Keys.onEscapePressed: function(event) {
+					root.hud.chatEscapeHandled = true
+					root.hud.chatOpen = false
+					event.accepted = true
+				}
+				Text {
+					anchors.fill: parent
+					verticalAlignment: Text.AlignVCenter
+					text: "Type a message and press Enter"
+					color: "#879b92"
+					font.pixelSize: 14
+					visible: chatText.text.length === 0
 				}
 			}
 		}

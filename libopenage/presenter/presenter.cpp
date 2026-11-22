@@ -468,7 +468,8 @@ bool Presenter::over_fvd_hud(const QPointF &position) const {
 	if (not this->fvd_hud_state or not this->gui) {
 		return false;
 	}
-	return this->gui->contains_item("fvdHunterChoicePanel", position)
+	return this->gui->contains_item("fvdChatInputPanel", position)
+	       or this->gui->contains_item("fvdHunterChoicePanel", position)
 	       or this->gui->contains_item("fvdBuildPanel", position)
 	       or this->gui->contains_item("fvdMinimapPanel", position)
 	       or this->gui->contains_item("fvdTopBar", position)
@@ -1148,6 +1149,54 @@ void Presenter::refresh_fvd_lobby_state() {
 	       and state.remote_player_id == 0 and state.phase == "playing");
 }
 
+void Presenter::refresh_fvd_chat_state() {
+	if (not this->fvd_hud_state) return;
+	if (not this->fvd_gameplay_active or not this->fvd_lobby_client) {
+		if (not this->fvd_chat_feed.empty()) {
+			this->fvd_chat_feed.clear();
+			this->fvd_hud_state->insert("chatMessages", QVariantList{});
+		}
+		if (this->fvd_hud_state->value("chatOpen").toBool()) {
+			this->fvd_hud_state->insert("chatOpen", false);
+		}
+		return;
+	}
+	const auto now = std::chrono::steady_clock::now();
+	for (auto &message : this->fvd_lobby_client->take_chat_messages()) {
+		if (this->fvd_chat_feed.size() >= 8) this->fvd_chat_feed.pop_front();
+		this->fvd_chat_feed.push_back({std::move(message), now});
+	}
+	while (not this->fvd_chat_feed.empty()
+	       and now - this->fvd_chat_feed.front().received >= std::chrono::seconds{9}) {
+		this->fvd_chat_feed.pop_front();
+	}
+	QVariantList view{};
+	const QString roles = this->fvd_lobby_state
+	    ? this->fvd_lobby_state->value("roles").toString() : QString{};
+	for (const auto &entry : this->fvd_chat_feed) {
+		QString name = QStringLiteral("Player %1").arg(entry.message.sender);
+		const auto suffix = QStringLiteral("(Player %1)").arg(entry.message.sender);
+		for (const QString &line : roles.split(QLatin1Char('\n'))) {
+			if (line.endsWith(suffix)) {
+				name = line.section(QStringLiteral(" — "), 0, 0);
+				break;
+			}
+		}
+		const double age = std::chrono::duration<double>(now - entry.received).count();
+		const double opacity = std::clamp((9.0 - age) / 3.0, 0.0, 1.0);
+		view.append(QVariantMap{
+			{"player", static_cast<int>(entry.message.sender)},
+			{"name", name},
+			{"text", QString::fromStdString(entry.message.text)},
+			{"ally", entry.message.channel == network::ChatChannel::ALLY},
+			{"opacity", opacity},
+		});
+	}
+	if (view != this->fvd_hud_state->value("chatMessages").toList()) {
+		this->fvd_hud_state->insert("chatMessages", view);
+	}
+}
+
 network::WorldState Presenter::fvd_local_view(const network::WorldState &world, size_t controlled) {
 	const auto role = controlled == 1 ? network::PlayerRole::HUNTER : network::PlayerRole::BUILDER;
 	auto fog = std::find_if(world.fog.begin(), world.fog.end(), [&](const auto &entry) {
@@ -1480,6 +1529,32 @@ void Presenter::init_input() {
 			// Forwarding here too makes each character appear twice in TextInput.
 			// Do not dispatch lobby keystrokes to gameplay bindings either.
 			return;
+		}
+		// QML already receives keystrokes from GuiRendererImpl. Enter opens
+		// the composer only on release; a send marks its Enter as consumed,
+		// preventing the same release from opening the composer again.
+		if (this->fvd_lobby_enabled and this->fvd_gameplay_active and this->fvd_hud_state) {
+			const bool chat_open = this->fvd_hud_state->value("chatOpen").toBool();
+			if (ev.key() == Qt::Key_Return or ev.key() == Qt::Key_Enter) {
+				if (ev.type() == QEvent::KeyRelease and not ev.isAutoRepeat()) {
+					if (this->fvd_hud_state->value("chatEnterHandled").toBool()) {
+						this->fvd_hud_state->insert("chatEnterHandled", false);
+					}
+					else if (not chat_open and ev.modifiers() == Qt::NoModifier) {
+						this->fvd_hud_state->insert("chatOpen", true);
+					}
+				}
+				return;
+			}
+			if (ev.key() == Qt::Key_Escape
+			    and (chat_open or this->fvd_hud_state->value("chatEscapeHandled").toBool())) {
+				if (ev.type() == QEvent::KeyRelease) {
+					this->fvd_hud_state->insert("chatOpen", false);
+					this->fvd_hud_state->insert("chatEscapeHandled", false);
+				}
+				return;
+			}
+			if (chat_open) return; // Never trigger game hotkeys while typing.
 		}
 		// F arms a flare (Builders); Esc disarms it before anything else.
 		if (ev.type() == QEvent::KeyRelease and ev.key() == Qt::Key_F
@@ -2004,6 +2079,27 @@ void Presenter::init_input() {
 			this->fvd_hud_state->insert("hunterCountdown", 0);
 			this->fvd_hud_state->insert("hunterPrompt", QVariantMap{});
 			this->fvd_hud_state->insert("matchTimeRemaining", -1);
+			this->fvd_hud_state->insert("chatEnabled", this->fvd_lobby_enabled);
+			this->fvd_hud_state->insert("chatOpen", false);
+			this->fvd_hud_state->insert("chatEnterHandled", false);
+			this->fvd_hud_state->insert("chatEscapeHandled", false);
+			this->fvd_hud_state->insert("chatChannel", QStringLiteral("all"));
+			this->fvd_hud_state->insert("chatMessages", QVariantList{});
+			this->fvd_hud_state->insert("chatRequest", QVariantMap{});
+			QObject::connect(this->fvd_hud_state.get(), &QQmlPropertyMap::valueChanged,
+			                 this->fvd_hud_state.get(),
+			                 [this](const QString &key, const QVariant &value) {
+				if (key != QStringLiteral("chatRequest") or not this->fvd_gameplay_active
+				    or not this->fvd_lobby_client) return;
+				const auto request = value.toMap();
+				const QString content = request.value(QStringLiteral("text")).toString().trimmed();
+				if (content.isEmpty()) return;
+				const auto channel = request.value(QStringLiteral("channel")).toString()
+				    == QStringLiteral("ally") ? network::ChatChannel::ALLY : network::ChatChannel::ALL;
+				if (not this->fvd_lobby_client->send_chat({0, channel, content.toStdString()})) {
+					log::log(WARN << "FVD chat message rejected (connection, length or rate)");
+				}
+			});
 			this->fvd_hud_state->insert("matchEnded", false);
 			this->fvd_hud_state->insert("matchResultTitle", QString{});
 			this->fvd_hud_state->insert("matchResultReason", QString{});
@@ -2146,6 +2242,7 @@ void Presenter::init_final_render_pass() {
 
 void Presenter::render() {
 	this->refresh_fvd_lobby_state();
+	this->refresh_fvd_chat_state();
 	if (this->fvd_reset_pending) return;
 	this->refresh_fvd_guest_visuals();
 	// A guest's replicated proxies are updated only when a world revision

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -279,6 +280,8 @@ protected:
 	std::string fvd_lobby_action_at(const QPointF &position) const;
 	void handle_fvd_lobby_action(const std::string &action);
 	void refresh_fvd_lobby_state();
+	/** Consume chat deliveries and keep only the recent fading HUD entries. */
+	void refresh_fvd_chat_state();
 	void refresh_fvd_guest_visuals();
 
 	// TODO: remove and move into our config/settings system
@@ -312,6 +315,11 @@ protected:
 
 	/** Qt bridge for FVD player HUD state and build-button actions. */
 	std::shared_ptr<QQmlPropertyMap> fvd_hud_state;
+	struct ChatDisplayEntry {
+		network::ChatMessage message;
+		std::chrono::steady_clock::time_point received;
+	};
+	std::deque<ChatDisplayEntry> fvd_chat_feed{};
 	bool fvd_lobby_enabled{false};
 	bool fvd_gameplay_active{false};
 	bool fvd_reset_pending{false};
