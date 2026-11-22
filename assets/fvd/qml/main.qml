@@ -12,6 +12,7 @@ Item {
 	                                 && lobby !== null && lobby.phase === "playing"
 	readonly property bool chatOpen: chatReady && hud.chatOpen === true
 	readonly property bool chatToAll: hud === null || hud.chatChannel !== "ally"
+	property int chatSerial: 0
 	readonly property bool placing: hud !== null && hud.placing
 	readonly property bool placementValid: hud !== null && hud.placementValid
 	readonly property var placementFootprint: hud === null ? [] : hud.placementFootprint
@@ -1480,7 +1481,8 @@ Item {
 					if (content.length > 0) {
 						root.hud.chatRequest = ({
 							text: content,
-							channel: root.hunter || root.chatToAll ? "all" : "ally"
+							channel: root.hunter || root.chatToAll ? "all" : "ally",
+							serial: ++root.chatSerial
 						})
 					}
 					text = ""

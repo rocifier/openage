@@ -1159,6 +1159,8 @@ void Presenter::refresh_fvd_chat_state() {
 		if (this->fvd_hud_state->value("chatOpen").toBool()) {
 			this->fvd_hud_state->insert("chatOpen", false);
 		}
+		this->fvd_hud_state->insert("chatEnterHandled", false);
+		this->fvd_hud_state->insert("chatEscapeHandled", false);
 		return;
 	}
 	const auto now = std::chrono::steady_clock::now();
