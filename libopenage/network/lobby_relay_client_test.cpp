@@ -404,6 +404,34 @@ void lobby_relay_client() {
 	TESTEQUALS(heartbeats_received, true);
 	TESTEQUALS(authority.status().connected, true);
 	TESTEQUALS(remote.status().connected, true);
+	// Chat uses the same authenticated two-peer transport as commands, but
+	// does not increment command IDs or alter the simulation revision.
+	TESTEQUALS(remote.send_chat({0, ChatChannel::ALLY, "Private builder message"}), true);
+	std::vector<ChatMessage> private_echo{};
+	for (size_t attempt = 0; attempt < 300; ++attempt) {
+		auto batch = remote.take_chat_messages();
+		private_echo.insert(private_echo.end(), batch.begin(), batch.end());
+		if (not private_echo.empty()) break;
+		std::this_thread::sleep_for(std::chrono::milliseconds{10});
+	}
+	TESTEQUALS(private_echo.size(), size_t{1});
+	TESTEQUALS(private_echo.front().sender, remote.status().local_player_id);
+	TESTEQUALS(private_echo.front().channel, ChatChannel::ALLY);
+	TESTEQUALS(authority.take_chat_messages().empty(), true);
+	TESTEQUALS(authority.send_chat({0, ChatChannel::ALL, "Hello, builder"}), true);
+	auto host_messages = authority.take_chat_messages();
+	TESTEQUALS(host_messages.size(), size_t{1});
+	TESTEQUALS(host_messages.front().sender, gamestate::player_id_t{1});
+	std::vector<ChatMessage> all_echo{};
+	for (size_t attempt = 0; attempt < 300; ++attempt) {
+		auto batch = remote.take_chat_messages();
+		all_echo.insert(all_echo.end(), batch.begin(), batch.end());
+		if (not all_echo.empty()) break;
+		std::this_thread::sleep_for(std::chrono::milliseconds{10});
+	}
+	TESTEQUALS(all_echo.size(), size_t{1});
+	TESTEQUALS(all_echo.front().text, std::string{"Hello, builder"});
+	TESTEQUALS(remote.status().pending_order_count, size_t{0});
 	CommandIntent movement{};
 	movement.kind = CommandKind::MOVE;
 	movement.entity_ids = {42};
