@@ -695,6 +695,50 @@ void lobby_relay_client() {
 		std::this_thread::sleep_for(std::chrono::milliseconds{10});
 	}
 	TESTEQUALS(all_playing, true);
+
+	// Builder-only chat is never delivered to the Hunter, even though the
+	// Hunter is the network authority. The server authenticates sender ID.
+	const auto sender = builders[0]->status().local_player_id;
+	TESTEQUALS(builders[0]->send_chat({0, ChatChannel::ALLY, "Build a wall here"}), true);
+	std::vector<ChatMessage> received_a{};
+	std::vector<ChatMessage> received_b{};
+	for (size_t attempt = 0; attempt < 400
+	     and (received_a.empty() or received_b.empty()); ++attempt) {
+		auto a = builders[0]->take_chat_messages();
+		auto b = builders[1]->take_chat_messages();
+		received_a.insert(received_a.end(), a.begin(), a.end());
+		received_b.insert(received_b.end(), b.begin(), b.end());
+		if (received_a.empty() or received_b.empty())
+			std::this_thread::sleep_for(std::chrono::milliseconds{10});
+	}
+	TESTEQUALS(received_a.size(), size_t{1});
+	TESTEQUALS(received_b.size(), size_t{1});
+	TESTEQUALS(received_a.front().sender, sender);
+	TESTEQUALS(received_b.front().sender, sender);
+	TESTEQUALS(received_a.front().channel, ChatChannel::ALLY);
+	TESTEQUALS(received_b.front().text, std::string{"Build a wall here"});
+	TESTEQUALS(hunter_authority->take_chat_messages().empty(), true);
+	TESTEQUALS(hunter_authority->send_chat({0, ChatChannel::ALLY, "Forbidden"}), false);
+	TESTEQUALS(hunter_authority->send_chat({0, ChatChannel::ALL, "The hunt begins"}), true);
+	auto host_echo = hunter_authority->take_chat_messages();
+	TESTEQUALS(host_echo.size(), size_t{1});
+	TESTEQUALS(host_echo.front().sender, gamestate::player_id_t{1});
+	std::vector<ChatMessage> all_a{};
+	std::vector<ChatMessage> all_b{};
+	for (size_t attempt = 0; attempt < 400
+	     and (all_a.empty() or all_b.empty()); ++attempt) {
+		auto a = builders[0]->take_chat_messages();
+		auto b = builders[1]->take_chat_messages();
+		all_a.insert(all_a.end(), a.begin(), a.end());
+		all_b.insert(all_b.end(), b.begin(), b.end());
+		if (all_a.empty() or all_b.empty())
+			std::this_thread::sleep_for(std::chrono::milliseconds{10});
+	}
+	TESTEQUALS(all_a.size(), size_t{1});
+	TESTEQUALS(all_b.size(), size_t{1});
+	TESTEQUALS(all_a.front().sender, gamestate::player_id_t{1});
+	TESTEQUALS(all_b.front().channel, ChatChannel::ALL);
+
 	CommandIntent move{};
 	move.kind = CommandKind::MOVE;
 	move.entity_ids = {501};

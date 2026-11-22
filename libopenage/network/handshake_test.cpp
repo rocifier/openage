@@ -75,7 +75,7 @@ void handshake() {
 			auto compatible_connection = compatible_listener.accept();
 			auto session = host_handshake(compatible_connection, 3, digest);
 			session.has_value() or TESTFAIL;
-			TESTEQUALS(session->get_protocol_version().minor, uint16_t{0});
+			TESTEQUALS(session->get_protocol_version().minor, PROTOCOL_MINIMUM_COMPATIBLE_MINOR);
 		}
 		catch (...) {
 			compatibility_server_error = std::current_exception();
@@ -85,12 +85,12 @@ void handshake() {
 	auto compatible_connection = TcpConnection::connect(
 		"127.0.0.1", compatible_listener.get_port());
 	auto compatible_hello = make_client_hello_frame(test_hello(digest));
-	compatible_hello.protocol_minor = 0;
+	compatible_hello.protocol_minor = PROTOCOL_MINIMUM_COMPATIBLE_MINOR;
 	compatible_connection.send_frame(compatible_hello);
 	auto compatibility_response = compatible_connection.receive_frame();
 	compatibility_response.has_value() or TESTFAIL;
 	compatibility_response->message_type == MessageType::SERVER_ACCEPT or TESTFAIL;
-	TESTEQUALS(compatibility_response->protocol_minor, uint16_t{0});
+	TESTEQUALS(compatibility_response->protocol_minor, PROTOCOL_MINIMUM_COMPATIBLE_MINOR);
 	compatibility_server.join();
 	if (compatibility_server_error) {
 		std::rethrow_exception(compatibility_server_error);

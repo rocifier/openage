@@ -32,7 +32,7 @@ void messages() {
 	TESTTHROWS(encode_chat_message({1, ChatChannel::ALLY, "Hunter"}));
 	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, ""}));
 	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, "  "}));
-	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, "hello\\nworld"}));
+	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL, "hello\nworld"}));
 	TESTTHROWS(encode_chat_message({2, ChatChannel::ALL,
 	                             std::string(MAX_CHAT_TEXT_SIZE + 1, 'x')}));
 	TESTTHROWS(encode_chat_message({2, static_cast<ChatChannel>(99), "x"}));
