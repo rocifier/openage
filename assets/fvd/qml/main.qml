@@ -953,6 +953,7 @@ Item {
 			Item {
 				id: minimapSurface
 				objectName: "fvdMinimapSurface"
+				property bool primaryVisible: true
 				width: Math.max(root.minimapPixels, 1)
 				height: width
 				x: (minimapDiamond.width - width) / 2
@@ -968,12 +969,57 @@ Item {
 					}
 				]
 
+				function stageImage(source) {
+					if (source.length === 0) return
+					if (primaryVisible) {
+						secondaryImage.pending = true
+						secondaryImage.source = source
+					}
+					else {
+						primaryImage.pending = true
+						primaryImage.source = source
+					}
+				}
+
+				Component.onCompleted: stageImage(root.minimapImage)
+
+				Connections {
+					target: root
+					function onMinimapImageChanged() {
+						minimapSurface.stageImage(root.minimapImage)
+					}
+				}
+
 				Image {
+					id: primaryImage
 					anchors.fill: parent
-					source: root.minimapImage
+					property bool pending: false
+					opacity: minimapSurface.primaryVisible ? 1 : 0
 					smooth: true
 					cache: false
 					asynchronous: false
+					onStatusChanged: {
+						if (pending && status === Image.Ready) {
+							pending = false
+							minimapSurface.primaryVisible = true
+						}
+					}
+				}
+
+				Image {
+					id: secondaryImage
+					anchors.fill: parent
+					property bool pending: false
+					opacity: minimapSurface.primaryVisible ? 0 : 1
+					smooth: true
+					cache: false
+					asynchronous: false
+					onStatusChanged: {
+						if (pending && status === Image.Ready) {
+							pending = false
+							minimapSurface.primaryVisible = false
+						}
+					}
 				}
 
 				Canvas {

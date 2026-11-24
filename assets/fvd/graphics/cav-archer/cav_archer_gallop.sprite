@@ -6,7 +6,7 @@ texture 0 "cav_archer_gallop.texture"
 
 scalefactor 0.8
 
-layer 0 mode=loop time_per_frame=0.08
+layer 0 mode=loop time_per_frame=0.05
 
 angle 0
 angle 22
