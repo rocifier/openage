@@ -224,7 +224,7 @@ void run_host(TcpListener &listener, bool test_hunter_session) {
 		auto first_spawn = decode_world_state(encode_world_state(
 			capture_fvd_state(state, connections, first_spawn_time, 0, 1, 2)));
 		TESTEQUALS(count_defined_entities(
-			first_spawn, "fvd.data.entities.Horse"), size_t{2});
+			first_spawn, "fvd.data.entities.Orc"), size_t{1});
 		TESTEQUALS(first_spawn.first_hunter_spawn_time.has_value(), false);
 		first_spawn.attack_orders.empty() or TESTFAIL;
 
@@ -233,7 +233,7 @@ void run_host(TcpListener &listener, bool test_hunter_session) {
 		auto second_spawn = decode_world_state(encode_world_state(
 			capture_fvd_state(state, connections, second_spawn_time, 0, 1, 2)));
 		TESTEQUALS(count_defined_entities(
-			second_spawn, "fvd.data.entities.Horse"), size_t{3});
+			second_spawn, "fvd.data.entities.Orc"), size_t{2});
 		second_spawn.attack_orders.empty() or TESTFAIL;
 
 		auto sample_time = time::time_t::from_int(30);

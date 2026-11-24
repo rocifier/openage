@@ -19,7 +19,7 @@ texture 13 "orc/x256p_Spritesheets/Attack_01/Attack_01_Body_112.texture"
 texture 14 "orc/x256p_Spritesheets/Attack_01/Attack_01_Body_135.texture"
 texture 15 "orc/x256p_Spritesheets/Attack_01/Attack_01_Body_157.texture"
 
-scalefactor 0.55
+scalefactor 0.65
 
 layer 0 mode=loop time_per_frame=0.0833333333333333
 
