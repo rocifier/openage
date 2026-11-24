@@ -32,7 +32,7 @@ void hud_mouse_capture() {
 
 	// Every Hunter action keeps its own identity across the mouse gesture.
 	for (auto action : {Action::PATROL, Action::CANCEL, Action::AGGRESSIVE,
-	                    Action::DEFENSIVE, Action::OBSERVE}) {
+	                    Action::DEFENSIVE, Action::OBSERVE, Action::TOGGLE_CHAT_CHANNEL}) {
 		click(QEvent::MouseButtonPress, Qt::LeftButton, true, action);
 		TESTEQUALS(click(QEvent::MouseButtonRelease, Qt::LeftButton, true, action).activated_action == action, true);
 	}

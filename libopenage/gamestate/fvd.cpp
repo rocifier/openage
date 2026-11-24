@@ -511,6 +511,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	this->builder_selection_radius = selection_width * 0.5;
 	this->horse = settings.get_object("horse").get_name();
 	this->orc = settings.get_object("orc").get_name();
+	this->cavalry_archer = settings.get_object("cavalry_archer").get_name();
 	this->escape_cart = settings.get_object("escape_cart").get_name();
 	const double cart_build_seconds = settings.get_float("cart_construction_time");
 	if (not std::isfinite(cart_build_seconds) or cart_build_seconds < 1.0 or cart_build_seconds > 300.0) {
@@ -551,6 +552,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	require_kind(this->builder, network::EntityKind::BUILDER);
 	require_kind(this->horse, network::EntityKind::HORSE);
 	require_kind(this->orc, network::EntityKind::ORC);
+	require_kind(this->cavalry_archer, network::EntityKind::CAVALRY_ARCHER);
 	require_kind(this->escape_cart, network::EntityKind::ESCAPE_CART);
 	require_kind(this->foundation, network::EntityKind::FOUNDATION);
 	require_kind(this->tower_demolition, network::EntityKind::TOWER_DEMOLITION);
@@ -696,6 +698,7 @@ FVD::FVD(const std::shared_ptr<GameState> &state) {
 	hunter_stats(this->horse, melee_damage, time::time_t::from_double(0.6));
 	hunter_stats(this->orc, orc_melee_damage,
 	             time::time_t::from_double(orc_attack_cooldown));
+	hunter_stats(this->cavalry_archer, melee_damage, time::time_t::from_double(0.6));
 
 	auto tower_object = state->get_db_view()->get_object(this->tower);
 	bool found_pathable = false;

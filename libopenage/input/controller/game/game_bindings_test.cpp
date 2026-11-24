@@ -779,6 +779,11 @@ void game_bindings_hunter() {
 void game_bindings_selection() {
 	BindingHarness h;
 	gamestate::tests::use_centre_test_layout(h.state);
+	// A release may outlive its press when the window focus or online
+	// session changes. It must not turn into a selection or throw.
+	TESTEQUALS(h.send(event_class::MOUSE_BUTTON, Qt::LeftButton,
+	                  Qt::NoModifier, QEvent::MouseButtonRelease, h.centre()), true);
+	TESTEQUALS(h.selection(), (Selection{{}, SelectionKind::NONE}));
 	const auto builder = h.entity(BUILDER, 2);
 	const std::vector<entity_id_t> selected{builder};
 	TESTEQUALS(h.fvd->queue_build(h.state, 2, selected, coord::tile{57, 66}.to_phys3_center(), time::TIME_ZERO), true);

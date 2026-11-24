@@ -19,7 +19,7 @@ OpeningRaid(HunterWave):
     HunterWave.start_seconds = 20
     HunterWave.interval_seconds = 1.0
     HunterWave.count = 1
-    HunterWave.unit = fvd.data.entities.Orc
+    HunterWave.unit = fvd.data.entities.CavalryArcher
 
 RangedPressure(HunterWave):
     HunterWave.start_seconds = 180
@@ -28,10 +28,10 @@ RangedPressure(HunterWave):
     HunterWave.unit = fvd.data.entities.Horse
 
 FinalAssault(HunterWave):
-    HunterWave.start_seconds = 2100
+    HunterWave.start_seconds = 190
     HunterWave.interval_seconds = 0.6
     HunterWave.count = 1
-    HunterWave.unit = fvd.data.entities.Horse
+    HunterWave.unit = fvd.data.entities.CavalryArcher
 
 # Choices are data, not UI implementations. All times are match-relative.
 # Options arrive at spawn_seconds, in count separate spawns spaced by interval_seconds.
@@ -123,6 +123,7 @@ Scenario(engine.root.Object):
     builder : engine.util.game_entity.GameEntity = fvd.data.entities.Builder
     horse : engine.util.game_entity.GameEntity = fvd.data.entities.Horse
     orc : engine.util.game_entity.GameEntity = fvd.data.entities.Orc
+    cavalry_archer : engine.util.game_entity.GameEntity = fvd.data.entities.CavalryArcher
     escape_cart : engine.util.game_entity.GameEntity = fvd.data.entities.EscapeCart
     foundation : engine.util.game_entity.GameEntity = fvd.data.entities.Foundation
     tower_demolition : engine.util.game_entity.GameEntity = fvd.data.entities.TowerDemolition

@@ -7,7 +7,7 @@ texture 1 "ethereal-hunter-horse-death_page_01.texture"
 texture 2 "ethereal-hunter-horse-death_page_02.texture"
 texture 3 "ethereal-hunter-horse-death_page_03.texture"
 
-scalefactor 2.0
+scalefactor 1.6
 
 layer 0 mode=once time_per_frame=0.05
 

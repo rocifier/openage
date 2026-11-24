@@ -245,7 +245,7 @@ The crimson tower graphic is a placeholder recoloured from the Builder tower.
 Run `bin/run test openage::gamestate::tests::fvd_hunter_tower` for its rules.
 A top-centre countdown shows the seconds remaining until the first Hunter unit, starting at 00:20 when the match begins and disappearing at the first spawn.
 It uses the same simulation-time deadline as spawning, so changing the clock speed or pausing the match does not desynchronize the display.
-At 20 seconds of match time the first Hunter Orc spawns beside the Hunter tower. The opening wave produces one Orc per second until 15 minutes; each Orc has 90 HP, deals 8 melee damage, and attacks every two seconds. The later main waves produce one horse per 0.8 seconds until 35 minutes, then one per 0.6 seconds through the end of the match.
+At 20 seconds of match time the first Hunter Orc spawns beside the Hunter tower. The opening wave produces one Orc per second until 3 minutes; each Orc has 90 HP, deals 8 melee damage, and attacks every two seconds. The next wave produces two horses every 1.8 seconds until 35 minutes, then cavalry archers arrive every 0.6 seconds through the end of the match.
 The Hunter can also receive timed supplemental-choice prompts, configured by `Scenario.hunter_choices`; the HUD builds the buttons from each option's nyan title, description, count and icon.
 See [Hunter wave authoring](../../doc/code/game_simulation/fvd_hunter_waves.md) for all timing and validation parameters.
 Horses belong to Hunter player 1 and receive no automatic movement commands.

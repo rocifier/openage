@@ -1750,7 +1750,8 @@ void Presenter::init_input() {
 			         std::pair{"fvdDeleteFoundationsButton", HudAction::DELETE_FOUNDATIONS},
 			         std::pair{"fvdCartButton", HudAction::BUILD_CART},
 			         std::pair{"fvdGarrisonButton", HudAction::GARRISON},
-			         std::pair{"fvdUngarrisonButton", HudAction::UNGARRISON}}) {
+			         std::pair{"fvdUngarrisonButton", HudAction::UNGARRISON},
+			         std::pair{"fvdChatChannelButton", HudAction::TOGGLE_CHAT_CHANNEL}}) {
 				if (this->gui->contains_item(name, ev.position())) {
 					hovered_action = action;
 					break;
@@ -1827,6 +1828,14 @@ void Presenter::init_input() {
 				break;
 			case HudAction::UNGARRISON:
 				this->game_controller->issue_ungarrison();
+				break;
+			case HudAction::TOGGLE_CHAT_CHANNEL:
+				if (this->game_controller->get_controlled() != 1) {
+					const bool all = this->fvd_hud_state->value("chatChannel").toString()
+					                 != QStringLiteral("ally");
+					this->fvd_hud_state->insert("chatChannel",
+					                            all ? QStringLiteral("ally") : QStringLiteral("all"));
+				}
 				break;
 			default:
 				if (hud_input.activated_action >= HudAction::HUNTER_CHOICE_FIRST) {

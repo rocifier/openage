@@ -1,0 +1,203 @@
+# Copyright 2026 the openage authors. See copying.md for legal info.
+# FVD cavalry archer gallop cycle.
+version 2
+
+texture 0 "cav_archer_gallop.texture"
+
+scalefactor 0.8
+
+layer 0 mode=loop time_per_frame=0.08
+
+angle 0
+angle 22
+angle 45
+angle 67
+angle 90
+angle 112
+angle 135
+angle 157
+angle 180
+angle 202
+angle 225
+angle 247
+angle 270
+angle 292
+angle 315
+angle 337
+
+frame 0 0 0 0 110
+frame 1 0 0 0 111
+frame 2 0 0 0 112
+frame 3 0 0 0 113
+frame 4 0 0 0 114
+frame 5 0 0 0 115
+frame 6 0 0 0 116
+frame 7 0 0 0 117
+frame 8 0 0 0 118
+frame 9 0 0 0 119
+frame 10 0 0 0 120
+frame 0 22 0 0 99
+frame 1 22 0 0 100
+frame 2 22 0 0 101
+frame 3 22 0 0 102
+frame 4 22 0 0 103
+frame 5 22 0 0 104
+frame 6 22 0 0 105
+frame 7 22 0 0 106
+frame 8 22 0 0 107
+frame 9 22 0 0 108
+frame 10 22 0 0 109
+frame 0 45 0 0 88
+frame 1 45 0 0 89
+frame 2 45 0 0 90
+frame 3 45 0 0 91
+frame 4 45 0 0 92
+frame 5 45 0 0 93
+frame 6 45 0 0 94
+frame 7 45 0 0 95
+frame 8 45 0 0 96
+frame 9 45 0 0 97
+frame 10 45 0 0 98
+frame 0 67 0 0 77
+frame 1 67 0 0 78
+frame 2 67 0 0 79
+frame 3 67 0 0 80
+frame 4 67 0 0 81
+frame 5 67 0 0 82
+frame 6 67 0 0 83
+frame 7 67 0 0 84
+frame 8 67 0 0 85
+frame 9 67 0 0 86
+frame 10 67 0 0 87
+frame 0 90 0 0 66
+frame 1 90 0 0 67
+frame 2 90 0 0 68
+frame 3 90 0 0 69
+frame 4 90 0 0 70
+frame 5 90 0 0 71
+frame 6 90 0 0 72
+frame 7 90 0 0 73
+frame 8 90 0 0 74
+frame 9 90 0 0 75
+frame 10 90 0 0 76
+frame 0 112 0 0 55
+frame 1 112 0 0 56
+frame 2 112 0 0 57
+frame 3 112 0 0 58
+frame 4 112 0 0 59
+frame 5 112 0 0 60
+frame 6 112 0 0 61
+frame 7 112 0 0 62
+frame 8 112 0 0 63
+frame 9 112 0 0 64
+frame 10 112 0 0 65
+frame 0 135 0 0 44
+frame 1 135 0 0 45
+frame 2 135 0 0 46
+frame 3 135 0 0 47
+frame 4 135 0 0 48
+frame 5 135 0 0 49
+frame 6 135 0 0 50
+frame 7 135 0 0 51
+frame 8 135 0 0 52
+frame 9 135 0 0 53
+frame 10 135 0 0 54
+frame 0 157 0 0 33
+frame 1 157 0 0 34
+frame 2 157 0 0 35
+frame 3 157 0 0 36
+frame 4 157 0 0 37
+frame 5 157 0 0 38
+frame 6 157 0 0 39
+frame 7 157 0 0 40
+frame 8 157 0 0 41
+frame 9 157 0 0 42
+frame 10 157 0 0 43
+frame 0 180 0 0 22
+frame 1 180 0 0 23
+frame 2 180 0 0 24
+frame 3 180 0 0 25
+frame 4 180 0 0 26
+frame 5 180 0 0 27
+frame 6 180 0 0 28
+frame 7 180 0 0 29
+frame 8 180 0 0 30
+frame 9 180 0 0 31
+frame 10 180 0 0 32
+frame 0 202 0 0 11
+frame 1 202 0 0 12
+frame 2 202 0 0 13
+frame 3 202 0 0 14
+frame 4 202 0 0 15
+frame 5 202 0 0 16
+frame 6 202 0 0 17
+frame 7 202 0 0 18
+frame 8 202 0 0 19
+frame 9 202 0 0 20
+frame 10 202 0 0 21
+frame 0 225 0 0 0
+frame 1 225 0 0 1
+frame 2 225 0 0 2
+frame 3 225 0 0 3
+frame 4 225 0 0 4
+frame 5 225 0 0 5
+frame 6 225 0 0 6
+frame 7 225 0 0 7
+frame 8 225 0 0 8
+frame 9 225 0 0 9
+frame 10 225 0 0 10
+frame 0 247 0 0 165
+frame 1 247 0 0 166
+frame 2 247 0 0 167
+frame 3 247 0 0 168
+frame 4 247 0 0 169
+frame 5 247 0 0 170
+frame 6 247 0 0 171
+frame 7 247 0 0 172
+frame 8 247 0 0 173
+frame 9 247 0 0 174
+frame 10 247 0 0 175
+frame 0 270 0 0 154
+frame 1 270 0 0 155
+frame 2 270 0 0 156
+frame 3 270 0 0 157
+frame 4 270 0 0 158
+frame 5 270 0 0 159
+frame 6 270 0 0 160
+frame 7 270 0 0 161
+frame 8 270 0 0 162
+frame 9 270 0 0 163
+frame 10 270 0 0 164
+frame 0 292 0 0 143
+frame 1 292 0 0 144
+frame 2 292 0 0 145
+frame 3 292 0 0 146
+frame 4 292 0 0 147
+frame 5 292 0 0 148
+frame 6 292 0 0 149
+frame 7 292 0 0 150
+frame 8 292 0 0 151
+frame 9 292 0 0 152
+frame 10 292 0 0 153
+frame 0 315 0 0 132
+frame 1 315 0 0 133
+frame 2 315 0 0 134
+frame 3 315 0 0 135
+frame 4 315 0 0 136
+frame 5 315 0 0 137
+frame 6 315 0 0 138
+frame 7 315 0 0 139
+frame 8 315 0 0 140
+frame 9 315 0 0 141
+frame 10 315 0 0 142
+frame 0 337 0 0 121
+frame 1 337 0 0 122
+frame 2 337 0 0 123
+frame 3 337 0 0 124
+frame 4 337 0 0 125
+frame 5 337 0 0 126
+frame 6 337 0 0 127
+frame 7 337 0 0 128
+frame 8 337 0 0 129
+frame 9 337 0 0 130
+frame 10 337 0 0 131

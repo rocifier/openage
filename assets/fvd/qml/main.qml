@@ -1433,13 +1433,21 @@ Item {
 		border.width: 1
 		border.color: "#9dc0bbae"
 		onVisibleChanged: {
-			if (visible) Qt.callLater(function() { chatText.forceActiveFocus() })
+			if (visible) {
+				Qt.callLater(function() { chatText.forceActiveFocus() })
+			}
+			else {
+				// A hidden focused input consumes the next Enter before the
+				// presenter can reopen the composer.
+				chatText.focus = false
+			}
 		}
 		Row {
 			anchors.fill: parent
 			anchors.margins: 9
 			spacing: 8
 			Rectangle {
+				objectName: "fvdChatChannelButton"
 				width: 66
 				height: parent.height
 				radius: 5
@@ -1451,15 +1459,6 @@ Item {
 					color: "#ffffff"
 					font.pixelSize: 13
 					font.bold: true
-				}
-				MouseArea {
-					anchors.fill: parent
-					enabled: !root.hunter
-					cursorShape: Qt.PointingHandCursor
-					onClicked: {
-						root.hud.chatChannel = root.chatToAll ? "ally" : "all"
-						chatText.forceActiveFocus()
-					}
 				}
 			}
 			TextInput {

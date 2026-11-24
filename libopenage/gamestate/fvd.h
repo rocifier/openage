@@ -870,6 +870,7 @@ private:
 	std::string builder;
 	std::string horse;
 	std::string orc;
+	std::string cavalry_archer;
 	std::string escape_cart;
 	time::time_t cart_construction_time;
 	std::unordered_map<std::string, HunterUnitStats> hunter_units;

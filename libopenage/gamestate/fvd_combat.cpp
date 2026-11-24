@@ -628,7 +628,9 @@ void FVD::combat_tick(const std::shared_ptr<GameState> &state,
 	if (this->match_outcome) return;
 	auto horses = entities_by_definition(state, this->horse);
 	auto orcs = entities_by_definition(state, this->orc);
+	auto cavalry_archers = entities_by_definition(state, this->cavalry_archer);
 	horses.insert(horses.end(), orcs.begin(), orcs.end());
+	horses.insert(horses.end(), cavalry_archers.begin(), cavalry_archers.end());
 	std::sort(horses.begin(), horses.end());
 	auto builders = entities_by_definition(state, this->builder);
 	const auto carts = entities_by_definition(state, this->escape_cart);

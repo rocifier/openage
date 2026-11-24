@@ -102,6 +102,7 @@ SelectionKind selection_kind_of(network::EntityKind kind) {
 		return SelectionKind::BUILDER;
 	case network::EntityKind::HORSE:
 	case network::EntityKind::ORC:
+	case network::EntityKind::CAVALRY_ARCHER:
 		return SelectionKind::HORSE;
 	case network::EntityKind::ESCAPE_CART:
 		return SelectionKind::CART;
@@ -861,10 +862,12 @@ void GameBindings::process_release(const Release &release, const controller_t &c
 		this->issue_hunter_route(release.args, controller);
 		return;
 	}
-	const auto generation = controller->begin_selection_update();
 	if (not release.start) {
-		throw Error{ERR << "Drag select start not set."};
+		// A window-focus or online-session transition can deliver a release
+		// after its matching press was discarded. It is not a world click.
+		return;
 	}
+	const auto generation = controller->begin_selection_update();
 	if (auto replica = this->commands->guest_world()) {
 		this->select_guest(release, controller, selection, generation, std::move(replica));
 		return;

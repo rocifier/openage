@@ -4,7 +4,7 @@ version 2
 
 texture 0 "ethereal-hunter-horse-idle2.texture"
 
-scalefactor 1.0
+scalefactor 0.8
 
 layer 0 mode=loop time_per_frame=0.4
 

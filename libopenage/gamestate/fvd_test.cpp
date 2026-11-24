@@ -666,6 +666,10 @@ void fvd_scenario() {
 	const auto scenario = state->get_db_view()->get_object("fvd.data.scenario.Scenario");
 	TESTEQUALS(scenario.get_int("orc_melee_damage"), int64_t{8});
 	TESTEQUALS(scenario.get_float("orc_attack_cooldown"), 2.0);
+	const auto final_assault = state->get_db_view()->get_object(
+		"fvd.data.scenario.FinalAssault");
+	TESTEQUALS(final_assault.get_object("HunterWave.unit").get_name(),
+	           std::string{"fvd.data.entities.CavalryArcher"});
 	const auto horse_death_ability = state->get_db_view()->get_object(
 		"fvd.data.entities.Horse.Death");
 	const auto horse_death_animated = api::APIAbility::get_property(
@@ -678,6 +682,37 @@ void fvd_scenario() {
 	TESTEQUALS(horse_death_paths.front().ends_with(
 		           "ethereal-hunter-horse-death.sprite"),
 	           true);
+	const auto cavalry_archer_idle = state->get_db_view()->get_object(
+		"fvd.data.entities.CavalryArcher.Idle");
+	const auto cavalry_archer_idle_paths = api::APIAnimation::get_animation_paths(
+		api::APIAbilityProperty::get_animations(api::APIAbility::get_property(
+			cavalry_archer_idle, api::ability_property_t::ANIMATED)));
+	TESTEQUALS(cavalry_archer_idle_paths.size(), size_t{1});
+	TESTEQUALS(cavalry_archer_idle_paths.front().ends_with("cav_archer_idle.sprite"), true);
+	const auto parsed_cavalry_archer_idle = renderer::resources::parser::parse_sprite_file(
+		converted / cavalry_archer_idle_paths.front());
+	TESTEQUALS(parsed_cavalry_archer_idle.get_texture_count(), size_t{2});
+	TESTEQUALS(parsed_cavalry_archer_idle.get_layer(0).get_angle_count(), size_t{16});
+	TESTEQUALS(parsed_cavalry_archer_idle.get_layer(0).get_frame_timing()->size(), size_t{32});
+	const auto cavalry_archer_move = state->get_db_view()->get_object(
+		"fvd.data.entities.CavalryArcher.Move");
+	const auto cavalry_archer_move_paths = api::APIAnimation::get_animation_paths(
+		api::APIAbilityProperty::get_animations(api::APIAbility::get_property(
+			cavalry_archer_move, api::ability_property_t::ANIMATED)));
+	TESTEQUALS(cavalry_archer_move_paths.size(), size_t{1});
+	const auto parsed_cavalry_archer_move = renderer::resources::parser::parse_sprite_file(
+		converted / cavalry_archer_move_paths.front());
+	TESTEQUALS(parsed_cavalry_archer_move.get_layer(0).get_frame_timing()->size(), size_t{11});
+	const auto cavalry_archer_attack = state->get_db_view()->get_object(
+		"fvd.data.entities.CavalryArcher.Attack");
+	const auto cavalry_archer_attack_paths = api::APIAnimation::get_animation_paths(
+		api::APIAbilityProperty::get_animations(api::APIAbility::get_property(
+			cavalry_archer_attack, api::ability_property_t::ANIMATED)));
+	TESTEQUALS(cavalry_archer_attack_paths.size(), size_t{1});
+	const auto parsed_cavalry_archer_attack = renderer::resources::parser::parse_sprite_file(
+		converted / cavalry_archer_attack_paths.front());
+	TESTEQUALS(parsed_cavalry_archer_attack.get_texture_count(), size_t{2});
+	TESTEQUALS(parsed_cavalry_archer_attack.get_layer(0).get_frame_timing()->size(), size_t{31});
 
 	auto fvd = state->get_fvd();
 	TESTEQUALS(fvd->get_player_count(), 8);

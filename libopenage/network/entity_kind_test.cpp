@@ -15,6 +15,7 @@ void entity_kind() {
 		EntityKind::BUILDER,
 		EntityKind::HORSE,
 		EntityKind::ORC,
+		EntityKind::CAVALRY_ARCHER,
 		EntityKind::ESCAPE_CART,
 		EntityKind::FOUNDATION,
 		EntityKind::WOOD_TOWER,
@@ -47,7 +48,8 @@ void entity_kind() {
 
 	for (const auto kind : known) {
 		const bool tower = kind == EntityKind::WOOD_TOWER or kind == EntityKind::STONE_TOWER;
-		const bool hunter = kind == EntityKind::HORSE or kind == EntityKind::ORC;
+		const bool hunter = kind == EntityKind::HORSE or kind == EntityKind::ORC
+		                    or kind == EntityKind::CAVALRY_ARCHER;
 		const bool unit = kind == EntityKind::BUILDER or hunter or kind == EntityKind::ESCAPE_CART;
 		TESTEQUALS(is_tower(kind), tower);
 		TESTEQUALS(is_tower_definition(definition_of(kind)), tower);

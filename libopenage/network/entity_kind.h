@@ -21,6 +21,7 @@ enum class EntityKind {
 	BUILDER,
 	HORSE,
 	ORC,
+	CAVALRY_ARCHER,
 	ESCAPE_CART,
 	FOUNDATION,
 	WOOD_TOWER,
