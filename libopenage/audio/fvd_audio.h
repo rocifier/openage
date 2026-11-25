@@ -26,6 +26,8 @@ class Output;
 /** Every FVD sound effect. The file name stem is cue_name(). */
 enum class Cue : size_t {
 	HIT,
+	ARROW_SHOT,
+	TOWER_ARROW_SHOT,
 	DEATH_HORSE,
 	DEATH_BUILDER,
 	DEATH_TOWER,

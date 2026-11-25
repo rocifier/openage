@@ -26,6 +26,8 @@ any sample rate). Add variants with a number, e.g. `hit.opus`, `hit_2.opus`,
 | File stem           | When                                                     | Heard by          |
 |---------------------|----------------------------------------------------------|-------------------|
 | `hit`               | a horse, Builder or tower loses HP                       | anyone who sees it |
+| `arrow_shot`        | an arrow is launched                                     | anyone who sees it |
+| `tower_arrow_shot`  | a Builder or Hunter tower launches an arrow              | anyone who sees it |
 | `death_horse`       | a horse dies                                             | anyone who sees it |
 | `death_builder`     | a Builder dies                                           | anyone who sees it |
 | `death_tower`       | a tower is destroyed or removed                          | anyone who sees it |
@@ -37,6 +39,26 @@ any sample rate). Add variants with a number, e.g. `hit.opus`, `hit_2.opus`,
 
 World sounds are full volume on screen, fade out just beyond the screen edge,
 and pan left/right with their position. Bursts are rate-limited per sound.
+
+Both native arrow cues have a whistle that rises as the arrow approaches and falls as it passes.
+A short, bright rush of air peaks just after the whistle turns and fades into a softer wake.
+The cavalry archer's shot is generally quicker and higher than the tower's.
+Each has seven variations, ranging from short, airy passes to longer whistles, with some shots quieter than others.
+
+## Audition arrow sounds
+
+Build the developer test runner, then run the listening demo directly from the repository root:
+
+```powershell
+cmake --build .bin\msvc-vcpkg --config RelWithDebInfo --target openage_native_cpp_tests -j 4
+& .\.bin\msvc-vcpkg\packaging\RelWithDebInfo\openage_native_cpp_tests.exe --exact openage::audio::tests::fvd_arrow_sound_demo
+```
+
+It plays three isolated cavalry shots and a short cavalry volley, then repeats that sequence for towers.
+It uses the game's audio loader, cue volumes, variant selection and mixer, without music, impacts or camera attenuation.
+Recordings in this folder still override synthesis; the older placeholder cache is excluded so synth edits are audible immediately after rebuilding.
+This listening demo is opt-in and is skipped by `--all`, including `--all --have-assets`.
+See [native test commands](../../../doc/code/testing.md) for the Linux runner.
 
 ## Music
 

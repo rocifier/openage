@@ -28,7 +28,7 @@ RangedPressure(HunterWave):
     HunterWave.unit = fvd.data.entities.Horse
 
 FinalAssault(HunterWave):
-    HunterWave.start_seconds = 190
+    HunterWave.start_seconds = 2
     HunterWave.interval_seconds = 0.6
     HunterWave.count = 1
     HunterWave.unit = fvd.data.entities.CavalryArcher

@@ -214,6 +214,8 @@ protected:
 
 	/** Play construction sounds for one recipient world (host or guest). */
 	void record_construction_sounds(const network::WorldState &world, bool reset);
+	/** Play each newly confirmed projectile launch once. */
+	void record_projectile_sounds(const network::WorldState &world, bool reset);
 
 	/** Push the options panel state (open, music/effects on) to the HUD. */
 	void publish_fvd_options();
@@ -377,6 +379,8 @@ protected:
 	ConstructionSoundTracker fvd_construction_sounds{};
 	/** Simulation time of the last world diffed for construction sounds. */
 	std::optional<time::time_t> fvd_construction_sound_time{};
+	/** Newest projectile launch already announced with a sound. */
+	uint64_t fvd_last_arrow_sound_id{0};
 
 	/** Retain the last observed build to distinguish cancellation from completion. */
 	std::optional<gamestate::entity_id_t> fvd_cart_build_observed_builder{};

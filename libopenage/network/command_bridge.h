@@ -81,7 +81,8 @@ void submit_authenticated_command(
  *
  * Call only on the simulation owner thread, after processing events.
  * This local presentation snapshot omits network identity, private scores,
- * health, future motion and projectiles, and includes every horse's stance;
+ * health, future motion or private scores, includes recent visual projectiles
+ * and every horse's stance;
  * it must not be sent over the wire.
  */
 WorldState capture_fvd_presentation_state(

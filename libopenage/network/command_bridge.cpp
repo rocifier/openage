@@ -260,6 +260,17 @@ WorldState capture_fvd_presentation_state(
 	for (const auto &flare : fvd->get_flares(time)) {
 		result.flares.push_back({flare.flare_id, flare.owner, flare.position, flare.created_at});
 	}
+	for (const auto &arrow : fvd->get_arrow_state(time)) {
+		result.arrows.push_back({
+			arrow.arrow_id,
+			arrow.owner,
+			arrow.target_id,
+			arrow.start,
+			arrow.destination,
+			arrow.launch_time,
+			arrow.impact_time,
+		});
+	}
 	// Local presentation shows whichever side is controlled, so keep both.
 	for (auto team : {gamestate::FVDTeam::HUNTER, gamestate::FVDTeam::BUILDERS}) {
 		auto vision = fvd->get_vision(team);
@@ -430,6 +441,7 @@ WorldState capture_fvd_state(
 			       or (order.target_id and not included.contains(*order.target_id));
 		});
 	}
+	result.arrows.clear();
 	for (const auto &arrow : fvd->get_arrow_state(time, delivered_projectile_id)) {
 		result.arrows.push_back({
 			arrow.arrow_id,

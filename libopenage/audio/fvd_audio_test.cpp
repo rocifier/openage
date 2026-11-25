@@ -7,14 +7,63 @@
 #include <random>
 #include <set>
 
+#include <QCoreApplication>
+#include <QEventLoop>
+#include <QTimer>
+
+#include "config.h"
+#include "log/log.h"
+#include "util/fslike/directory.h"
 #include "../testing/testing.h"
 #include "fvd_audio.h"
 
 namespace openage::audio::tests {
 
+void fvd_arrow_sound_demo() {
+	int argc = 1;
+	char name[] = "fvd-arrow-sounds";
+	char *argv[] = {name, nullptr};
+	std::unique_ptr<QCoreApplication> application{};
+	if (not QCoreApplication::instance()) {
+		application = std::make_unique<QCoreApplication>(argc, argv);
+	}
+	log::set_level(log::level::info);
+	const util::Path root{
+		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto settings = std::make_shared<Settings>();
+	FvdAudio audio{root / "assets" / "fvd" / "sound", settings};
+	if (not audio.active()) {
+		TESTFAILMSG("Arrow sound audition requires a working audio output device");
+	}
+	// Keep Qt's audio callbacks running during the gaps between shots.
+	auto pause = [](int milliseconds) {
+		QEventLoop loop;
+		QTimer::singleShot(milliseconds, &loop, &QEventLoop::quit);
+		loop.exec();
+	};
+	pause(250);
+	for (const auto cue : {Cue::ARROW_SHOT, Cue::TOWER_ARROW_SHOT}) {
+		for (int shot = 1; shot <= 3; ++shot) {
+			log::log(INFO << (cue == Cue::ARROW_SHOT ? "Cavalry archer" : "Tower")
+			              << " arrow: shot " << shot << " of 3");
+			audio.play(cue);
+			pause(1100);
+		}
+		log::log(INFO << (cue == Cue::ARROW_SHOT ? "Cavalry archer" : "Tower") << " arrow volley");
+		for (const int gap_ms : {140, 180, 125, 240, 150, 135, 200}) {
+			audio.play(cue);
+			pause(gap_ms);
+		}
+		pause(600);
+	}
+	log::set_level(log::level::warn);
+}
+
 void fvd_audio_files() {
 	TESTEQUALS(cue_for_file("hit.opus").value_or(Cue::COUNT), Cue::HIT);
 	TESTEQUALS(cue_for_file("hit_2.wav").value_or(Cue::COUNT), Cue::HIT);
+	TESTEQUALS(cue_for_file("arrow_shot.opus").value_or(Cue::COUNT), Cue::ARROW_SHOT);
+	TESTEQUALS(cue_for_file("tower_arrow_shot.wav").value_or(Cue::COUNT), Cue::TOWER_ARROW_SHOT);
 	TESTEQUALS(cue_for_file("death_horse_10.opus").value_or(Cue::COUNT), Cue::DEATH_HORSE);
 	TESTEQUALS(cue_for_file("tower_built.opus").value_or(Cue::COUNT), Cue::TOWER_BUILT);
 	TESTEQUALS(cue_for_file("death_horse.mp3").has_value(), false);
@@ -115,7 +164,9 @@ void fvd_audio_bank() {
 	// have an actual non-silent, playable PCM fallback.
 	auto generated = make_native_placeholder_effects();
 	TESTEQUALS(generated.variants(Cue::HIT), size_t{2});
-	TESTEQUALS(generated.total(), CUE_COUNT + size_t{1});
+	TESTEQUALS(generated.variants(Cue::ARROW_SHOT), size_t{7});
+	TESTEQUALS(generated.variants(Cue::TOWER_ARROW_SHOT), size_t{7});
+	TESTEQUALS(generated.total(), CUE_COUNT + size_t{13});
 	for (size_t i = 0; i < CUE_COUNT; ++i) {
 		const auto cue = static_cast<Cue>(i);
 		TESTEQUALS(generated.variants(cue) > 0, true);

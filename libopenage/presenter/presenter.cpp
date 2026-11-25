@@ -513,6 +513,37 @@ void Presenter::record_construction_sounds(const network::WorldState &world, boo
 	}
 }
 
+void Presenter::record_projectile_sounds(const network::WorldState &world, bool reset) {
+	uint64_t newest = this->fvd_last_arrow_sound_id;
+	for (const auto &arrow : world.arrows) {
+		newest = std::max(newest, arrow.arrow_id);
+	}
+	if (reset) {
+		this->fvd_last_arrow_sound_id = newest;
+		return;
+	}
+	if (this->fvd_audio) {
+		for (const auto &arrow : world.arrows) {
+			if (arrow.arrow_id > this->fvd_last_arrow_sound_id) {
+				const bool tower_shot = std::any_of(
+					world.entities.begin(), world.entities.end(), [&](const auto &entity) {
+						const auto kind = entity.kind();
+						return entity.owner_id == arrow.owner_id
+						    and entity.position.ne == arrow.start.ne
+						    and entity.position.se == arrow.start.se
+						    and (network::is_tower(kind)
+						         or kind == network::EntityKind::HUNTER_TOWER);
+					});
+				const auto cue = tower_shot or arrow.owner_id != 1
+					? audio::Cue::TOWER_ARROW_SHOT : audio::Cue::ARROW_SHOT;
+				this->fvd_audio->play_at(
+					cue, arrow.start.to_scene3().to_world_space());
+			}
+		}
+	}
+	this->fvd_last_arrow_sound_id = newest;
+}
+
 std::shared_ptr<qtgui::GuiApplication> Presenter::init_window_system() {
 	return std::make_shared<renderer::gui::GuiApplicationWithLogger>();
 }
@@ -707,6 +738,7 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 		this->fvd_guest_clock = GuestClock{};
 		this->fvd_guest_snapshot_generation = 0;
 		this->fvd_last_guest_arrow_id = 0;
+		this->fvd_last_arrow_sound_id = 0;
 		this->fvd_last_flare_heard = 0;
 		this->fvd_flare_mode = false;
 		this->fvd_guest_late_arrows.clear();
@@ -772,6 +804,7 @@ void Presenter::handle_fvd_lobby_action(const std::string &action) {
 	this->fvd_guest_clock = GuestClock{};
 	this->fvd_guest_snapshot_generation = 0;
 	this->fvd_last_guest_arrow_id = 0;
+	this->fvd_last_arrow_sound_id = 0;
 	this->fvd_last_flare_heard = 0;
 	this->fvd_flare_mode = false;
 	this->fvd_guest_late_arrows.clear();
@@ -1325,6 +1358,7 @@ void Presenter::record_confirmed_combat_effects(
 		this->fvd_previous_combat_world.reset();
 		this->clear_fvd_combat_visuals();
 	}
+	this->record_projectile_sounds(world, reset);
 	// A lethal state transition can be captured twice at the same simulation
 	// time. Diff every confirmed state; identical states produce no effects.
 	if (this->fvd_previous_combat_world) {

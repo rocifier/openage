@@ -2832,6 +2832,10 @@ void fvd_hunter_combat() {
 	TESTEQUALS(std::any_of(projectiles.begin(), projectiles.end(),
 	                       [&](const auto &shot) { return shot.arrow_id == horse_shot->arrow_id
 	                              and shot.destination.up > coord::phys_t::from_int(0); }), true);
+	const auto local_projectiles = network::capture_fvd_presentation_state(state, at(33));
+	TESTEQUALS(std::any_of(local_projectiles.arrows.begin(), local_projectiles.arrows.end(),
+	                       [&](const auto &shot) { return shot.arrow_id == horse_shot->arrow_id; }),
+	           true);
 	loop->reach_time(at(33.449), state);
 	TESTEQUALS(tower_health->get_attribute(
 		at(33.449), "fvd.data.entities.Health")->get(at(33.449)),

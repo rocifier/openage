@@ -32,6 +32,8 @@ struct CueRule {
 
 constexpr std::array<CueRule, CUE_COUNT> RULES{{
 	{"hit", 0.6f, 4.0f, 10.0f},
+	{"arrow_shot", 0.45f, 4.0f, 8.0f},
+	{"tower_arrow_shot", 0.55f, 5.0f, 10.0f},
 	{"death_horse", 0.9f, 3.0f, 4.0f},
 	{"death_builder", 0.9f, 3.0f, 4.0f},
 	{"death_tower", 0.8f, 3.0f, 4.0f},
@@ -224,6 +226,68 @@ mono_t noise(float seconds, float lowpass, float decay, unsigned seed) {
 	return out;
 }
 
+/** A noise-excited air resonance, with continuous state during a frequency sweep. */
+struct AirResonator {
+	float first{0.0f};
+	float second{0.0f};
+
+	float process(float input, float frequency, float quality) {
+		const float g = std::tan(0.5f * TAU * frequency / OUTPUT_RATE);
+		const float damping = 1.0f / quality;
+		const float a = 1.0f / (1.0f + g * (g + damping));
+		const float v = input - this->second;
+		const float band = a * this->first + g * a * v;
+		const float low = this->second + g * a * this->first + g * g * a * v;
+		this->first = 2.0f * band - this->first;
+		this->second = 2.0f * low - this->second;
+		return damping * band;
+	}
+};
+
+/** A smooth crest with an exponential approach and decay on either side. */
+float swish_envelope(float offset, float width) {
+	return 1.0f / std::cosh(offset / width);
+}
+
+mono_t arrow_shot(float pitch, float time_scale, float brightness, unsigned seed) {
+	constexpr float seconds = 0.250f;
+	const size_t count = static_cast<size_t>(seconds * time_scale * OUTPUT_RATE);
+	mono_t out(count);
+	std::minstd_rand random{seed};
+	std::uniform_real_distribution<float> uniform{-1.0f, 1.0f};
+	AirResonator whistle{};
+	AirResonator rush{};
+	AirResonator fletching{};
+	AirResonator wake{};
+	const float whistle_gain = 1.0f / std::sqrt(brightness);
+	double phase = 0.0;
+	for (size_t i = 0; i < count; ++i) {
+		const float time = seconds * static_cast<float>(i) / static_cast<float>(count - 1);
+		const float offset = time - 0.110f;
+		const float gust = uniform(random);
+		const float pressure = wake.process(gust, 70.0f * pitch, 1.2f);
+
+		// The whistle rises on approach and drops faster as the arrow passes.
+		const float bend = swish_envelope(offset, offset < 0.0f ? 0.030f : 0.021f);
+		const float frequency = pitch * (545.0f + 265.0f * bend) * (1.0f + 0.25f * pressure);
+		phase += static_cast<double>(TAU) * frequency / OUTPUT_RATE;
+		const float breath = whistle.process(gust, frequency, 9.0f);
+		const float whistling = (0.074f * static_cast<float>(std::sin(phase)) + 0.92f * breath)
+		                        * swish_envelope(offset - 0.004f, 0.033f);
+
+		// The broadband rush briefly covers the whistle. The brightest air
+		// crests a few milliseconds later and gives way to a quiet wake.
+		const float air = rush.process(uniform(random), 1.95f * frequency, 0.85f);
+		const float edge = fletching.process(uniform(random), pitch * (8200.0f + 3100.0f * bend), 0.70f);
+		const float rush_gain = 0.87f * swish_envelope(offset + 0.003f, 0.017f);
+		const float edge_gain = 0.36f * brightness * swish_envelope(offset - 0.005f, 0.017f);
+		const float wake_gain = 1.10f * swish_envelope(offset - 0.045f, 0.029f);
+		const float fade = std::min({time / 0.012f, (seconds - time) / 0.012f, 1.0f});
+		out[i] = fade * (whistle_gain * whistling + rush_gain * air + edge_gain * edge + wake_gain * pressure);
+	}
+	return out;
+}
+
 mono_t mix(std::initializer_list<mono_t> parts) {
 	size_t frames = 0;
 	for (const auto &part : parts) {
@@ -262,12 +326,12 @@ mono_t sequence(std::initializer_list<float> frequencies, int repetitions, float
 	return result;
 }
 
-std::vector<int16_t> normalise_mono(const mono_t &mono) {
+std::vector<int16_t> normalise_mono(const mono_t &mono, float gain = 1.0f) {
 	float peak = 1e-9f;
 	for (const float value : mono) {
 		peak = std::max(peak, std::abs(value));
 	}
-	const float scale = 0.8f / peak;
+	const float scale = (0.8f * gain) / peak;
 	std::vector<int16_t> samples{};
 	samples.reserve(mono.size());
 	for (const float value : mono) {
@@ -277,9 +341,9 @@ std::vector<int16_t> normalise_mono(const mono_t &mono) {
 	return samples;
 }
 
-std::shared_ptr<const PcmClip> effect_clip(const mono_t &mono) {
+std::shared_ptr<const PcmClip> effect_clip(const mono_t &mono, float gain) {
 	auto clip = std::make_shared<PcmClip>();
-	auto samples = normalise_mono(mono);
+	auto samples = normalise_mono(mono, gain);
 	clip->samples.reserve(samples.size() * OUTPUT_CHANNELS);
 	for (const int16_t sample : samples) {
 		clip->samples.push_back(sample);
@@ -327,13 +391,38 @@ std::string music_wav(const mono_t &mono) {
 
 SoundBank make_native_placeholder_effects() {
 	SoundBank bank{};
-	auto add = [&bank](Cue cue, mono_t samples) {
-		bank.add(cue, effect_clip(samples));
+	auto add = [&bank](Cue cue, mono_t samples, float gain = 1.0f) {
+		bank.add(cue, effect_clip(samples, gain));
 	};
 	add(Cue::HIT, mix({noise(0.12f, 0.5f, 0.025f, 1),
 	                    tone(180, 120, 0.12f, {1.0f}, 0.03f)}));
 	add(Cue::HIT, mix({noise(0.12f, 0.4f, 0.03f, 2),
 	                    tone(220, 140, 0.12f, {1.0f}, 0.03f)}));
+	auto add_arrows = [&add](Cue cue, float pitch, float time_scale, unsigned seed) {
+		struct Variation {
+			float pitch;
+			float duration;
+			float brightness;
+			float gain;
+		};
+		// A quick pass can be breathy or sharply whistled at the same pitch.
+		constexpr Variation variations[]{
+			{1.00f, 1.00f, 1.00f, 1.00f},
+			{0.80f, 1.14f, 0.76f, 0.86f},
+			{1.17f, 0.80f, 1.28f, 0.92f},
+			{0.92f, 0.89f, 1.38f, 0.76f},
+			{1.08f, 1.18f, 0.72f, 0.93f},
+			{0.88f, 1.03f, 1.10f, 0.97f},
+			{1.23f, 0.95f, 0.88f, 0.81f},
+		};
+		for (const auto &variation : variations) {
+			const float shot_pitch = pitch * variation.pitch;
+			const float shot_duration = time_scale * variation.duration;
+			add(cue, arrow_shot(shot_pitch, shot_duration, variation.brightness, seed++), variation.gain);
+		}
+	};
+	add_arrows(Cue::ARROW_SHOT, 1.06f, 0.92f, 9);
+	add_arrows(Cue::TOWER_ARROW_SHOT, 1.0f, 1.0f, 12);
 	add(Cue::DEATH_HORSE, mix({tone(520, 160, 0.6f, {1, 0.5f, 0.25f}, 0.2f),
 	                           noise(0.6f, 0.1f, 0.15f, 3)}));
 	add(Cue::DEATH_BUILDER, mix({tone(300, 90, 0.5f, {1, 0.4f}, 0.15f),
