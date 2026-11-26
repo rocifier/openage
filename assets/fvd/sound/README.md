@@ -45,6 +45,27 @@ A short, bright rush of air peaks just after the whistle turns and fades into a 
 The cavalry archer's shot is generally quicker and higher than the tower's.
 Each has seven variations, ranging from short, airy passes to longer whistles, with some shots quieter than others.
 
+## Procedural reference analysis
+
+The native fallbacks are original mathematical synthesis, not embedded or sampled recordings.
+The following CC0 clips were analysed as references for event timing, spectral balance and decay only.
+They are not distributed with FVD and real recordings in this directory still override every generated cue.
+
+| Cue | Reference | Characteristics reproduced procedurally |
+|-----|-----------|-----------------------------------------|
+| `hit` | [Sword Hit by qubodup](https://freesound.org/people/qubodup/sounds/442769/) | Near-instant bright transient, then a short inharmonic tail. |
+| `death_horse` | [horse's whinny by Kubuzz](https://freesound.org/people/Kubuzz/sounds/347036/) | Breathy onset, formant-rich rise, vibrato and falling call. |
+| `death_builder` | [Male Screams [1] by marc3122](https://freesound.org/people/marc3122/sounds/556976/) | Brief irregular voiced/noisy burst and a separate body impact. |
+| `death_tower` | [Bricks/Stones/Rocks/Gravel Falling by iwanPlays](https://freesound.org/people/iwanPlays/sounds/567249/) | Low initial rumble followed by diminishing, irregular debris impacts. |
+| `foundation_placed` | [Wood Impact by michorvath](https://freesound.org/people/michorvath/sounds/269717/) | A compact cluster of midrange wooden knocks. |
+| `tower_built` | [Fanfare by ricniclas](https://freesound.org/people/ricniclas/sounds/449069/) | A short bright construction strike and ascending fanfare. |
+| `order` | [UI click by Ranner](https://freesound.org/people/Ranner/sounds/488534/) | Low confirmation pulse followed by a higher, brief tick. |
+| `hunter_unleashed` | [war horn.wav by adharca](https://freesound.org/people/adharca/sounds/539956/) | Breathy two-note brass call with a low supporting swell. |
+| `flare` | [Bell Chime Alert by plasterbrain](https://freesound.org/people/plasterbrain/sounds/419493/) | Quick inharmonic chime with decaying high partials. |
+
+The clips were selected for clear CC0 licensing and strong community ratings when this synthesis was written.
+No source waveform, derivative recording or third-party asset is present in the game.
+
 ## Audition arrow sounds
 
 Build the developer test runner, then run the listening demo directly from the repository root:
@@ -59,6 +80,12 @@ It uses the game's audio loader, cue volumes, variant selection and mixer, witho
 Recordings in this folder still override synthesis; the older placeholder cache is excluded so synth edits are audible immediately after rebuilding.
 This listening demo is opt-in and is skipped by `--all`, including `--all --have-assets`.
 See [native test commands](../../../doc/code/testing.md) for the Linux runner.
+
+## Audition other effect sounds
+
+Run the same executable with `--exact openage::audio::tests::fvd_effect_sound_demo`.
+It plays one generated variant of every non-arrow effect with enough silence to hear its tail.
+Like the arrow demo, this is opt-in and needs a working audio output device.
 
 ## Music
 

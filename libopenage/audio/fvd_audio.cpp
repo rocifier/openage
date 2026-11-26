@@ -226,6 +226,76 @@ mono_t noise(float seconds, float lowpass, float decay, unsigned seed) {
 	return out;
 }
 
+mono_t mix(std::initializer_list<mono_t> parts);
+mono_t silence(float seconds);
+
+/** One exponentially decaying partial of a struck or resonant body. */
+struct Partial {
+	float frequency;
+	float gain;
+	float decay;
+	float phase;
+};
+
+float attack_release(float time, float seconds, float attack, float release) {
+	const float fade_in = attack > 0.0f ? std::min(1.0f, time / attack) : 1.0f;
+	const float remaining = seconds - time;
+	const float fade_out = release > 0.0f ? std::min(1.0f, std::max(0.0f, remaining) / release) : 1.0f;
+	return std::min(fade_in, fade_out);
+}
+
+mono_t partials(float seconds, std::initializer_list<Partial> modes,
+               float attack = 0.002f, float release = 0.02f) {
+	const size_t count = static_cast<size_t>(seconds * OUTPUT_RATE);
+	mono_t out(count);
+	for (size_t i = 0; i < count; ++i) {
+		const float time = static_cast<float>(i) / OUTPUT_RATE;
+		float sample = 0.0f;
+		for (const auto &mode : modes) {
+			sample += mode.gain * std::exp(-time / mode.decay)
+			          * static_cast<float>(std::sin(TAU * mode.frequency * time + mode.phase));
+		}
+		out[i] = sample * attack_release(time, seconds, attack, release);
+	}
+	return out;
+}
+
+/** Mix a sound into another one after a delay, growing the target as needed. */
+void layer_at(mono_t &target, const mono_t &layer, float delay) {
+	const size_t first = static_cast<size_t>(std::max(0.0f, delay) * OUTPUT_RATE);
+	if (target.size() < first + layer.size()) {
+		target.resize(first + layer.size());
+	}
+	for (size_t i = 0; i < layer.size(); ++i) {
+		target[first + i] += layer[i];
+	}
+}
+
+/** A close, woody impact: a sharp broad-band onset and short body modes. */
+mono_t wood_impact(float pitch, float length, unsigned seed) {
+	return mix({
+		noise(0.09f * length, 0.68f, 0.009f * length, seed),
+		partials(0.24f * length,
+		         {{145.0f * pitch, 0.74f, 0.050f * length, 0.0f},
+		          {365.0f * pitch, 0.33f, 0.032f * length, 0.4f},
+		          {860.0f * pitch, 0.13f, 0.018f * length, 1.1f}},
+		         0.001f, 0.035f * length),
+	});
+}
+
+/** A hard strike with inharmonic, bright metal-like modes. */
+mono_t metal_impact(float pitch, float length, unsigned seed) {
+	return mix({
+		noise(0.055f * length, 0.86f, 0.006f * length, seed),
+		partials(0.36f * length,
+		         {{280.0f * pitch, 0.34f, 0.110f * length, 0.0f},
+		          {735.0f * pitch, 0.30f, 0.090f * length, 0.9f},
+		          {1470.0f * pitch, 0.21f, 0.065f * length, 1.9f},
+		          {2860.0f * pitch, 0.13f, 0.034f * length, 2.7f}},
+		         0.001f, 0.045f * length),
+	});
+}
+
 /** A noise-excited air resonance, with continuous state during a frequency sweep. */
 struct AirResonator {
 	float first{0.0f};
@@ -243,6 +313,147 @@ struct AirResonator {
 		return damping * band;
 	}
 };
+
+/** A horse-like call: a breathy formant voice with a fast rise and gliding fall. */
+mono_t horse_whinny(float pitch, float duration, float breathiness, unsigned seed) {
+	constexpr float BASE_DURATION = 1.18f;
+	const size_t count = static_cast<size_t>(BASE_DURATION * duration * OUTPUT_RATE);
+	mono_t out(count);
+	std::minstd_rand random{seed};
+	std::uniform_real_distribution<float> uniform{-1.0f, 1.0f};
+	AirResonator chest{};
+	AirResonator muzzle{};
+	AirResonator edge{};
+	double phase = 0.0;
+	for (size_t i = 0; i < count; ++i) {
+		const float time = BASE_DURATION * static_cast<float>(i) / static_cast<float>(count - 1);
+		const float rise = std::min(1.0f, time / 0.34f);
+		const float fall = std::max(0.0f, (time - 0.34f) / (BASE_DURATION - 0.34f));
+		const float frequency = pitch * ((155.0f + 500.0f * rise) * (1.0f - fall)
+		                                 + (355.0f - 90.0f * fall) * fall);
+		const float vibrato = 1.0f + 0.042f * static_cast<float>(std::sin(TAU * 6.7f * time));
+		phase += static_cast<double>(TAU) * frequency * vibrato / OUTPUT_RATE;
+		const float glottal = 0.76f * static_cast<float>(std::sin(phase))
+		                      + 0.32f * static_cast<float>(std::sin(phase * 2.0))
+		                      + 0.16f * static_cast<float>(std::sin(phase * 3.0));
+		const float voice = 1.35f * chest.process(glottal, 820.0f, 4.5f)
+		                    + 1.05f * muzzle.process(glottal, 1740.0f, 6.0f)
+		                    + 0.42f * edge.process(glottal, 3140.0f, 7.0f);
+		const float breath = uniform(random);
+		const float envelope = attack_release(time, BASE_DURATION, 0.035f, 0.22f)
+		                       * (0.88f + 0.12f * static_cast<float>(std::sin(TAU * 3.1f * time)));
+		out[i] = envelope * (voice + breathiness * 0.10f * breath);
+	}
+	return out;
+}
+
+/** An intentionally non-verbal, short distressed cry followed by a body thump. */
+mono_t builder_fall(float pitch, float duration, float breathiness, unsigned seed) {
+	constexpr float BASE_DURATION = 0.54f;
+	const size_t count = static_cast<size_t>(BASE_DURATION * duration * OUTPUT_RATE);
+	mono_t out(count);
+	std::minstd_rand random{seed};
+	std::uniform_real_distribution<float> uniform{-1.0f, 1.0f};
+	AirResonator chest{};
+	AirResonator mouth{};
+	AirResonator sibilance{};
+	double phase = 0.0;
+	for (size_t i = 0; i < count; ++i) {
+		const float time = BASE_DURATION * static_cast<float>(i) / static_cast<float>(count - 1);
+		const float frequency = pitch * (205.0f - 120.0f * time
+		                                 + 12.0f * static_cast<float>(std::sin(TAU * 8.0f * time)));
+		phase += static_cast<double>(TAU) * frequency / OUTPUT_RATE;
+		const float glottal = 0.82f * static_cast<float>(std::sin(phase))
+		                      + 0.24f * static_cast<float>(std::sin(phase * 2.0));
+		const float voice = 1.25f * chest.process(glottal, 620.0f, 4.2f)
+		                    + 1.04f * mouth.process(glottal, 1210.0f, 5.5f)
+		                    + 0.28f * sibilance.process(uniform(random), 2540.0f, 2.4f);
+		const float irregular = 0.78f + 0.18f * static_cast<float>(std::sin(TAU * 11.0f * time));
+		const float envelope = attack_release(time, BASE_DURATION, 0.018f, 0.16f) * irregular;
+		out[i] = envelope * (voice + breathiness * 0.075f * uniform(random));
+	}
+	layer_at(out, wood_impact(0.82f * pitch, 0.65f, seed + 1), 0.31f * duration);
+	return out;
+}
+
+/** A brassy horn note: breath, a rounded attack and a harmonic lip buzz. */
+mono_t brass_call(float start, float end, float seconds, float breathiness, unsigned seed) {
+	const size_t count = static_cast<size_t>(seconds * OUTPUT_RATE);
+	mono_t out(count);
+	std::minstd_rand random{seed};
+	std::uniform_real_distribution<float> uniform{-1.0f, 1.0f};
+	double phase = 0.0;
+	for (size_t i = 0; i < count; ++i) {
+		const float time = static_cast<float>(i) / OUTPUT_RATE;
+		const float progress = time / seconds;
+		const float frequency = start + (end - start) * progress
+		                        + 1.5f * static_cast<float>(std::sin(TAU * 5.1f * time));
+		phase += static_cast<double>(TAU) * frequency / OUTPUT_RATE;
+		const float buzz = 0.78f * static_cast<float>(std::sin(phase))
+		                   + 0.44f * static_cast<float>(std::sin(phase * 2.0))
+		                   + 0.25f * static_cast<float>(std::sin(phase * 3.0))
+		                   + 0.11f * static_cast<float>(std::sin(phase * 4.0));
+		const float envelope = attack_release(time, seconds, 0.065f, 0.28f);
+		out[i] = envelope * (buzz + breathiness * 0.055f * uniform(random));
+	}
+	return out;
+}
+
+/** A compact, inharmonic struck chime rather than a pure sine ping. */
+mono_t chime(float pitch, float seconds, unsigned seed) {
+	return mix({
+		noise(0.018f, 0.91f, 0.0035f, seed),
+		partials(seconds,
+		         {{pitch, 0.84f, seconds * 0.50f, 0.0f},
+		          {pitch * 1.49f, 0.42f, seconds * 0.35f, 0.7f},
+		          {pitch * 2.67f, 0.31f, seconds * 0.24f, 1.8f},
+		          {pitch * 4.18f, 0.17f, seconds * 0.15f, 2.4f}},
+		         0.001f, 0.05f),
+	});
+}
+
+mono_t tower_collapse(float scale, unsigned seed) {
+	mono_t out = mix({
+		noise(1.85f * scale, 0.045f, 0.62f * scale, seed),
+		partials(1.45f * scale,
+		         {{62.0f, 0.68f, 0.54f * scale, 0.0f},
+		          {103.0f, 0.33f, 0.35f * scale, 1.0f},
+		          {188.0f, 0.16f, 0.21f * scale, 2.0f}},
+		         0.004f, 0.24f * scale),
+	});
+	constexpr float OFFSETS[]{0.01f, 0.13f, 0.27f, 0.49f, 0.70f, 0.93f, 1.21f};
+	for (size_t i = 0; i < sizeof(OFFSETS) / sizeof(OFFSETS[0]); ++i) {
+		const float size = 1.08f - 0.075f * static_cast<float>(i);
+		layer_at(out, wood_impact(0.72f + 0.10f * static_cast<float>((seed + i) % 4), size, seed + 8 + i),
+		         OFFSETS[i] * scale);
+	}
+	return out;
+}
+
+mono_t foundation_placed(float pace, unsigned seed) {
+	mono_t out = silence(0.025f * pace);
+	constexpr float OFFSETS[]{0.025f, 0.085f, 0.168f, 0.243f};
+	for (size_t i = 0; i < sizeof(OFFSETS) / sizeof(OFFSETS[0]); ++i) {
+		layer_at(out,
+		         wood_impact(0.90f + 0.08f * static_cast<float>((seed + i) % 3),
+		                     0.72f - 0.05f * static_cast<float>(i), seed + i),
+		         OFFSETS[i] * pace);
+	}
+	return out;
+}
+
+mono_t tower_built(float pitch, unsigned seed) {
+	mono_t out = wood_impact(0.84f * pitch, 0.90f, seed);
+	layer_at(out, brass_call(261.6f * pitch, 329.6f * pitch, 0.25f, 0.07f, seed + 1), 0.10f);
+	layer_at(out, brass_call(392.0f * pitch, 392.0f * pitch, 0.58f, 0.04f, seed + 2), 0.29f);
+	return out;
+}
+
+mono_t order_acknowledgement(float pitch, unsigned seed) {
+	mono_t out = chime(770.0f * pitch, 0.13f, seed);
+	layer_at(out, chime(1675.0f * pitch, 0.075f, seed + 1), 0.105f);
+	return out;
+}
 
 /** A smooth crest with an exponential approach and decay on either side. */
 float swish_envelope(float offset, float width) {
@@ -394,10 +605,12 @@ SoundBank make_native_placeholder_effects() {
 	auto add = [&bank](Cue cue, mono_t samples, float gain = 1.0f) {
 		bank.add(cue, effect_clip(samples, gain));
 	};
-	add(Cue::HIT, mix({noise(0.12f, 0.5f, 0.025f, 1),
-	                    tone(180, 120, 0.12f, {1.0f}, 0.03f)}));
-	add(Cue::HIT, mix({noise(0.12f, 0.4f, 0.03f, 2),
-	                    tone(220, 140, 0.12f, {1.0f}, 0.03f)}));
+	// Short, bright strikes retain a little wood below the metal modes so a
+	// melee hit reads at the game's small scale without becoming a bell.
+	add(Cue::HIT, mix({metal_impact(0.94f, 0.88f, 1), wood_impact(1.08f, 0.55f, 2)}), 0.91f);
+	add(Cue::HIT, mix({metal_impact(1.12f, 0.72f, 3), wood_impact(0.91f, 0.67f, 4)}), 0.83f);
+	add(Cue::HIT, mix({metal_impact(0.81f, 1.08f, 5), wood_impact(1.19f, 0.48f, 6)}), 0.88f);
+	add(Cue::HIT, mix({metal_impact(1.27f, 0.64f, 7), wood_impact(0.83f, 0.62f, 8)}), 0.76f);
 	auto add_arrows = [&add](Cue cue, float pitch, float time_scale, unsigned seed) {
 		struct Variation {
 			float pitch;
@@ -423,22 +636,53 @@ SoundBank make_native_placeholder_effects() {
 	};
 	add_arrows(Cue::ARROW_SHOT, 1.06f, 0.92f, 9);
 	add_arrows(Cue::TOWER_ARROW_SHOT, 1.0f, 1.0f, 12);
-	add(Cue::DEATH_HORSE, mix({tone(520, 160, 0.6f, {1, 0.5f, 0.25f}, 0.2f),
-	                           noise(0.6f, 0.1f, 0.15f, 3)}));
-	add(Cue::DEATH_BUILDER, mix({tone(300, 90, 0.5f, {1, 0.4f}, 0.15f),
-	                             noise(0.3f, 0.3f, 0.05f, 4)}));
-	add(Cue::DEATH_TOWER, mix({noise(1.2f, 0.04f, 0.35f, 5),
-	                           tone(70, 40, 1.2f, {1.0f}, 0.4f)}));
-	add(Cue::FOUNDATION_PLACED, mix({noise(0.08f, 0.6f, 0.01f, 6),
-	                                 tone(400, 400, 0.08f, {1.0f}, 0.015f)}));
-	add(Cue::TOWER_BUILT, concat(note(523, 0.15f), note(784, 0.35f)));
-	add(Cue::ORDER, tone(880, 1100, 0.07f, {1.0f}, 0.02f));
-	const auto horn = concat(tone(146.8f, 146.8f, 0.5f, {1, 0.6f, 0.4f, 0.25f}, 0.6f),
-	                         tone(110, 98, 1.1f, {1, 0.6f, 0.4f, 0.25f}, 0.5f));
-	add(Cue::HUNTER_UNLEASHED, mix({horn,
-	                               concat(silence(0.4f), noise(1.2f, 0.05f, 0.4f, 7))}));
-	add(Cue::FLARE, mix({tone(1568, 1568, 0.6f, {1, 0.3f, 0.15f}, 0.18f),
-	                     concat(silence(0.07f), tone(2093, 2093, 0.55f, {1, 0.3f}, 0.16f))}));
+
+	// The voiced calls are abstract and non-verbal: their changing pitch,
+	// formants and breath suggest the event without copying a recording.
+	add(Cue::DEATH_HORSE, mix({horse_whinny(0.96f, 1.00f, 0.80f, 27),
+	                           concat(silence(0.67f), wood_impact(0.72f, 0.92f, 28))}), 0.88f);
+	add(Cue::DEATH_HORSE, mix({horse_whinny(1.09f, 0.86f, 0.61f, 29),
+	                           concat(silence(0.54f), wood_impact(0.83f, 0.75f, 30))}), 0.79f);
+	add(Cue::DEATH_HORSE, mix({horse_whinny(0.86f, 1.12f, 0.95f, 31),
+	                           concat(silence(0.73f), wood_impact(0.67f, 1.04f, 32))}), 0.85f);
+
+	add(Cue::DEATH_BUILDER, builder_fall(1.00f, 1.00f, 0.75f, 33), 0.90f);
+	add(Cue::DEATH_BUILDER, builder_fall(0.87f, 0.84f, 0.93f, 35), 0.82f);
+	add(Cue::DEATH_BUILDER, builder_fall(1.13f, 1.12f, 0.58f, 37), 0.86f);
+
+	add(Cue::DEATH_TOWER, tower_collapse(1.00f, 39), 0.82f);
+	add(Cue::DEATH_TOWER, tower_collapse(0.88f, 47), 0.76f);
+	add(Cue::DEATH_TOWER, tower_collapse(1.10f, 55), 0.87f);
+
+	add(Cue::FOUNDATION_PLACED, foundation_placed(1.00f, 63), 0.74f);
+	add(Cue::FOUNDATION_PLACED, foundation_placed(0.86f, 68), 0.68f);
+	add(Cue::FOUNDATION_PLACED, foundation_placed(1.13f, 73), 0.79f);
+	add(Cue::FOUNDATION_PLACED, foundation_placed(0.95f, 78), 0.71f);
+
+	add(Cue::TOWER_BUILT, tower_built(1.00f, 83), 0.72f);
+	add(Cue::TOWER_BUILT, tower_built(1.12f, 86), 0.65f);
+	add(Cue::TOWER_BUILT, tower_built(0.91f, 89), 0.77f);
+
+	add(Cue::ORDER, order_acknowledgement(1.00f, 92), 0.68f);
+	add(Cue::ORDER, order_acknowledgement(1.10f, 94), 0.62f);
+	add(Cue::ORDER, order_acknowledgement(0.92f, 96), 0.65f);
+	add(Cue::ORDER, order_acknowledgement(1.19f, 98), 0.57f);
+
+	const auto hunter_horn = [](float pitch, float length, unsigned seed) {
+		return mix({
+			brass_call(305.0f * pitch, 318.0f * pitch, 0.74f * length, 0.13f, seed),
+			concat(silence(0.76f * length),
+			       brass_call(410.0f * pitch, 397.0f * pitch, 0.96f * length, 0.09f, seed + 1)),
+			concat(silence(0.35f * length), noise(1.34f * length, 0.075f, 0.38f * length, seed + 2)),
+		});
+	};
+	add(Cue::HUNTER_UNLEASHED, hunter_horn(1.00f, 1.00f, 101), 0.82f);
+	add(Cue::HUNTER_UNLEASHED, hunter_horn(0.91f, 1.10f, 105), 0.76f);
+
+	add(Cue::FLARE, chime(738.0f, 0.64f, 109), 0.68f);
+	add(Cue::FLARE, chime(782.0f, 0.57f, 110), 0.63f);
+	add(Cue::FLARE, chime(694.0f, 0.72f, 111), 0.71f);
+	add(Cue::FLARE, chime(833.0f, 0.52f, 112), 0.58f);
 	return bank;
 }
 

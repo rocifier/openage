@@ -59,6 +59,52 @@ void fvd_arrow_sound_demo() {
 	log::set_level(log::level::warn);
 }
 
+void fvd_effect_sound_demo() {
+	int argc = 1;
+	char name[] = "fvd-effect-sounds";
+	char *argv[] = {name, nullptr};
+	std::unique_ptr<QCoreApplication> application{};
+	if (not QCoreApplication::instance()) {
+		application = std::make_unique<QCoreApplication>(argc, argv);
+	}
+	log::set_level(log::level::info);
+	const util::Path root{
+		std::make_shared<util::fslike::Directory>(config::buildsystem_sourcefile_dir)};
+	auto settings = std::make_shared<Settings>();
+	FvdAudio audio{root / "assets" / "fvd" / "sound", settings};
+	if (not audio.active()) {
+		TESTFAILMSG("Effect sound audition requires a working audio output device");
+	}
+	auto pause = [](int milliseconds) {
+		QEventLoop loop;
+		QTimer::singleShot(milliseconds, &loop, &QEventLoop::quit);
+		loop.exec();
+	};
+	struct DemoCue {
+		Cue cue;
+		const char *name;
+		int pause_ms;
+	};
+	constexpr DemoCue CUES[]{
+		{Cue::HIT, "Hit", 550},
+		{Cue::DEATH_HORSE, "Horse death", 1750},
+		{Cue::DEATH_BUILDER, "Builder death", 1050},
+		{Cue::DEATH_TOWER, "Tower collapse", 2450},
+		{Cue::FOUNDATION_PLACED, "Foundation placed", 850},
+		{Cue::TOWER_BUILT, "Tower built", 1200},
+		{Cue::ORDER, "Order", 650},
+		{Cue::HUNTER_UNLEASHED, "Hunter unleashed", 2200},
+		{Cue::FLARE, "Flare", 900},
+	};
+	pause(250);
+	for (const auto &demo : CUES) {
+		log::log(INFO << demo.name);
+		audio.play(demo.cue);
+		pause(demo.pause_ms);
+	}
+	log::set_level(log::level::warn);
+}
+
 void fvd_audio_files() {
 	TESTEQUALS(cue_for_file("hit.opus").value_or(Cue::COUNT), Cue::HIT);
 	TESTEQUALS(cue_for_file("hit_2.wav").value_or(Cue::COUNT), Cue::HIT);
@@ -163,10 +209,18 @@ void fvd_audio_bank() {
 	// Native executable has no Python generator: every absent effect must
 	// have an actual non-silent, playable PCM fallback.
 	auto generated = make_native_placeholder_effects();
-	TESTEQUALS(generated.variants(Cue::HIT), size_t{2});
+	TESTEQUALS(generated.variants(Cue::HIT), size_t{4});
 	TESTEQUALS(generated.variants(Cue::ARROW_SHOT), size_t{7});
 	TESTEQUALS(generated.variants(Cue::TOWER_ARROW_SHOT), size_t{7});
-	TESTEQUALS(generated.total(), CUE_COUNT + size_t{13});
+	TESTEQUALS(generated.variants(Cue::DEATH_HORSE), size_t{3});
+	TESTEQUALS(generated.variants(Cue::DEATH_BUILDER), size_t{3});
+	TESTEQUALS(generated.variants(Cue::DEATH_TOWER), size_t{3});
+	TESTEQUALS(generated.variants(Cue::FOUNDATION_PLACED), size_t{4});
+	TESTEQUALS(generated.variants(Cue::TOWER_BUILT), size_t{3});
+	TESTEQUALS(generated.variants(Cue::ORDER), size_t{4});
+	TESTEQUALS(generated.variants(Cue::HUNTER_UNLEASHED), size_t{2});
+	TESTEQUALS(generated.variants(Cue::FLARE), size_t{4});
+	TESTEQUALS(generated.total(), size_t{44});
 	for (size_t i = 0; i < CUE_COUNT; ++i) {
 		const auto cue = static_cast<Cue>(i);
 		TESTEQUALS(generated.variants(cue) > 0, true);
